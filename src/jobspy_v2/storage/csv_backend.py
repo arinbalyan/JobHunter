@@ -70,6 +70,10 @@ class CsvBackend:
         _append_rows(self._jobs_path, SCRAPED_JOB_COLUMNS, records)
         logger.info("Saved %d scraped jobs to CSV", len(records))
 
+    def get_run_stats(self) -> list[dict[str, str]]:
+        """Return all run statistics records."""
+        return _read_csv(self._stats_path, RUN_STATS_COLUMNS)
+
     def add_run_stats(self, stats: dict[str, str]) -> None:
         """Append a single run statistics record."""
         _append_rows(self._stats_path, RUN_STATS_COLUMNS, [stats])

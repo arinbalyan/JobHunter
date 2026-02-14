@@ -129,6 +129,16 @@ class SheetsBackend:
         ws.append_rows(rows, value_input_option="USER_ENTERED")
         logger.info("Saved %d scraped jobs to Sheets", len(records))
 
+    def get_run_stats(self) -> list[dict[str, str]]:
+        """Return all run statistics records from the sheet."""
+        ws = self._get_ws("Run Stats")
+        try:
+            records = ws.get_all_records()
+            return [{str(k): str(v) for k, v in row.items()} for row in records]
+        except gspread.exceptions.GSpreadException:
+            logger.warning("Failed to read run stats, returning empty list")
+            return []
+
     def add_run_stats(self, stats: dict[str, str]) -> None:
         """Append a single run statistics record to the sheet."""
         ws = self._get_ws("Run Stats")

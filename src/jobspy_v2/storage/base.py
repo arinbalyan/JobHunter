@@ -54,6 +54,10 @@ class StorageBackend(Protocol):
         """Append a batch of scraped job records."""
         ...
 
+    def get_run_stats(self) -> list[dict[str, str]]:
+        """Return all run statistics records."""
+        ...
+
     def add_run_stats(self, stats: dict[str, str]) -> None:
         """Append a single run statistics record."""
         ...
