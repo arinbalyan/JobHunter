@@ -41,6 +41,11 @@ def _parse_credentials(raw: str) -> dict[str, Any]:
 
     # Try base64 decoding
     try:
+        # Fix padding if necessary
+        missing_padding = len(stripped) % 4
+        if missing_padding:
+            stripped += "=" * (4 - missing_padding)
+
         decoded = base64.b64decode(stripped).decode("utf-8")
         return json.loads(decoded)
     except Exception as exc:
