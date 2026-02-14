@@ -1,259 +1,424 @@
-# JobSpy V2
+# JobHunter
 
-Automated job scraping and cold email outreach system. Scrapes job listings from multiple boards, generates personalized cold emails via LLM (with smart fallback), deduplicates contacts, and sends outreach — all driven by environment variables.
+Automated job scraping and cold email outreach system. Scrapes job listings from
+multiple boards, extracts recruiter contact information, generates personalized
+cold emails, and sends them with your resume attached -- all on autopilot.
+
+Built on [python-jobspy](https://github.com/Bunsly/JobSpy) for multi-board job
+scraping.
+
+---
+
+## Table of Contents
+
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Google Sheets Setup](#google-sheets-setup)
+- [Usage](#usage)
+  - [Run Modes](#run-modes)
+  - [Dry Run](#dry-run)
+  - [Scheduled Runs](#scheduled-runs)
+- [Deployment](#deployment)
+  - [GitHub Actions](#github-actions)
+  - [Local Cron](#local-cron)
+- [Architecture](#architecture)
+  - [Project Structure](#project-structure)
+  - [Two-Phase Pipeline](#two-phase-pipeline)
+  - [Storage Backends](#storage-backends)
+- [Job Filtering](#job-filtering)
+  - [Title Filters](#title-filters)
+  - [Email Filters](#email-filters)
+  - [Deduplication](#deduplication)
+- [Configuration Reference](#configuration-reference)
+- [Development](#development)
+  - [Running Tests](#running-tests)
+  - [Code Style](#code-style)
+- [Contributing](#contributing)
+- [Credits](#credits)
+- [License](#license)
+
+---
 
 ## Features
 
-- **Multi-board scraping** — Indeed, LinkedIn, Glassdoor, Google, Naukri, ZipRecruiter, Bayt, BDJobs via [python-jobspy](https://github.com/Bunsly/JobSpy)
-- **Parallel scraping** — ThreadPoolExecutor dispatches location × search term × board concurrently
-- **LLM-powered emails** — OpenRouter-based generation with automatic fallback to templates
-- **Smart deduplication** — Exact email, domain cooldown (5 days), company same-day checks
-- **Google Sheets persistence** — Data survives across CI/CD runs (CSV fallback included)
-- **Two workflows** — `onsite` (India, IST 8 AM) and `remote` (global, US ET 8 AM)
-- **Zero hardcoded values** — Everything configurable via `.env`
-- **Platform-agnostic deployment** — Render, Railway, GitHub Actions, or local CLI
+- **Multi-board scraping** -- Indeed, LinkedIn, Glassdoor, Naukri, and more via
+  python-jobspy
+- **Two-phase pipeline** -- scrape and persist first, then process and email,
+  with per-row status tracking for crash resilience
+- **Personalized emails** -- LLM-generated cold emails via OpenRouter with
+  automatic fallback to template-based generation
+- **Resume attachment** -- sends your PDF resume with every outreach email
+- **Google Sheets storage** -- full audit trail with separate worksheets for
+  scraped jobs, sent emails, and run statistics
+- **Smart deduplication** -- exact match, domain cooldown, and company cooldown
+  prevent duplicate outreach
+- **Title and email filtering** -- skip irrelevant job titles and generic email
+  addresses automatically
+- **Dry run mode** -- test the full pipeline without sending any emails
+- **Configurable scheduling** -- built-in APScheduler or external cron/GitHub
+  Actions
+- **Weekend skip** -- automatically skips execution on weekends
+- **Summary reports** -- email yourself a run summary after each execution
 
-## Quick Start
+---
+
+## How It Works
+
+JobHunter runs a two-phase pipeline:
+
+```
+Phase 1: Scrape + Save
+  Search terms x Locations x Boards --> python-jobspy
+  --> Batch-write all results to "Scraped Jobs" worksheet (status: Pending)
+
+Phase 2: Process + Email
+  For each scraped job:
+    --> Extract valid recipient emails
+    --> Check deduplication rules
+    --> Generate personalized email (LLM or fallback template)
+    --> Send with resume attached
+    --> Update row status (Yes / Skipped / Failed / DryRun)
+
+Report:
+  --> Write run statistics to "Run Stats" worksheet
+  --> Email summary report to yourself
+```
+
+Every job gets a status update in the spreadsheet regardless of outcome, giving
+you a complete audit trail of what was sent, what was skipped, and why.
+
+---
+
+## Getting Started
 
 ### Prerequisites
 
-- Python 3.10+
-- [uv](https://docs.astral.sh/uv/) (recommended) or pip
+- Python 3.10 or higher
+- [uv](https://docs.astral.sh/uv/) package manager
+- A Gmail account with an
+  [App Password](https://support.google.com/accounts/answer/185833)
+- A Google Cloud project with the Sheets API enabled (for Google Sheets storage)
+- An [OpenRouter](https://openrouter.ai/) API key (optional -- fallback
+  templates work without it)
 
 ### Installation
 
 ```bash
-# Clone the repo
-git clone https://github.com/yourusername/jobSpy-V2.git
-cd jobSpy-V2
-
-# Install dependencies
+git clone https://github.com/arinbalyan/JobHunter.git
+cd JobHunter
 uv sync
 ```
 
 ### Configuration
 
-```bash
-# Copy the example config
-cp .env.example .env
+Copy the example environment file and fill in your values:
 
-# Edit .env with your values
-# See .env.example for detailed setup instructions for each section
+```bash
+cp .env.example .env
 ```
 
-**Required secrets:**
+Open `.env` in your editor and configure at minimum:
+
 | Variable | Description |
-|---|---|
-| `GMAIL_EMAIL` | Gmail address for sending emails |
-| `GMAIL_APP_PASSWORD` | [Gmail App Password](https://myaccount.google.com/apppasswords) |
-| `OPENROUTER_API_KEY` | [OpenRouter API key](https://openrouter.ai/keys) for LLM |
-| `CONTACT_NAME` | Your full name (used in emails) |
+|----------|-------------|
+| `GMAIL_EMAIL` | Your Gmail address |
+| `GMAIL_APP_PASSWORD` | Gmail App Password (not your regular password) |
+| `RESUME_FILE_PATH` | Path to your resume PDF (default: `resume.pdf` in project root) |
+| `CONTACT_NAME` | Your full name for email signatures |
+| `GOOGLE_CREDENTIALS_JSON` | Base64-encoded Google service account JSON |
+| `GOOGLE_SHEET_NAME` | Name of your Google Sheets spreadsheet |
 
-**Optional but recommended:**
-| Variable | Description |
-|---|---|
-| `GOOGLE_CREDENTIALS_JSON` | Base64-encoded service account JSON for Google Sheets |
-| `REPORT_EMAIL` | Email address for end-of-run reports |
-| `RESUME_FILE_PATH` | Path to resume PDF (attached to emails) |
+See [Configuration Reference](#configuration-reference) for the full list.
 
-See `.env.example` for the complete list of 40+ configurable variables.
+### Google Sheets Setup
 
-### Usage
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the **Google Sheets API** and **Google Drive API**
+4. Create a **Service Account** and download the JSON credentials file
+5. Base64-encode the credentials file:
+   ```bash
+   base64 -w 0 credentials.json
+   ```
+6. Paste the output into `GOOGLE_CREDENTIALS_JSON` in your `.env`
+7. Create a Google Sheets spreadsheet and share it with the service account
+   email (the `client_email` field in the JSON)
+
+JobHunter will automatically create the required worksheets (Scraped Jobs, Sent
+Emails, Run Stats) on first run.
+
+---
+
+## Usage
+
+### Run Modes
+
+JobHunter supports two modes that use separate search configurations:
 
 ```bash
-# Run onsite workflow (scrape India jobs + send emails)
+# Scrape onsite/hybrid jobs
 uv run python -m jobspy_v2 onsite
 
-# Run remote workflow (scrape remote jobs + send emails)
+# Scrape remote jobs
 uv run python -m jobspy_v2 remote
-
-# Dry run — scrape and generate emails, but don't send
-uv run python -m jobspy_v2 onsite --dry-run
-uv run python -m jobspy_v2 remote --dry-run
-
-# Serve mode — long-running scheduler for PaaS (Render/Railway)
-uv run python -m jobspy_v2 serve
 ```
 
-## Architecture
+Each mode uses its own set of search terms, locations, and job boards defined in
+your `.env` file.
 
-```
-src/jobspy_v2/
-├── __init__.py            # Package init, version
-├── __main__.py            # CLI: onsite | remote | serve [--dry-run]
-├── config/
-│   ├── settings.py        # Pydantic BaseSettings (all ENV loading)
-│   └── defaults.py        # Default reject titles, filter patterns, prompt templates
-├── core/
-│   ├── scraper.py         # JobSpy wrapper, board-specific param adaptation, parallel scraping
-│   ├── email_gen.py       # LLM email generation with fallback
-│   ├── email_sender.py    # SMTP with 3-retry, PDF attachment
-│   ├── dedup.py           # Dedup: exact email, domain cooldown, company same-day
-│   └── reporter.py        # End-of-run summary email + stats recording
-├── storage/
-│   ├── base.py            # StorageBackend Protocol
-│   ├── csv_backend.py     # CSV fallback (3 files)
-│   └── sheets_backend.py  # Google Sheets via gspread
-├── scheduler/
-│   ├── cron_scheduler.py  # APScheduler v3 BackgroundScheduler wrapper
-│   ├── health_check.py    # HTTP health endpoint for PaaS keep-alive
-│   └── runner.py          # Serve-mode orchestrator with signal handling
-├── workflows/
-│   ├── base.py            # BaseWorkflow pipeline
-│   ├── onsite.py          # OnsiteWorkflow (mode="onsite")
-│   └── remote.py          # RemoteWorkflow (mode="remote")
-└── utils/
-    ├── email_utils.py     # Email regex, validation, filtering
-    └── text_utils.py      # HTML/MD stripping, word count, truncation
+### Dry Run
+
+Test the full pipeline without sending any emails:
+
+```bash
+DRY_RUN=true uv run python -m jobspy_v2 onsite
 ```
 
-### Pipeline Flow
+Or set `DRY_RUN=true` in your `.env` file. Dry runs still write to Google Sheets
+(with status "DryRun") and track deduplication, so you can verify everything
+works before going live.
+
+### Scheduled Runs
+
+Use the built-in scheduler to run automatically:
+
+```bash
+uv run python -m jobspy_v2 schedule
+```
+
+This starts a long-running process that triggers at your configured times. Keep
+it running in a terminal, tmux session, or screen session.
+
+Configure the schedule in your `.env`:
 
 ```
-1. Skip weekends (configurable)
-2. Load applicant context (contexts/profile.md)
-3. Scrape jobs (parallel: locations × terms × boards)
-4. For each job with valid emails:
-   a. Filter spam/no-reply emails
-   b. Check dedup (exact + domain cooldown + company same-day)
-   c. Generate personalized email (LLM → fallback)
-   d. Send via SMTP (or log in dry-run mode)
-   e. Mark as sent in storage
-   f. Sleep between sends (configurable, default 30s)
-5. Send end-of-run report email
+SCHEDULER_ONSITE_CRON=30 2 * * *
+SCHEDULER_REMOTE_CRON=0 13 * * *
 ```
+
+These are standard cron expressions (`minute hour day month weekday`). The defaults
+above correspond to 8:00 AM IST (onsite) and 8:00 AM US Eastern (remote).
+
+---
 
 ## Deployment
 
-### Option 1: GitHub Actions (Recommended for free tier)
+### GitHub Actions
 
-The repo includes three workflow files:
+The repository includes ready-to-use GitHub Actions workflows:
 
-| Workflow | File | Schedule | Description |
-|---|---|---|---|
-| Tests | `.github/workflows/tests.yml` | On push/PR | Lint + test on Python 3.10–3.12 |
-| Onsite | `.github/workflows/onsite.yml` | Daily 2:30 UTC (IST 8 AM) | Run onsite job workflow |
-| Remote | `.github/workflows/remote.yml` | Daily 13:00 UTC (US ET 8 AM) | Run remote job workflow |
+- `tests.yml` -- runs the test suite on every push and pull request to `main`
+- `onsite.yml` -- runs the onsite scraper on a cron schedule
+- `remote.yml` -- runs the remote scraper on a cron schedule
 
-**Setup:**
-1. Push to GitHub
-2. Go to **Settings → Secrets and variables → Actions**
-3. Add all required secrets from `.env.example`
-4. Workflows run automatically on schedule (or trigger manually via **Actions → Run workflow**)
+To enable the scraper workflows:
 
-### Option 2: Render (Background Worker)
+1. Push the repo to GitHub
+2. Go to **Settings > Secrets and variables > Actions**
+3. Add all required environment variables as repository secrets (see
+   `.env.example` for the full list)
+4. Upload your resume PDF as a secret or use a base64-encoded secret
+5. The cron jobs will run automatically at the configured times
 
-```bash
-# Deploy via Render Blueprint
-# 1. Push to GitHub
-# 2. Render Dashboard → New → Blueprint → Connect repo
-# 3. Render reads render.yaml and creates the service
-# 4. Add environment variables in Render dashboard
-```
+The test workflow runs automatically on every push and pull request to `main`.
 
-The included `render.yaml` configures a free-tier background worker with Docker.
+### Local Cron
 
-### Option 3: Docker (Any Platform)
+On Linux/macOS, use crontab for lightweight scheduling:
 
 ```bash
-# Build
-docker build -t jobspy-v2 .
-
-# Run with env file
-docker run --env-file .env jobspy-v2
-
-# Run specific workflow
-docker run --env-file .env jobspy-v2 python -m jobspy_v2 onsite --dry-run
+crontab -e
 ```
 
-### Option 4: Local Cron
+Add entries like:
 
-```bash
-# Add to crontab (example: IST 8 AM daily)
-30 2 * * * cd /path/to/jobSpy-V2 && uv run python -m jobspy_v2 onsite >> /var/log/jobspy-onsite.log 2>&1
+```
+0 9 * * 1-5  cd /path/to/JobHunter && uv run python -m jobspy_v2 onsite >> /var/log/jobhunter.log 2>&1
+0 10 * * 1-5 cd /path/to/JobHunter && uv run python -m jobspy_v2 remote >> /var/log/jobhunter.log 2>&1
 ```
 
-## Storage Backends
+---
 
-### Google Sheets (Default)
+## Architecture
 
-Persists data across CI/CD runs and devices. See `.env.example` for the 6-step setup guide.
+### Project Structure
 
-Three worksheets are auto-created:
-- **Sent Emails** — All sent email records
-- **Scraped Jobs** — Raw job listing data
-- **Run Stats** — Per-run statistics
+```
+JobHunter/
+  src/jobspy_v2/
+    __main__.py          # CLI entry point
+    config/
+      settings.py        # Pydantic settings (all from ENV)
+      defaults.py        # Footer templates, reject lists
+    core/
+      scraper.py         # Multi-board job scraping via python-jobspy
+      email_gen.py       # LLM + fallback email generation
+      email_sender.py    # SMTP email sending with resume attachment
+      dedup.py           # Deduplication with domain/company cooldowns
+      reporter.py        # Run statistics and summary reports
+    storage/
+      base.py            # Storage protocol and column schemas
+      sheets_backend.py  # Google Sheets implementation
+      csv_backend.py     # Local CSV fallback
+    workflows/
+      base.py            # Two-phase pipeline orchestration
+      onsite.py          # Onsite/hybrid mode
+      remote.py          # Remote mode
+    scheduler.py         # APScheduler-based cron scheduling
+  tests/
+    unit/                # 200 unit tests
+  .github/workflows/     # CI and deployment workflows
+  .env.example           # Configuration template
+  pyproject.toml         # Project metadata and dependencies
+```
 
-### CSV Fallback
+### Two-Phase Pipeline
 
-When Google Sheets credentials are missing or invalid, the system automatically falls back to local CSV files. Set `STORAGE_BACKEND=csv` to use CSV explicitly.
+The pipeline is split into two phases for reliability:
+
+**Phase 1 -- Scrape and Save:** All search term and location combinations are
+dispatched to python-jobspy. Results are collected into a DataFrame and
+batch-written to the "Scraped Jobs" worksheet with every row set to
+`email_sent=Pending`. This ensures that even if the process crashes during email
+sending, all scraped data is preserved.
+
+**Phase 2 -- Process and Email:** Each scraped job is processed sequentially.
+Valid recipient emails are extracted, deduplication rules are checked, a
+personalized email is generated, and the email is sent with your resume. After
+each job, the corresponding row in "Scraped Jobs" is updated with the outcome
+(Yes, Skipped, Failed, or DryRun) along with the skip reason or recipient
+address.
+
+A 30-second interval is enforced between sends to avoid rate limiting.
+
+### Storage Backends
+
+| Backend | When to use | Configuration |
+|---------|-------------|---------------|
+| Google Sheets | Production use, full audit trail | Set `GOOGLE_CREDENTIALS_JSON` and `GOOGLE_SHEET_NAME` |
+| CSV | Local testing, no Google account | Set `STORAGE_BACKEND=csv` |
+
+Both backends implement the same protocol with three data stores:
+
+- **Scraped Jobs** (22 columns) -- every job found during scraping
+- **Sent Emails** (12 columns) -- every email successfully sent
+- **Run Stats** (15 columns) -- summary statistics per run
+
+---
 
 ## Job Filtering
 
-### Title Rejection
+### Title Filters
 
-37 built-in patterns filter out irrelevant job titles (teacher, nurse, cashier, driver, chef, etc.). Override via `REJECT_TITLES` env var.
+Jobs with titles matching any pattern in `REJECT_TITLES` are
+automatically skipped. Default patterns filter out senior, lead, manager,
+director, and other non-target roles. Customize in your `.env`:
 
-### Email Filtering
-
-6 built-in patterns filter spam/no-reply emails:
 ```
-starts_with:accommodation@, contains:accessibility,
-contains:no-reply, contains:noreply, contains:do-not-reply
+REJECT_TITLES=senior,lead,manager,director,principal,staff,vp,chief
 ```
-Override via `EMAIL_FILTER_PATTERNS` env var.
 
-### Deduplication Rules
+### Email Filters
 
-1. **Exact email** — Never email the same address twice
-2. **Domain cooldown** — 5-day cooldown per domain
-3. **Company same-day** — Max 1 email per company per day
+Generic email addresses (info@, hr@, support@, noreply@, etc.) are filtered out
+by default. Only emails that look like personal recruiter addresses are kept.
+Customize with `EMAIL_FILTER_PATTERNS` in your `.env`.
+
+### Deduplication
+
+Three levels of deduplication prevent repeat outreach:
+
+| Rule | Default | Description |
+|------|---------|-------------|
+| Exact match | Always on | Never send to the same email + company + job title combination twice |
+| Domain cooldown | 5 days | Wait N days before emailing anyone at the same domain again |
+| Company cooldown | 1 day | Wait N days before emailing anyone at the same company again |
+
+Cooldown values (5 days for domain, 1 day for company) are defaults defined in
+`src/jobspy_v2/core/dedup.py`. To change them, edit the constants in that file.
+
+---
+
+## Configuration Reference
+
+All configuration is done through environment variables. See `.env.example` for
+the complete list with descriptions and default values. Key categories:
+
+| Category | Variables |
+|----------|-----------|
+| Email | `GMAIL_EMAIL`, `GMAIL_APP_PASSWORD`, `REPORT_EMAIL` |
+| Identity | `CONTACT_NAME`, `CONTACT_PHONE`, `CONTACT_PORTFOLIO`, `CONTACT_GITHUB`, `CONTACT_CODOLIO` |
+| Resume | `RESUME_FILE_PATH`, `RESUME_DRIVE_LINK` |
+| LLM | `OPENROUTER_API_KEY`, `LLM_MODEL`, `LLM_BASE_URL` |
+| Storage | `STORAGE_BACKEND`, `GOOGLE_CREDENTIALS_JSON`, `GOOGLE_SHEET_NAME` |
+| Onsite Search | `ONSITE_SEARCH_TERMS`, `ONSITE_LOCATIONS`, `ONSITE_JOB_BOARDS`, `ONSITE_RESULTS_WANTED` |
+| Remote Search | `REMOTE_SEARCH_TERMS`, `REMOTE_LOCATIONS`, `REMOTE_JOB_BOARDS`, `REMOTE_RESULTS_WANTED` |
+| Filtering | `REJECT_TITLES`, `EMAIL_FILTER_PATTERNS` |
+| Limits | `ONSITE_MAX_EMAILS_PER_DAY`, `REMOTE_MAX_EMAILS_PER_DAY`, `EMAIL_INTERVAL_SECONDS`, `MIN_EMAIL_WORDS`, `MAX_EMAIL_WORDS` |
+| Schedule | `SCHEDULER_ENABLED`, `SCHEDULER_ONSITE_CRON`, `SCHEDULER_REMOTE_CRON` |
+| Debug | `DRY_RUN` |
+
+---
 
 ## Development
 
+### Running Tests
+
 ```bash
-# Install all dependencies (including dev)
-uv sync
+# Run all tests
+uv run pytest
 
-# Run tests
-uv run pytest --tb=short -q
+# Run with coverage
+uv run pytest --cov=jobspy_v2
 
-# Run tests with coverage
-uv run pytest --cov=jobspy_v2 --cov-report=term-missing
-
-# Lint
-uv run ruff check src/ tests/
-
-# Format
-uv run ruff format src/ tests/
+# Run a specific test file
+uv run pytest tests/unit/test_workflows.py
 ```
 
-### Test Suite
+The test suite contains 200 unit tests covering configuration, storage backends,
+core logic, and workflow orchestration.
 
-197 tests covering:
-- **Config** (33) — Settings loading, CSV parsing, defaults, validation
-- **Utils** (70) — Email validation, extraction, filtering, text processing
-- **Storage** (30) — CSV backend, Sheets backend, factory pattern
-- **Core** (27) — Scraper params, dedup rules, email generation, sender, reporter
-- **Scheduler** (18) — Cron parsing, scheduler lifecycle, health check, runner
-- **Workflows** (19) — Pipeline flow, weekend skipping, dry run, CLI
+### Code Style
 
-## Environment Variables Reference
+The project uses [Ruff](https://docs.astral.sh/ruff/) for linting and
+formatting:
 
-All variables are documented in `.env.example`. Key categories:
+```bash
+# Check for issues
+uv run ruff check src/ tests/
 
-| Category | Prefix | Example |
-|---|---|---|
-| SMTP | `GMAIL_*`, `SMTP_*` | `GMAIL_EMAIL`, `SMTP_PORT` |
-| LLM | `OPENROUTER_*`, `LLM_*` | `OPENROUTER_API_KEY`, `LLM_MODEL` |
-| Contact | `CONTACT_*` | `CONTACT_NAME`, `CONTACT_PHONE` |
-| Storage | `GOOGLE_*`, `CSV_*` | `GOOGLE_SHEET_NAME`, `CSV_FILE_PATH` |
-| Scheduler | `SCHEDULER_*`, `HEALTH_CHECK_*` | `SCHEDULER_ONSITE_CRON` |
-| Onsite | `ONSITE_*` | `ONSITE_SEARCH_TERMS`, `ONSITE_LOCATIONS` |
-| Remote | `REMOTE_*` | `REMOTE_SEARCH_TERMS`, `REMOTE_LOCATION` |
-| Email | `MIN_EMAIL_WORDS`, `MAX_EMAIL_WORDS` | `EMAIL_INTERVAL_SECONDS` |
-| Filter | `REJECT_TITLES`, `EMAIL_FILTER_PATTERNS` | Comma-separated patterns |
+# Auto-fix issues
+uv run ruff check --fix src/ tests/
+```
+
+Line length is set to 88 characters. Target Python version is 3.10.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please see [CONTRIBUTING.md](CONTRIBUTING.md) for
+guidelines on how to get started, submit issues, and open pull requests.
+
+---
+
+## Credits
+
+- [python-jobspy](https://github.com/Bunsly/JobSpy) by
+  [Bunsly](https://github.com/Bunsly) -- the multi-board job scraping engine
+  that powers JobHunter's data collection
+- [OpenRouter](https://openrouter.ai/) -- LLM API gateway used for email
+  generation
+- [gspread](https://github.com/burnash/gspread) -- Google Sheets API client for
+  Python
+
+---
 
 ## License
 
-MIT
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for
+details.

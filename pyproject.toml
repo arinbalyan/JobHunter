@@ -1,7 +1,7 @@
 [project]
-name = "jobspy-v2"
+name = "jobhunter"
 version = "1.0.0"
-description = "Automated job scraping and cold email outreach agent"
+description = "Automated job scraping and cold email outreach system built on python-jobspy"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }

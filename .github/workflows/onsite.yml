@@ -2,7 +2,7 @@
 # Scheduled: Run onsite job workflow daily at IST 8:00 AM (UTC 2:30 AM)
 # Can also be triggered manually via workflow_dispatch
 # ---------------------------------------------------------------------------
-name: Onsite Jobs
+name: JobHunter Onsite
 
 on:
   schedule:

@@ -2,7 +2,7 @@
 # Scheduled: Run remote job workflow daily at US Eastern 8:00 AM (UTC 1:00 PM)
 # Can also be triggered manually via workflow_dispatch
 # ---------------------------------------------------------------------------
-name: Remote Jobs
+name: JobHunter Remote
 
 on:
   schedule:
