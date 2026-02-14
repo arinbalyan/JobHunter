@@ -534,6 +534,8 @@ The workflows handle private files differently to keep them secure:
    - Store the passphrase as a GitHub Secret: `RESUME_DECRYPT_PASS`.
    - The workflow decrypts it at runtime.
 
+   > **Note:** The included `ArinBalyan.pdf.gpg` is encrypted with the passphrase `jobhunter`. You should delete it and commit your own encrypted resume.
+
 2. **Applicant Context (Text File):**
    - Encode your `contexts/profile.md` to base64:
      ```bash
