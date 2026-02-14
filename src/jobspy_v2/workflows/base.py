@@ -161,6 +161,7 @@ class BaseWorkflow:
                     subject=email_result.subject,
                     body=email_result.body,
                     settings=self.settings,
+                    resume_path=self.settings.resume_file_path,
                 )
                 if not success:
                     logger.error("Failed to send to %s: %s", primary_email, error)

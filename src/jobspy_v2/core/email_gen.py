@@ -173,8 +173,6 @@ def _generate_fallback(
         subject = subject.replace(f"{{{key}}}", value)
 
     body = settings.fallback_email_body
-    # Handle literal \n from env var
-    body = body.replace("\\n", "\n")
     for key, value in replacements.items():
         body = body.replace(f"{{{key}}}", value)
 

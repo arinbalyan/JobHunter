@@ -35,9 +35,10 @@ COPY --from=deps /app/.venv /app/.venv
 # Put virtualenv on PATH
 ENV PATH="/app/.venv/bin:$PATH"
 
-# Copy application source
+# Copy application source + resume PDF for email attachments
 COPY src/ ./src/
 COPY contexts/ ./contexts/
+COPY *.pdf ./
 
 # Expose health check port (configurable via HEALTH_CHECK_PORT env)
 EXPOSE 10000

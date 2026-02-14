@@ -83,18 +83,18 @@ LLM_CLEANUP_PATTERNS: tuple[str, ...] = (
 #   {contact_github}, {contact_codolio}, {contact_linkedin},
 #   {resume_drive_link}
 # ---------------------------------------------------------------------------
-CONTACT_INFO_FOOTER: str = (
-    "\n\n{contact_name}\n{contact_phone}"
-    "\nPortfolio: {contact_portfolio}"
-    "\nGitHub: {contact_github}"
-)
+CONTACT_INFO_FOOTER: str = """
+{contact_name}
+{contact_phone}
+Portfolio: {contact_portfolio}
+GitHub: {contact_github}"""
 
-CONTACT_INFO_FOOTER_WITH_RESUME: str = (
-    "Resume: {resume_drive_link}"
-    "\n\n{contact_name}\n{contact_phone}"
-    "\nPortfolio: {contact_portfolio}"
-    "\nGitHub: {contact_github}"
-)
+CONTACT_INFO_FOOTER_WITH_RESUME: str = """
+Resume: {resume_drive_link}
+{contact_name}
+{contact_phone}
+Portfolio: {contact_portfolio}
+GitHub: {contact_github}"""
 
 # ---------------------------------------------------------------------------
 # Default Closing Paragraph (appended before footer when LLM omits one)

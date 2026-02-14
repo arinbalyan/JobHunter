@@ -19,6 +19,7 @@ build/
 # Data files
 *.csv
 *.log
+*.pdf
 sent_emails.csv
 jobs_*.csv
 
