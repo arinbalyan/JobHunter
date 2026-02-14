@@ -1,0 +1,89 @@
+# ---------------------------------------------------------------------------
+# Scheduled: Run onsite job workflow daily at IST 8:00 AM (UTC 2:30 AM)
+# Can also be triggered manually via workflow_dispatch
+# ---------------------------------------------------------------------------
+name: Onsite Jobs
+
+on:
+  schedule:
+    # IST 8:00 AM = UTC 2:30 AM
+    - cron: "30 2 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no emails sent)"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  onsite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: uv sync --no-dev
+
+      - name: Run onsite workflow
+        run: |
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            uv run python -m jobspy_v2 onsite --dry-run
+          else
+            uv run python -m jobspy_v2 onsite
+          fi
+        env:
+          # --- SMTP ---
+          GMAIL_EMAIL: ${{ secrets.GMAIL_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          # --- LLM ---
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+          LLM_MODEL: ${{ secrets.LLM_MODEL }}
+          EMAIL_GENERATOR_MODE: ${{ secrets.EMAIL_GENERATOR_MODE }}
+          # --- Contact ---
+          CONTACT_NAME: ${{ secrets.CONTACT_NAME }}
+          CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+          CONTACT_PHONE: ${{ secrets.CONTACT_PHONE }}
+          CONTACT_PORTFOLIO: ${{ secrets.CONTACT_PORTFOLIO }}
+          CONTACT_GITHUB: ${{ secrets.CONTACT_GITHUB }}
+          CONTACT_LINKEDIN: ${{ secrets.CONTACT_LINKEDIN }}
+          CONTACT_CODOLIO: ${{ secrets.CONTACT_CODOLIO }}
+          RESUME_DRIVE_LINK: ${{ secrets.RESUME_DRIVE_LINK }}
+          # --- Storage ---
+          STORAGE_BACKEND: ${{ secrets.STORAGE_BACKEND }}
+          GOOGLE_CREDENTIALS_JSON: ${{ secrets.GOOGLE_CREDENTIALS_JSON }}
+          GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+          # --- Report ---
+          REPORT_EMAIL: ${{ secrets.REPORT_EMAIL }}
+          # --- Onsite config ---
+          ONSITE_SEARCH_TERMS: ${{ secrets.ONSITE_SEARCH_TERMS }}
+          ONSITE_LOCATIONS: ${{ secrets.ONSITE_LOCATIONS }}
+          ONSITE_JOB_TYPE: ${{ secrets.ONSITE_JOB_TYPE }}
+          ONSITE_JOB_BOARDS: ${{ secrets.ONSITE_JOB_BOARDS }}
+          ONSITE_COUNTRY_INDEED: ${{ secrets.ONSITE_COUNTRY_INDEED }}
+          ONSITE_RESULTS_WANTED: ${{ secrets.ONSITE_RESULTS_WANTED }}
+          ONSITE_MAX_EMAILS_PER_DAY: ${{ secrets.ONSITE_MAX_EMAILS_PER_DAY }}
+          # --- Email settings ---
+          MIN_EMAIL_WORDS: ${{ secrets.MIN_EMAIL_WORDS }}
+          MAX_EMAIL_WORDS: ${{ secrets.MAX_EMAIL_WORDS }}
+          EMAIL_INTERVAL_SECONDS: ${{ secrets.EMAIL_INTERVAL_SECONDS }}
+          APPLICATION_SENDER_NAME: ${{ secrets.APPLICATION_SENDER_NAME }}
+          FALLBACK_EMAIL_SUBJECT: ${{ secrets.FALLBACK_EMAIL_SUBJECT }}
+          FALLBACK_EMAIL_BODY: ${{ secrets.FALLBACK_EMAIL_BODY }}
+          # --- Filter ---
+          REJECT_TITLES: ${{ secrets.REJECT_TITLES }}
+          EMAIL_FILTER_PATTERNS: ${{ secrets.EMAIL_FILTER_PATTERNS }}

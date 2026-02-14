@@ -1,0 +1,43 @@
+# ---------------------------------------------------------------------------
+# CI: Run tests on every push and PR
+# ---------------------------------------------------------------------------
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "latest"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Lint with ruff
+        run: uv run ruff check src/ tests/
+
+      - name: Run tests
+        run: uv run pytest --tb=short -q
+        env:
+          # Minimal env vars required for Settings to instantiate in tests
+          # Tests use Settings(_env_file=None) with fixtures, but just in case
+          GMAIL_EMAIL: "test@example.com"
+          GMAIL_APP_PASSWORD: "test-password"
+          OPENROUTER_API_KEY: "test-key"
