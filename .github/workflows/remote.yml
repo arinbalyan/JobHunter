@@ -6,8 +6,8 @@ name: JobHunter Remote
 
 on:
   schedule:
-    # US Eastern 8:00 AM = UTC 1:00 PM
-    - cron: "0 13 * * *"
+    # PST 7:30 AM = UTC 3:30 PM
+    - cron: "30 15 * * *"
   workflow_dispatch:
     inputs:
       dry_run:
