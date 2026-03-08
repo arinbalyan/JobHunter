@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     onsite_job_boards: CsvList = Field(default_factory=list)
     onsite_country_indeed: str = "India"
     onsite_results_wanted: int = 1000
-    onsite_hours_old: int = 48
+    onsite_hours_old: int = 4382
     onsite_max_emails_per_day: int = 500
 
     # -- Pending Jobs Processing ---------------------------------------------
@@ -135,7 +135,7 @@ class Settings(BaseSettings):
     remote_job_boards: CsvList = Field(default_factory=list)
     remote_countries_indeed: CsvList = Field(default_factory=list)
     remote_results_wanted: int = 1000
-    remote_hours_old: int = 48
+    remote_hours_old: int = 4382
     remote_max_emails_per_day: int = 250
 
     # -- CSV field parsing --------------------------------------------------
