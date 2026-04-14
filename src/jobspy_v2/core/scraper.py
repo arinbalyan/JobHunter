@@ -58,11 +58,10 @@ def _get_countries_indeed(settings: Settings, mode: str) -> list[str]:
 
 def _is_glassdoor_country_supported(country: str) -> bool:
     """Return True if python-jobspy supports this country for Glassdoor."""
-    try:
-        Country[country.upper()].get_glassdoor_url()
-        return True
-    except Exception:
+    country_enum = Country.__members__.get(country.upper())
+    if country_enum is None:
         return False
+    return len(country_enum.value) >= 3 and bool(country_enum.value[2])
 
 
 def _get_remote_location_country_pairs(
