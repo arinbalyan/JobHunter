@@ -520,6 +520,11 @@ New repository secret**. Add each of the following:
 | `REMOTE_RESULTS_WANTED` | `300` |
 | `REMOTE_MAX_EMAILS_PER_DAY` | `50` |
 
+> Remote pairing note:
+> - When `REMOTE_IS_REMOTE=true`, scraping uses `location=Remote` and iterates countries.
+> - When `REMOTE_IS_REMOTE=false`, `REMOTE_LOCATIONS` and `REMOTE_COUNTRIES_INDEED`
+>   are paired 1:1 (zip mapping), not as a Cartesian product.
+
 **4. Test it.**
 
 Go to **Actions** in your GitHub repo. Click on **JobHunter Onsite** (or

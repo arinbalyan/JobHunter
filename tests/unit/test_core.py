@@ -18,6 +18,7 @@ from jobspy_v2.core.scraper import (
     ScrapeResult,
     _adapt_params_for_board,
     _build_base_params,
+    _get_remote_location_country_pairs,
     scrape_jobs,
 )
 from jobspy_v2.storage.csv_backend import CsvBackend
@@ -197,6 +198,72 @@ class TestScrapeJobs:
         # Should return empty result, not crash
         assert isinstance(result, ScrapeResult)
         assert len(result.jobs) == 0
+
+    @patch("jobspy_v2.core.scraper.jobspy_scrape")
+    def test_remote_task_count_scales_by_countries_not_cartesian(
+        self, mock_scrape: Mock, settings: Settings
+    ) -> None:
+        mock_scrape.return_value = pd.DataFrame()
+        settings.remote_is_remote = True
+        settings.remote_search_terms = ["ml", "backend"]
+        settings.remote_job_boards = ["indeed", "linkedin"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        # Intentionally non-matching values to verify remote mode ignores them.
+        settings.remote_locations = ["USA", "Nigeria", "Germany"]
+
+        scrape_jobs(settings, mode="remote")
+
+        # terms × boards × countries = 2 × 2 × 2 = 8
+        assert mock_scrape.call_count == 8
+
+        called_locations = {
+            call.kwargs["location"] for call in mock_scrape.call_args_list
+        }
+        assert called_locations == {"Remote"}
+        assert called_locations.isdisjoint(set(settings.remote_locations))
+
+        indeed_countries = {
+            call.kwargs.get("country_indeed")
+            for call in mock_scrape.call_args_list
+            if call.kwargs.get("site_name") == ["indeed"]
+        }
+        assert indeed_countries == {"USA", "UK"}
+
+        for call in mock_scrape.call_args_list:
+            assert call.kwargs["location"] == "Remote"
+
+
+class TestRemoteLocationCountryMapping:
+    """Tests for safe and bounded remote location-country pairing."""
+
+    def test_uses_zip_for_one_to_one_pairs(self, settings: Settings) -> None:
+        settings.remote_is_remote = False
+        settings.remote_locations = ["USA", "UK"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        pairs = _get_remote_location_country_pairs(
+            settings, settings.remote_countries_indeed
+        )
+        assert pairs == [("USA", "USA"), ("UK", "UK")]
+
+    def test_mismatch_falls_back_to_remote_plus_countries(
+        self, settings: Settings
+    ) -> None:
+        settings.remote_is_remote = False
+        settings.remote_locations = ["USA", "UK", "Canada"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        pairs = _get_remote_location_country_pairs(
+            settings, settings.remote_countries_indeed
+        )
+        assert pairs == [("Remote", "USA"), ("Remote", "UK")]
+
+    def test_remote_mode_forces_remote_location(self, settings: Settings) -> None:
+        settings.remote_is_remote = True
+        settings.remote_locations = ["USA", "UK"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        pairs = _get_remote_location_country_pairs(
+            settings, settings.remote_countries_indeed
+        )
+        assert pairs == [("Remote", "USA"), ("Remote", "UK")]
 
 
 # ---------------------------------------------------------------------------
