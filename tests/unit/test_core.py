@@ -208,7 +208,7 @@ class TestScrapeJobs:
         settings.remote_search_terms = ["ml", "backend"]
         settings.remote_job_boards = ["indeed", "linkedin"]
         settings.remote_countries_indeed = ["USA", "UK"]
-        # ignored in remote mode when REMOTE_IS_REMOTE=true
+        # Intentionally non-matching values to verify remote mode ignores them.
         settings.remote_locations = ["USA", "Nigeria", "Germany"]
 
         scrape_jobs(settings, mode="remote")

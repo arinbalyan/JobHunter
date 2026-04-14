@@ -83,7 +83,7 @@ def _get_remote_location_country_pairs(
         if len(locations) == len(countries_indeed):
             # IMPORTANT: use zip() to preserve intended 1:1 location-country mapping.
             # Nested loops create a Cartesian product with invalid pairs.
-            return list(zip(locations, countries_indeed, strict=False))
+            return list(zip(locations, countries_indeed, strict=True))
         logger.warning(
             "REMOTE_LOCATIONS and REMOTE_COUNTRIES_INDEED length mismatch "
             "(locations=%d, countries=%d). Falling back to safe mode: "
