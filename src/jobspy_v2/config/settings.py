@@ -129,10 +129,12 @@ class Settings(BaseSettings):
 
     # -- Remote Settings ----------------------------------------------------
     remote_search_terms: CsvList = Field(default_factory=list)
+    remote_location: str = "Remote"  # legacy single-location env compatibility
     remote_locations: CsvList = Field(default_factory=list)
     remote_is_remote: bool = True
     remote_job_type: str = "fulltime"
     remote_job_boards: CsvList = Field(default_factory=list)
+    remote_country_indeed: str = "USA"  # legacy single-country env compatibility
     remote_countries_indeed: CsvList = Field(default_factory=list)
     remote_results_wanted: int = 1000
     remote_hours_old: int = 4382
@@ -169,6 +171,12 @@ class Settings(BaseSettings):
             self.reject_titles = list(DEFAULT_REJECT_TITLES)
         if not self.email_filter_patterns:
             self.email_filter_patterns = list(DEFAULT_EMAIL_FILTER_PATTERNS)
+        # Backward-compatibility:
+        # allow legacy single-value remote envs to feed list-based fields.
+        if not self.remote_locations and self.remote_location:
+            self.remote_locations = [self.remote_location]
+        if not self.remote_countries_indeed and self.remote_country_indeed:
+            self.remote_countries_indeed = [self.remote_country_indeed]
         return self
 
 

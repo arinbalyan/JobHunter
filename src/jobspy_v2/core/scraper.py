@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 import pandas as pd
 from jobspy import scrape_jobs as jobspy_scrape
+from jobspy.model import Country
 
 from jobspy_v2.utils.email_utils import extract_emails, get_valid_recipients
 
@@ -55,6 +56,50 @@ def _get_countries_indeed(settings: Settings, mode: str) -> list[str]:
     return [c for c in countries if c]
 
 
+def _is_glassdoor_country_supported(country: str) -> bool:
+    """Return True if python-jobspy supports this country for Glassdoor."""
+    try:
+        Country[country.upper()].get_glassdoor_url()
+        return True
+    except Exception:
+        return False
+
+
+def _get_remote_location_country_pairs(
+    settings: Settings, countries_indeed: list[str]
+) -> list[tuple[str, str]]:
+    """Build remote location-country pairs without Cartesian explosion."""
+    locations = [loc for loc in settings.remote_locations if loc]
+    remote_location = settings.remote_location or "Remote"
+
+    if settings.remote_is_remote:
+        # Remote mode should not depend on region-specific locations.
+        # Keep one stable location label while iterating countries only.
+        if countries_indeed:
+            return [("Remote", country) for country in countries_indeed]
+        return [("Remote", "")]
+
+    if locations and countries_indeed:
+        if len(locations) == len(countries_indeed):
+            # IMPORTANT: use zip() to preserve intended 1:1 location-country mapping.
+            # Nested loops create a Cartesian product with invalid pairs.
+            return list(zip(locations, countries_indeed, strict=False))
+        logger.warning(
+            "REMOTE_LOCATIONS and REMOTE_COUNTRIES_INDEED length mismatch "
+            "(locations=%d, countries=%d). Falling back to safe mode: "
+            "location='Remote', iterating countries only.",
+            len(locations),
+            len(countries_indeed),
+        )
+        return [("Remote", country) for country in countries_indeed]
+
+    if countries_indeed:
+        return [(remote_location, country) for country in countries_indeed]
+    if locations:
+        return [(location, "") for location in locations]
+    return [(remote_location, "")]
+
+
 def _build_base_params(settings: Settings, mode: str, country_indeed: str = "") -> dict:
     """Build base params from settings for the given mode (onsite/remote)."""
     prefix = mode.lower()
@@ -63,6 +108,9 @@ def _build_base_params(settings: Settings, mode: str, country_indeed: str = "") 
         "linkedin_fetch_description": True,
         "verbose": 0,
     }
+
+    if not country_indeed:
+        country_indeed = getattr(settings, f"{prefix}_country_indeed", "")
 
     if country_indeed:
         params["country_indeed"] = country_indeed
@@ -124,10 +172,16 @@ def _should_reject_title(title: str | None, reject_patterns: list[str]) -> bool:
 
 
 def _scrape_single(
-    params: dict, board: str, location: str, term: str
+    params: dict, board: str, location: str, term: str, country: str = ""
 ) -> pd.DataFrame | None:
     """Execute a single jobspy scrape call (designed to run in a thread)."""
-    logger.debug("Scraping %s | location=%s | term='%s'", board, location, term)
+    logger.debug(
+        "Scraping board=%s location=%s country=%s term='%s'",
+        board,
+        location,
+        country,
+        term,
+    )
     try:
         df = jobspy_scrape(**params)
         if df is not None and not df.empty:
@@ -135,7 +189,13 @@ def _scrape_single(
             return df
         logger.debug("  → 0 results from %s", board)
     except Exception:
-        logger.warning("  → Error scraping %s for '%s' in %s", board, term, location)
+        logger.warning(
+            "  → Error scraping board=%s term='%s' location=%s country=%s",
+            board,
+            term,
+            location,
+            country,
+        )
     return None
 
 
@@ -168,43 +228,41 @@ def scrape_jobs(settings: Settings, mode: str) -> ScrapeResult:
             ", ".join(countries_indeed),
         )
 
+    location_country_pairs: list[tuple[str, str]]
+    if prefix == "remote":
+        location_country_pairs = _get_remote_location_country_pairs(
+            settings, countries_indeed
+        )
+    else:
+        location_country_pairs = [(location, "") for location in locations]
+
     logger.info(
-        "[%s] Starting scrape: %d terms × %d boards × %d locations",
+        "[%s] Starting scrape: %d terms × %d boards × %d location-country pairs",
         mode,
         len(search_terms),
         len(boards),
-        len(locations),
+        len(location_country_pairs),
     )
     logger.debug("Terms: %s", search_terms)
     logger.debug("Boards: %s", boards)
-    logger.debug("Locations: %s", locations)
+    logger.debug("Location-country pairs: %s", location_country_pairs)
 
     # ── Build all param combinations ───────────────────────────────────
-    tasks: list[tuple[dict, str, str, str]] = []
-    for location in locations:
+    tasks: list[tuple[dict, str, str, str, str]] = []
+    for location, country in location_country_pairs:
         for term in search_terms:
             for board in boards:
-                if board in ("indeed", "glassdoor") and countries_indeed:
-                    for country in countries_indeed:
-                        params = _adapt_params_for_board(
-                            {
-                                **_build_base_params(settings, mode, country),
-                                "search_term": term,
-                            },
-                            board,
-                        )
-                        params["site_name"] = [board]
-                        params["location"] = location
-                        location_label = f"{location} ({country})"
-                        tasks.append((params, board, location_label, term))
-                else:
-                    base_params = _build_base_params(settings, mode)
-                    params = _adapt_params_for_board(
-                        {**base_params, "search_term": term}, board
-                    )
-                    params["site_name"] = [board]
-                    params["location"] = location
-                    tasks.append((params, board, location, term))
+                if board == "glassdoor" and country and not _is_glassdoor_country_supported(
+                    country
+                ):
+                    continue
+
+                country_for_request = country if board in ("indeed", "glassdoor") else ""
+                base_params = _build_base_params(settings, mode, country_for_request)
+                params = _adapt_params_for_board({**base_params, "search_term": term}, board)
+                params["site_name"] = [board]
+                params["location"] = location
+                tasks.append((params, board, location, term, country))
 
     # ── Parallel scraping ──────────────────────────────────────────────
     all_frames: list[pd.DataFrame] = []
@@ -217,8 +275,8 @@ def scrape_jobs(settings: Settings, mode: str) -> ScrapeResult:
 
     with ThreadPoolExecutor(max_workers=max_workers) as pool:
         future_to_board = {
-            pool.submit(_scrape_single, params, board, loc, term): board
-            for params, board, loc, term in tasks
+            pool.submit(_scrape_single, params, board, loc, term, country): board
+            for params, board, loc, term, country in tasks
         }
         for future in as_completed(future_to_board):
             board = future_to_board[future]

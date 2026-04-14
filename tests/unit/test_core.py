@@ -18,6 +18,7 @@ from jobspy_v2.core.scraper import (
     ScrapeResult,
     _adapt_params_for_board,
     _build_base_params,
+    _get_remote_location_country_pairs,
     scrape_jobs,
 )
 from jobspy_v2.storage.csv_backend import CsvBackend
@@ -197,6 +198,39 @@ class TestScrapeJobs:
         # Should return empty result, not crash
         assert isinstance(result, ScrapeResult)
         assert len(result.jobs) == 0
+
+
+class TestRemoteLocationCountryMapping:
+    """Tests for safe and bounded remote location-country pairing."""
+
+    def test_uses_zip_for_one_to_one_pairs(self, settings: Settings) -> None:
+        settings.remote_is_remote = False
+        settings.remote_locations = ["USA", "UK"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        pairs = _get_remote_location_country_pairs(
+            settings, settings.remote_countries_indeed
+        )
+        assert pairs == [("USA", "USA"), ("UK", "UK")]
+
+    def test_mismatch_falls_back_to_remote_plus_countries(
+        self, settings: Settings
+    ) -> None:
+        settings.remote_is_remote = False
+        settings.remote_locations = ["USA", "UK", "Canada"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        pairs = _get_remote_location_country_pairs(
+            settings, settings.remote_countries_indeed
+        )
+        assert pairs == [("Remote", "USA"), ("Remote", "UK")]
+
+    def test_remote_mode_forces_remote_location(self, settings: Settings) -> None:
+        settings.remote_is_remote = True
+        settings.remote_locations = ["USA", "UK"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        pairs = _get_remote_location_country_pairs(
+            settings, settings.remote_countries_indeed
+        )
+        assert pairs == [("Remote", "USA"), ("Remote", "UK")]
 
 
 # ---------------------------------------------------------------------------
