@@ -60,6 +60,7 @@ def _is_glassdoor_country_supported(country: str) -> bool:
     """Return True if python-jobspy supports this country for Glassdoor."""
     country_enum = Country.__members__.get(country.upper())
     if country_enum is None:
+        logger.debug("Skipping unknown Glassdoor country code: %s", country)
         return False
     # Country.value tuple:
     #   (aliases_csv, indeed_domain[, glassdoor_tld_or_subdomain])
@@ -262,15 +263,14 @@ def scrape_jobs(settings: Settings, mode: str) -> ScrapeResult:
                 ):
                     continue
 
-                country_for_request = (
-                    country if board in ("indeed", "glassdoor") else ""
-                )
+                include_country = board in ("indeed", "glassdoor")
+                country_for_request = country if include_country else ""
                 base_params = _build_base_params(settings, mode, country_for_request)
+                if not include_country:
+                    base_params.pop("country_indeed", None)
                 params = _adapt_params_for_board(
                     {**base_params, "search_term": term}, board
                 )
-                if board not in ("indeed", "glassdoor"):
-                    params.pop("country_indeed", None)
                 params["site_name"] = [board]
                 params["location"] = location
                 tasks.append((params, board, location, term, country))

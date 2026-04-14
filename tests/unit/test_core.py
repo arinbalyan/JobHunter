@@ -222,6 +222,13 @@ class TestScrapeJobs:
         assert called_locations == {"Remote"}
         assert called_locations.isdisjoint(set(settings.remote_locations))
 
+        indeed_countries = {
+            call.kwargs.get("country_indeed")
+            for call in mock_scrape.call_args_list
+            if call.kwargs.get("site_name") == ["indeed"]
+        }
+        assert indeed_countries == {"USA", "UK"}
+
         for call in mock_scrape.call_args_list:
             assert call.kwargs["location"] == "Remote"
 
