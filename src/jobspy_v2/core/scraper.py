@@ -252,14 +252,20 @@ def scrape_jobs(settings: Settings, mode: str) -> ScrapeResult:
     for location, country in location_country_pairs:
         for term in search_terms:
             for board in boards:
-                if board == "glassdoor" and country and not _is_glassdoor_country_supported(
-                    country
+                if (
+                    board == "glassdoor"
+                    and country
+                    and not _is_glassdoor_country_supported(country)
                 ):
                     continue
 
-                country_for_request = country if board in ("indeed", "glassdoor") else ""
+                country_for_request = (
+                    country if board in ("indeed", "glassdoor") else ""
+                )
                 base_params = _build_base_params(settings, mode, country_for_request)
-                params = _adapt_params_for_board({**base_params, "search_term": term}, board)
+                params = _adapt_params_for_board(
+                    {**base_params, "search_term": term}, board
+                )
                 params["site_name"] = [board]
                 params["location"] = location
                 tasks.append((params, board, location, term, country))

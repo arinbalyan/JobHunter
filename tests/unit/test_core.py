@@ -199,6 +199,26 @@ class TestScrapeJobs:
         assert isinstance(result, ScrapeResult)
         assert len(result.jobs) == 0
 
+    @patch("jobspy_v2.core.scraper.jobspy_scrape")
+    def test_remote_task_count_scales_by_countries_not_cartesian(
+        self, mock_scrape: Mock, settings: Settings
+    ) -> None:
+        mock_scrape.return_value = pd.DataFrame()
+        settings.remote_is_remote = True
+        settings.remote_search_terms = ["ml", "backend"]
+        settings.remote_job_boards = ["indeed", "linkedin"]
+        settings.remote_countries_indeed = ["USA", "UK"]
+        # ignored in remote mode when REMOTE_IS_REMOTE=true
+        settings.remote_locations = ["USA", "Nigeria", "Germany"]
+
+        scrape_jobs(settings, mode="remote")
+
+        # terms × boards × countries = 2 × 2 × 2 = 8
+        assert mock_scrape.call_count == 8
+
+        for call in mock_scrape.call_args_list:
+            assert call.kwargs["location"] == "Remote"
+
 
 class TestRemoteLocationCountryMapping:
     """Tests for safe and bounded remote location-country pairing."""
