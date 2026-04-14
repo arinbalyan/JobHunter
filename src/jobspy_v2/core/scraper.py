@@ -86,7 +86,7 @@ def _get_remote_location_country_pairs(
         if len(locations) == len(countries_indeed):
             # IMPORTANT: use zip() to preserve intended 1:1 location-country mapping.
             # Nested loops create a Cartesian product with invalid pairs.
-            return list(zip(locations, countries_indeed, strict=True))
+            return list(zip(locations, countries_indeed))
         logger.warning(
             "REMOTE_LOCATIONS and REMOTE_COUNTRIES_INDEED length mismatch "
             "(locations=%d, countries=%d). Falling back to safe mode: "
@@ -179,11 +179,11 @@ def _scrape_single(
 ) -> pd.DataFrame | None:
     """Execute a single jobspy scrape call (designed to run in a thread)."""
     logger.debug(
-        "Scraping board=%s location=%s country=%s term='%s'",
+        "Scraping board=%s location=%s term='%s' country=%s",
         board,
         location,
-        country,
         term,
+        country,
     )
     try:
         df = jobspy_scrape(**params)
@@ -269,6 +269,8 @@ def scrape_jobs(settings: Settings, mode: str) -> ScrapeResult:
                 params = _adapt_params_for_board(
                     {**base_params, "search_term": term}, board
                 )
+                if board not in ("indeed", "glassdoor"):
+                    params.pop("country_indeed", None)
                 params["site_name"] = [board]
                 params["location"] = location
                 tasks.append((params, board, location, term, country))

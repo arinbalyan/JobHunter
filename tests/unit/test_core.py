@@ -216,6 +216,12 @@ class TestScrapeJobs:
         # terms × boards × countries = 2 × 2 × 2 = 8
         assert mock_scrape.call_count == 8
 
+        called_locations = {
+            call.kwargs["location"] for call in mock_scrape.call_args_list
+        }
+        assert called_locations == {"Remote"}
+        assert called_locations.isdisjoint(set(settings.remote_locations))
+
         for call in mock_scrape.call_args_list:
             assert call.kwargs["location"] == "Remote"
 
