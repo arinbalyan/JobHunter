@@ -61,6 +61,9 @@ def _is_glassdoor_country_supported(country: str) -> bool:
     country_enum = Country.__members__.get(country.upper())
     if country_enum is None:
         return False
+    # Country.value tuple:
+    #   (aliases_csv, indeed_domain[, glassdoor_tld_or_subdomain])
+    # Glassdoor support exists only when the 3rd element is present/non-empty.
     return len(country_enum.value) >= 3 and bool(country_enum.value[2])
 
 

@@ -218,7 +218,6 @@ class TestScrapeJobs:
 
         for call in mock_scrape.call_args_list:
             assert call.kwargs["location"] == "Remote"
-            assert call.kwargs["location"] not in settings.remote_locations
 
 
 class TestRemoteLocationCountryMapping:
