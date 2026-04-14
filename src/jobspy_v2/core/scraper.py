@@ -68,7 +68,6 @@ def _get_remote_location_country_pairs(
     settings: Settings, countries_indeed: list[str]
 ) -> list[tuple[str, str]]:
     """Build remote location-country pairs without Cartesian explosion."""
-    locations = [loc for loc in settings.remote_locations if loc]
     remote_location = settings.remote_location or "Remote"
 
     if settings.remote_is_remote:
@@ -77,6 +76,8 @@ def _get_remote_location_country_pairs(
         if countries_indeed:
             return [("Remote", country) for country in countries_indeed]
         return [("Remote", "")]
+
+    locations = [loc for loc in settings.remote_locations if loc]
 
     if locations and countries_indeed:
         if len(locations) == len(countries_indeed):
