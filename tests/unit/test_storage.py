@@ -34,13 +34,13 @@ class TestColumnSchemas:
         assert "date_sent" in SENT_EMAIL_COLUMNS
 
     def test_scraped_job_columns_count(self) -> None:
-        assert len(SCRAPED_JOB_COLUMNS) == 22
+        assert len(SCRAPED_JOB_COLUMNS) == 23
 
     def test_scraped_job_columns_has_title(self) -> None:
         assert "title" in SCRAPED_JOB_COLUMNS
 
     def test_run_stats_columns_count(self) -> None:
-        assert len(RUN_STATS_COLUMNS) == 15
+        assert len(RUN_STATS_COLUMNS) == 19
 
     def test_run_stats_columns_has_mode(self) -> None:
         assert "mode" in RUN_STATS_COLUMNS

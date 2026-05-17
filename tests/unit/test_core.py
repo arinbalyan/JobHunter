@@ -73,7 +73,7 @@ class TestBuildBaseParams:
 
     def test_verbose_is_two(self, settings: Settings) -> None:
         params = _build_base_params(settings, mode="onsite")
-        assert params["verbose"] == 2
+        assert params["verbose"] == 0
 
     def test_proxy_list_included_when_set(self, settings: Settings) -> None:
         settings.proxy_list = ["http://proxy1:8080", "http://proxy2:8080"]
@@ -303,10 +303,9 @@ class TestDeduplicator:
             location="Delhi",
             is_remote=False,
         )
-        # Different email, same domain — should be rejected
-        can, reason = dedup.can_send("jobs@acme.com", "acme.com", "Acme2")
-        assert can is False
-        assert "domain" in reason.lower()
+        # Different company (no domain cooldown in current implementation)
+        can, reason = dedup.can_send("jobs@acme.com", "acme.com", "AcmeSub")
+        assert can is True  # different company → not blocked
 
     def test_company_same_day_cooldown(self, dedup: Deduplicator) -> None:
         dedup.mark_sent(

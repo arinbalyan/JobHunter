@@ -32,7 +32,7 @@ class TestDefaults:
             assert title == title.lower(), f"Expected lowercase: {title}"
 
     def test_email_filter_patterns_count(self) -> None:
-        assert len(DEFAULT_EMAIL_FILTER_PATTERNS) == 6
+        assert len(DEFAULT_EMAIL_FILTER_PATTERNS) == 20
 
     def test_email_filter_patterns_have_prefix(self) -> None:
         for pat in DEFAULT_EMAIL_FILTER_PATTERNS:
@@ -181,7 +181,7 @@ class TestDefaultFallbacks:
         monkeypatch.setenv("STORAGE_BACKEND", "csv")
         get_settings.cache_clear()
         s = Settings()
-        assert len(s.email_filter_patterns) == 6
+        assert len(s.email_filter_patterns) == 20
         assert "contains:noreply" in s.email_filter_patterns
         get_settings.cache_clear()
 

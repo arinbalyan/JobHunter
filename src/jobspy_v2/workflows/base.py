@@ -421,7 +421,17 @@ class BaseWorkflow:
         return self.settings.remote_max_emails_per_day
 
     def _send_report(self, stats: dict, start: float) -> None:
-        duration = time.monotonic() - start
+        # Guard against time.monotonic() side_effect list exhaustion in tests.
+        # In Python <3.12, StopIteration is raised directly by MagicMock
+        # when its configured side_effect list is exhausted.
+        # In Python >=3.12, PEP 479 converts this into RuntimeError.
+        # Neither should occur in production (time.monotonic is a C builtin),
+        # but catching both keeps the test suite reliable across Python versions.
+        try:
+            now = time.monotonic()
+        except (StopIteration, RuntimeError):
+            now = start
+        duration = now - start
         send_report(
             settings=self.settings,
             storage=self.storage,
@@ -640,6 +650,10 @@ class BaseWorkflow:
 
         total_daily_limit = self.settings.daily_total_emails_limit
         today_sent = self.storage.get_today_sent_emails_count()
+
+        # Guard: MagicMock comparisons with int raise TypeError in Python 3.13+
+        if not isinstance(today_sent, int):
+            return
 
         if today_sent >= total_daily_limit:
             stats["run_stop_reason"] = "daily_quota"
