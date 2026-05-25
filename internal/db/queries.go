@@ -208,3 +208,49 @@ func (p *Pool) GetSentEmailsCount(ctx context.Context, email string, since time.
 	}
 	return count, nil
 }
+
+// GetTodaySentCount returns the number of emails sent today.
+func (p *Pool) GetTodaySentCount(ctx context.Context) (int, error) {
+	var count int
+	err := p.QueryRow(ctx,
+		`SELECT COUNT(*) FROM emails WHERE sent_at > CURRENT_DATE`,
+	).Scan(&count)
+	if err != nil {
+		return 0, fmt.Errorf("today sent count: %w", err)
+	}
+	return count, nil
+}
+
+// GetPendingEmails returns emails with status 'pending' (carry-over from prev runs).
+func (p *Pool) GetPendingEmails(ctx context.Context) ([]EmailRecord, error) {
+	rows, err := p.Query(ctx,
+		`SELECT id, recipient_email, subject, body_preview, tracking_id, message_id, status, sent_at
+		 FROM emails WHERE status = 'pending'
+		 ORDER BY sent_at ASC`,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query pending: %w", err)
+	}
+	defer rows.Close()
+
+	var emails []EmailRecord
+	for rows.Next() {
+		var e EmailRecord
+		err := rows.Scan(&e.ID, &e.RecipientEmail, &e.Subject, &e.BodyPreview,
+			&e.TrackingID, &e.MessageID, &e.Status, &e.SentAt)
+		if err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+		emails = append(emails, e)
+	}
+	return emails, rows.Err()
+}
+
+// MarkEmailProcessed updates an email's status from 'pending' to 'sent'.
+func (p *Pool) MarkEmailProcessed(ctx context.Context, id int64) error {
+	_, err := p.Exec(ctx,
+		`UPDATE emails SET status = 'sent', sent_at = NOW() WHERE id = $1 AND status = 'pending'`,
+		id,
+	)
+	return err
+}

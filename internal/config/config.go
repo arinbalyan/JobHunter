@@ -56,12 +56,17 @@ type Config struct {
 	ScrapyProxy      string
 	ScrapyMemoryCapMB int
 
+	// Telegram
+	TelegramBotToken  string
+	TelegramChatID    string
+
 	// Application
 	RunMode             string
 	LogLevel            string
 	MaxEmailsPerRun     int
 	EmailDelaySeconds   int
 	EmailDelay          time.Duration
+	DailyEmailLimit     int
 
 	// Job Search
 	JobSearchTerms  []string
@@ -257,6 +262,9 @@ func Load() (*Config, error) {
 		IMAPHost: getEnv("IMAP_HOST", "imap.gmail.com"),
 		IMAPPort: getEnvInt("IMAP_PORT", 993),
 
+		TelegramBotToken: getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID:   getEnv("TELEGRAM_CHAT_ID", ""),
+
 		ScrapyProxy:       getEnv("SCRAPY_PROXY", ""),
 		ScrapyMemoryCapMB: getEnvInt("SCRAPY_MEMORY_CAP_MB", 100),
 
@@ -264,6 +272,7 @@ func Load() (*Config, error) {
 		LogLevel:          getEnv("LOG_LEVEL", "info"),
 		MaxEmailsPerRun:   getEnvInt("MAX_EMAILS_PER_RUN", 10),
 		EmailDelaySeconds: getEnvInt("EMAIL_DELAY_SECONDS", 30),
+		DailyEmailLimit:   getEnvInt("DAILY_EMAIL_LIMIT", 500),
 
 		JobResultsPerSite: getEnvInt("JOB_RESULTS_PER_SITE", 25),
 		JobHoursOld:        getEnvInt("JOB_HOURS_OLD", 72),
@@ -363,6 +372,16 @@ func parseJSONList(s string) []string {
 		}
 	}
 	return result
+}
+
+// TelegramToken returns the bot token.
+func (c *Config) TelegramToken() string {
+	return c.TelegramBotToken
+}
+
+// TelegramChat returns the chat ID.
+func (c *Config) TelegramChat() string {
+	return c.TelegramChatID
 }
 
 func (c *Config) Validate() error {
