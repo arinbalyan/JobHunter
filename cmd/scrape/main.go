@@ -97,6 +97,7 @@ func main() {
 		Locations:     cfg.JobLocations,
 		Sites:         cfg.JobSites,
 		ResultsWanted: cfg.JobResultsPerSite,
+		HoursOld:      cfg.JobHoursOld,
 		RemoteOnly:    cfg.JobRemoteOnly,
 		JobType:       cfg.JobType,
 		MemoryCapMB:   cfg.ScrapyMemoryCapMB,
@@ -210,24 +211,45 @@ func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status,
 		emailsJSON = fmt.Sprintf(`["%s"]`, strings.Join(emails, `","`))
 	}
 
+	// Extract salary from compensation
+	var salaryMin, salaryMax *float64
+	salaryCurrency := "USD"
+	if j.Compensation != nil {
+		salaryMin = j.Compensation.MinAmount
+		salaryMax = j.Compensation.MaxAmount
+		if j.Compensation.Currency != "" {
+			salaryCurrency = j.Compensation.Currency
+		}
+	}
+
+	// Skills as JSON
+	skillsJSON := "[]"
+	if len(j.Skills) > 0 {
+		skillsJSON = fmt.Sprintf(`["%s"]`, strings.Join(j.Skills, `","`))
+	}
+
 	_, isNew, _ := pool.InsertJobFull(ctx, &db.FullJobRecord{
-		JobID:       j.ID,
-		Title:       j.Title,
-		Company:     j.CompanyName,
-		CompanyURL:  j.CompanyURL,
-		JobURL:      j.JobURL,
-		Location:    j.Location,
-		IsRemote:    j.IsRemote,
-		Description: j.Description,
-		JobType:     j.JobType,
-		DatePosted:  j.DatePosted,
-		Source:      j.Site,
-		Seniority:   j.Seniority,
-		Department:  j.Department,
-		Emails:      emailsJSON,
-		Status:      status,
-		SkipReason:  skipReason,
-		RecipientEmail: recipientEmail,
+		JobID:           j.ID,
+		Title:           j.Title,
+		Company:         j.CompanyName,
+		CompanyURL:      j.CompanyURL,
+		JobURL:          j.JobURL,
+		Location:        j.Location,
+		IsRemote:        j.IsRemote,
+		Description:     j.Description,
+		JobType:         j.JobType,
+		DatePosted:      j.DatePosted,
+		Source:          j.Site,
+		Seniority:       j.Seniority,
+		Department:      j.Department,
+		SalaryMin:       salaryMin,
+		SalaryMax:       salaryMax,
+		SalaryCurrency:  salaryCurrency,
+		Emails:          emailsJSON,
+		Skills:          skillsJSON,
+		Status:          status,
+		SkipReason:      skipReason,
+		RecipientEmail:  recipientEmail,
 	})
 	if isNew {
 		*inserted++

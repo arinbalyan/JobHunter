@@ -30,6 +30,7 @@ type FullJobRecord struct {
 	ExperienceRange string
 	JobLevel        string
 	QualityScore    int
+	Skills          string
 	Emails          string
 	Status          string
 	SkipReason      string
@@ -71,19 +72,20 @@ func (p *Pool) InsertJobFull(ctx context.Context, j *FullJobRecord) (int64, bool
 			 seniority, department, company_industry,
 			 salary_min, salary_max, salary_currency, salary_interval,
 			 experience_range, job_level, quality_score,
-			 emails, status, skip_reason, recipient_email, fetched_at)
+			 skills, emails, status, skip_reason, recipient_email, fetched_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-		         $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,NOW())
+		         $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,NOW())
 		 ON CONFLICT (url) DO UPDATE SET
 		   fetched_at = NOW(),
-		   status = CASE WHEN jobs.status = 'new' THEN $24 ELSE jobs.status END
+		   skills = COALESCE($23, jobs.skills),
+		   status = CASE WHEN jobs.status = 'new' THEN $25 ELSE jobs.status END
 		 RETURNING id`,
 		j.JobID, j.Title, j.Company, j.CompanyURL, j.JobURL, j.JobURLDirect,
 		j.Location, j.IsRemote, j.Description, j.JobType, j.DatePosted, j.Source,
 		j.Seniority, j.Department, j.CompanyIndustry,
 		j.SalaryMin, j.SalaryMax, j.SalaryCurrency, j.SalaryInterval,
 		j.ExperienceRange, j.JobLevel, j.QualityScore,
-		j.Emails, j.Status, j.SkipReason, j.RecipientEmail,
+		j.Skills, j.Emails, j.Status, j.SkipReason, j.RecipientEmail,
 	).Scan(&id)
 	if err != nil {
 		// If unique constraint violation — job exists, return existing ID
