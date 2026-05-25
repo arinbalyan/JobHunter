@@ -1,0 +1,181 @@
+# ─────────────────────────────────────────────────────────
+# JobHunter Configuration
+# ─────────────────────────────────────────────────────────
+# This file contains ALL dynamic/user-configurable settings.
+# Secrets (API keys, passwords) go in .env or GitHub Secrets.
+#
+# Location: .agent-data/config.yaml
+#─────────────────────────────────────────────────────────
+
+# ─── User Profile ──────────────────────────────────────
+user:
+  name: "Arin Balyan"
+  current_role: "Software Engineer"
+  years_experience: 3
+  email: "arinbalyan.work@gmail.com"
+  phone: "+91 9518108395"
+  portfolio: "https://arinbalyan.vercel.app"
+  github: "https://github.com/arinbalyan"
+  linkedin: "https://linkedin.com/in/arinbalyan"
+  codolio: "https://codolio.com/profile/arinbalyan"
+  resume_drive_link: "https://drive.google.com/file/d/1v2mlzd0V0JAEv4upcZR5_W9nPC7x_AQ8/view"
+
+# ─── Job Search ────────────────────────────────────────
+search:
+  # Terms to search for
+  terms:
+    - "golang developer"
+    - "backend engineer"
+    - "software engineer"
+    - "full stack developer"
+    - "devops engineer"
+
+  # Locations to search
+  locations:
+    - "remote"
+    - "bangalore"
+    - "mumbai"
+
+  # Job boards to scrape (or "all" for all 55+ boards)
+  sites:
+    - "linkedin"
+    - "indeed"
+    - "greenhouse"
+    - "builtin"
+    - "glassdoor"
+
+  # Filters
+  remote_only: true
+  job_type: "fulltime"              # fulltime | parttime | contract | internship
+  results_per_site: 25
+  hours_old: 72                     # Only jobs posted within this window
+
+  # ── ONSITE Workflow (India-based) ─────────────────────
+  onsite:
+    enabled: false
+    terms:
+      - "software engineer"
+      - "backend developer"
+    locations:
+      - "bangalore"
+      - "mumbai"
+      - "hyderabad"
+      - "pune"
+      - "delhi"
+    sites:
+      - "linkedin"
+      - "indeed"
+      - "naukri"
+      - "internshala"
+    remote_only: false
+    job_type: "fulltime"
+    results_per_site: 25
+    hours_old: 72
+    max_emails_per_day: 250
+
+# ─── Title Rejection Patterns ──────────────────────────
+# Jobs with titles containing these substrings are auto-rejected.
+# Case-insensitive. Add patterns specific to your needs.
+reject_titles:
+  - "teacher"
+  - "professor"
+  - "instructor"
+  - "tutor"
+  - "nurse"
+  - "nursing"
+  - "medical assistant"
+  - "healthcare"
+  - "cashier"
+  - "retail associate"
+  - "sales associate"
+  - "customer service"
+  - "call center"
+  - "receptionist"
+  - "driver"
+  - "delivery driver"
+  - "truck driver"
+  - "security guard"
+  - "cleaning"
+  - "janitor"
+  - "marketing coordinator"
+  - "social media manager"
+  - "hr manager"
+  - "hr coordinator"
+  - "recruiter"
+  - "talent acquisition"
+  - "accountant"
+  - "auditor"
+  - "chef"
+  - "cook"
+  - "restaurant"
+  - "warehouse"
+  - "electrician"
+  - "plumber"
+  - "mechanic"
+  - "intern"            # Unless you want internships
+
+# ─── Email Filter Patterns ─────────────────────────────
+# Emails matching these patterns are rejected.
+email_filters:
+  - "starts_with:accommodation@"
+  - "contains:accessibility"
+  - "contains:accommodation"
+  - "contains:accomodation"     # Common typo
+  - "contains:no-reply"
+  - "contains:noreply"
+  - "contains:do-not-reply"
+  # Suspicious TLDs
+  - "tld:.tk"
+  - "tld:.ml"
+  - "tld:.ga"
+  - "tld:.cf"
+  - "tld:.gq"
+  - "tld:.xyz"
+  - "tld:.top"
+  - "tld:.work"
+  - "tld:.ru"
+  - "tld:.cn"
+  - "tld:.ua"
+  - "tld:.kz"
+
+# ─── Deduplication ─────────────────────────────────────
+dedup:
+  # Don't send to the same email within this many days
+  email_cooldown_days: 90
+
+  # Don't send to the same domain within this many hours
+  domain_cooldown_hours: 24
+
+  # Don't send to the same company within this many hours
+  company_cooldown_hours: 24
+
+# ─── Email Sending ─────────────────────────────────────
+email:
+  max_per_run: 10
+  delay_seconds: 30
+  daily_limit: 500                # Gmail's hard cap
+  retry_attempts: 3
+  retry_delay_seconds: 5
+
+  # Word count limits for generated emails
+  min_words: 120
+  max_words: 300
+
+# ─── LLM Configuration ─────────────────────────────────
+llm:
+  # Complex model for email generation and reasoning
+  complex_model: "google/gemma-4-26b-a4b-it:free"
+
+  # Simple model for classification and scoring
+  simple_model: "google/gemma-4-9b-it"
+
+  # Token budgets
+  max_tokens_per_run: 100000
+  max_tokens_per_request: 2048
+
+  # Temperature for generation
+  temperature: 0.7
+
+# ─── Timelimit ─────────────────────────────────────────
+# Gracefully stop processing before GitHub's 6h timeout
+max_runtime_minutes: 350

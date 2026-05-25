@@ -29,11 +29,22 @@ func main() {
 
 	startTime := time.Now()
 
-	// Load config
+	// Load env config
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+
+	// Load YAML config (overrides env values)
+	yamlCfg, err := config.LoadYAML(".agent-data/config.yaml")
+	if err != nil {
+		log.Printf("Warning: could not load config.yaml: %v", err)
+	} else {
+		yamlCfg.MergeIntoConfig(cfg)
+		log.Printf("Loaded config.yaml with %d rejection patterns, %d email filters",
+			len(yamlCfg.RejectTitles), len(yamlCfg.EmailFilters))
+	}
+
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Invalid config: %v", err)
 	}
