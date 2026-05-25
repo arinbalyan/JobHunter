@@ -1,8 +1,9 @@
 name: Follow-up Reminder
 on:
   schedule:
-    # Daily at 10 AM UTC
-    - cron: '0 10 * * *'
+    # Queue follow-ups at 9:00 AM IST = 3:30 UTC
+    # After emails are sent (8 AM IST), queue follow-ups for old ones
+    - cron: '30 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -24,5 +25,7 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+          CONTACT_NAME: ${{ secrets.CONTACT_NAME }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LOG_LEVEL: info

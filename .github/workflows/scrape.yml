@@ -1,8 +1,16 @@
 name: Scrape Jobs
 on:
   schedule:
-    # Daily at 6 AM UTC
-    - cron: '0 6 * * *'
+    # 4 times daily at IST times: 6 AM, 12 PM, 6 PM, 12 AM IST
+    # IST = UTC + 5:30
+    # 6:00 AM IST  = 0:30 UTC
+    # 12:00 PM IST = 6:30 UTC
+    # 6:00 PM IST  = 12:30 UTC
+    # 12:00 AM IST = 18:30 UTC (previous day)
+    - cron: '30 0 * * *'    # 6:00 AM IST
+    - cron: '30 6 * * *'    # 12:00 PM IST
+    - cron: '30 12 * * *'   # 6:00 PM IST
+    - cron: '30 18 * * *'   # 12:00 AM IST
   workflow_dispatch:
 
 jobs:
@@ -37,6 +45,17 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          HYPERBOLIC_API_KEY: ${{ secrets.HYPERBOLIC_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           SCRAPPY_CONFIG: ${{ github.workspace }}/scrappy/config.yaml
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          SCRAPY_MEMORY_CAP_MB: 100
+          LOG_LEVEL: info

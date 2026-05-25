@@ -1,8 +1,8 @@
 name: Cleanup
 on:
   schedule:
-    # Fortnightly on Sunday
-    - cron: '0 0 */14 * *'
+    # Every Sunday at 10:00 PM IST = 16:30 UTC
+    - cron: '30 16 * * 0'
   workflow_dispatch:
 
 jobs:
@@ -23,3 +23,4 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          LOG_LEVEL: info

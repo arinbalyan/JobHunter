@@ -1,0 +1,111 @@
+# ─────────────────────────────────────────────────────────
+# LLM Provider Configuration
+# ─────────────────────────────────────────────────────────
+# Maps each API key to its base URL and model IDs for different task types.
+# The router picks the best model based on task complexity.
+#
+# Task types:
+#   complex  - email generation, reasoning, strategy
+#   simple   - classification, scoring, template fill
+#   reasoning - chain-of-thought, deep analysis (if supported)
+# ─────────────────────────────────────────────────────────
+providers:
+  - name: OpenRouter
+    env_key: OPENROUTER_API_KEY
+    base_url: "https://openrouter.ai/api"
+    models:
+      complex: "google/gemma-4-26b-a4b-it:free"
+      simple: "qwen/qwen3-coder:free"
+      reasoning: "deepseek/deepseek-v4-flash:free"
+    supports_reasoning: true
+    weight: 10
+
+  - name: Groq
+    env_key: GROQ_API_KEY
+    base_url: "https://api.groq.com/openai"
+    models:
+      complex: "llama-3.3-70b-versatile"
+      simple: "llama-3.1-8b-instant"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 5
+
+  - name: Together
+    env_key: TOGETHER_API_KEY
+    base_url: "https://api.together.xyz"
+    models:
+      complex: "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+      simple: "google/gemma-4-9b-it"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 4
+
+  - name: DeepInfra
+    env_key: DEEPINFRA_API_KEY
+    base_url: "https://api.deepinfra.com"
+    models:
+      complex: "meta-llama/Llama-3.3-70B-Instruct"
+      simple: "meta-llama/Llama-3.3-70B-Instruct"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 4
+
+  - name: Fireworks
+    env_key: FIREWORKS_API_KEY
+    base_url: "https://api.fireworks.ai"
+    models:
+      complex: "accounts/fireworks/models/llama-v3p3-70b-instruct"
+      simple: "accounts/fireworks/models/llama-v3p3-70b-instruct"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 3
+
+  - name: Hyperbolic
+    env_key: HYPERBOLIC_API_KEY
+    base_url: "https://api.hyperbolic.xyz"
+    models:
+      complex: "meta-llama/Llama-3.3-70B-Instruct"
+      simple: "meta-llama/Llama-3.3-70B-Instruct"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 3
+
+  - name: SambaNova
+    env_key: SAMBANOVA_API_KEY
+    base_url: "https://api.sambanova.ai"
+    models:
+      complex: "Meta-Llama-3.3-70B-Instruct"
+      simple: "Meta-Llama-3.3-70B-Instruct"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 3
+
+  - name: Cerebras
+    env_key: CEREBRAS_API_KEY
+    base_url: "https://api.cerebras.ai"
+    models:
+      complex: "google/gemma-4-9b-it"
+      simple: "google/gemma-4-9b-it"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 2
+
+  - name: NVIDIA
+    env_key: NVIDIA_API_KEY
+    base_url: "https://integrate.api.nvidia.com"
+    models:
+      complex: "nvidia/nemotron-4-340b-instruct"
+      simple: "nvidia/nemotron-4-340b-instruct"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 2
+
+  - name: ZAI
+    env_key: ZAI_API_KEY
+    base_url: "https://open.bigmodel.cn/api/paas/v4"
+    models:
+      complex: "GLM-4-Plus"
+      simple: "GLM-4-Air"
+      reasoning: ""
+    supports_reasoning: false
+    weight: 1

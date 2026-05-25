@@ -1,8 +1,9 @@
 name: Send Emails
 on:
   schedule:
-    # Daily at 2 PM UTC (after scrape completes)
-    - cron: '0 14 * * *'
+    # Send at 8:00 AM IST = 2:30 UTC
+    # After morning scrape (6 AM IST) has completed
+    - cron: '30 2 * * *'
   workflow_dispatch:
 
 jobs:
@@ -20,11 +21,47 @@ jobs:
       - name: Send pending emails
         run: go run ./cmd/send/
         env:
+          # Database
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+          # Email SMTP
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          TRACKING_SERVER_URL: ${{ secrets.TRACKING_SERVER_URL }}
           EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+
+          # LLM Providers (all for round-robin)
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          HYPERBOLIC_API_KEY: ${{ secrets.HYPERBOLIC_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+
+          # Tracking
+          TRACKING_SERVER_URL: ${{ secrets.TRACKING_SERVER_URL }}
+
+          # Telegram
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          # Contact info (for email footer)
+          CONTACT_NAME: ${{ secrets.CONTACT_NAME }}
+          CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+          CONTACT_PHONE: ${{ secrets.CONTACT_PHONE }}
+          CONTACT_PORTFOLIO: ${{ secrets.CONTACT_PORTFOLIO }}
+          CONTACT_GITHUB: ${{ secrets.CONTACT_GITHUB }}
+          CONTACT_LINKEDIN: ${{ secrets.CONTACT_LINKEDIN }}
+          CONTACT_CODOLIO: ${{ secrets.CONTACT_CODOLIO }}
+          RESUME_DRIVE_LINK: ${{ secrets.RESUME_DRIVE_LINK }}
+
+          # Limits
+          MAX_EMAILS_PER_RUN: ${{ vars.MAX_EMAILS_PER_RUN || '10' }}
+          EMAIL_DELAY_SECONDS: ${{ vars.EMAIL_DELAY_SECONDS || '30' }}
+          DAILY_EMAIL_LIMIT: ${{ vars.DAILY_EMAIL_LIMIT || '500' }}
+
+          # Runtime
+          LOG_LEVEL: info

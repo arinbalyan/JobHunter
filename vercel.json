@@ -10,7 +10,15 @@
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/track(.*)",
+      "dest": "cmd/tracker/main.go"
+    },
+    {
+      "src": "/click(.*)",
+      "dest": "cmd/tracker/main.go"
+    },
+    {
+      "src": "/health",
       "dest": "cmd/tracker/main.go"
     }
   ]

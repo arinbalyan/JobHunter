@@ -16,6 +16,7 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/db"
 	"github.com/arinbalyan/jobhunter/internal/email/sender"
 	"github.com/arinbalyan/jobhunter/internal/llm/prompt"
+	"github.com/arinbalyan/jobhunter/internal/llm/providers"
 	"github.com/arinbalyan/jobhunter/internal/llm/router"
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
@@ -43,6 +44,14 @@ func main() {
 
 	logger := logging.New(cfg.LogLevel, os.Stdout)
 	logger.Info("Send workflow starting...")
+
+	// Load LLM provider config from llm.yaml
+	llmProviders, err := providers.LoadProviders(".agent-data/llm.yaml")
+	if err != nil {
+		logger.Warn("could not load llm.yaml: %v", err)
+	}
+	activeProviders := llmProviders.GetActiveProviders("complex")
+	logger.Info("loaded %d active LLM providers from llm.yaml", len(activeProviders))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -95,12 +104,12 @@ func main() {
 	// ── Load context for LLM ──
 	contextText := loadContext()
 
-	// ── Init LLM router ──
-	llmProviders := cfg.GetActiveProviders()
+	// ── Init LLM router from llm.yaml ──
 	var llmRouter *router.Router
-	if len(llmProviders) > 0 {
-		routerCfgs := make([]router.ProviderConfig, len(llmProviders))
-		for i, p := range llmProviders {
+	activeProvs := activeProviders
+	if len(activeProvs) > 0 {
+		routerCfgs := make([]router.ProviderConfig, len(activeProvs))
+		for i, p := range activeProvs {
 			routerCfgs[i] = router.ProviderConfig{
 				Kind:    router.ProviderKind(p.Kind),
 				APIKey:  p.APIKey,
@@ -110,7 +119,7 @@ func main() {
 			}
 		}
 		llmRouter = router.New(routerCfgs, cfg.MaxTokensPerRun)
-		logger.Info("LLM router initialized with %d providers", len(llmProviders))
+		logger.Info("LLM router initialized with %d providers", len(activeProvs))
 	}
 
 	// ── Init email sender with resume attachment support ──
