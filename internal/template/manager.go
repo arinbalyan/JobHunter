@@ -4,7 +4,6 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"

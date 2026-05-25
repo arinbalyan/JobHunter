@@ -1,19 +1,13 @@
 package plugins
 
-import (
-	"context"
-	"fmt"
-
-	"github.com/arinbalyan/jobhunter/internal/plugin/sdk"
-)
+import "github.com/arinbalyan/jobhunter/internal/plugin/sdk"
 
 // RegisterBuiltinPlugins registers all built-in plugins with the manager.
-func RegisterBuiltinPlugins(mgr *PluginRegistrar) {
-	// Register the core job hunter agent as a plugin
-	mgr.Register(&JobHunterPlugin{}, nil) // env will be injected by registrar
+func RegisterBuiltinPlugins(mgr PluginRegistrar) {
+	mgr.Register(NewJobHunterPlugin(), nil)
 }
 
-// PluginRegistrar abstracts the registration process.
+// PluginRegistrar is the interface the plugin manager must implement.
 type PluginRegistrar interface {
 	Register(plugin sdk.Plugin, envProvider interface{})
 }

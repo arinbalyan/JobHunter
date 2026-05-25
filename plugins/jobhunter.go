@@ -8,20 +8,14 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/config"
 	"github.com/arinbalyan/jobhunter/internal/email/sender"
 	"github.com/arinbalyan/jobhunter/internal/job"
-	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/plugin/sdk"
 	"github.com/arinbalyan/jobhunter/internal/scraper"
 	"github.com/google/uuid"
 )
 
 // JobHunterPlugin is the core email outreach agent.
-// It scrapes jobs, matches them, generates personalized emails, and sends them.
 type JobHunterPlugin struct {
 	sdk.BasePlugin
-}
-
-func init() {
-	// Metadata set here so it's available at registration time
 }
 
 // NewJobHunterPlugin creates the core job hunter plugin.
@@ -30,7 +24,7 @@ func NewJobHunterPlugin() *JobHunterPlugin {
 		BasePlugin: sdk.BasePlugin{
 			PluginID:   "jobhunter",
 			PluginName: "Job Hunter Agent",
-			PluginDesc: "Scrapes job boards, matches jobs to user profile, sends personalized outreach emails",
+			PluginDesc: "Scrapes job boards, matches jobs to user profile, sends outreach emails",
 		},
 	}
 }
@@ -40,13 +34,12 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 	log := env.Logger()
 	log.Info("starting job hunter pipeline...")
 
-	// Get config from env
 	cfg, ok := env.Config().(*config.Config)
 	if !ok {
-		return sdk.ErrorResult("failed to get config"), fmt.Errorf("config type assertion failed")
+		return sdk.ErrorResult("config type assertion failed"), fmt.Errorf("config type assertion failed")
 	}
 
-	// ── Step 1: Scrape jobs ──────────────────────────────────────────────
+	// ── Step 1: Scrape jobs ──
 	log.Info("scraping job boards...")
 	scr := scraper.New(scraper.Config{
 		Sites:          cfg.JobSites,
@@ -67,10 +60,10 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 	log.Info("scraped %d jobs", len(jobs))
 
 	if len(jobs) == 0 {
-		return sdk.SimpleResult("no jobs found, nothing to do"), nil
+		return sdk.SimpleResult("no jobs found"), nil
 	}
 
-	// ── Step 2: Filter and match jobs ────────────────────────────────────
+	// ── Step 2: Filter & match ──
 	log.Info("filtering and matching jobs...")
 	filter := job.JobFilter{
 		YearsExperience: cfg.UserYearsExperience,
@@ -85,8 +78,8 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 		return sdk.SimpleResult("no jobs matched filters"), nil
 	}
 
-	// ── Step 3: Determine email template per job ─────────────────────────
-	log.Info("generating emails...")
+	// ── Step 3: Send emails ──
+	log.Info("generating and sending emails...")
 	emailSender := sender.New(sender.SMTPConfig{
 		User:     cfg.GmailUser,
 		Password: cfg.GmailAppPass,
@@ -104,24 +97,17 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 		}
 
 		match := matches[i]
-		templateName := p.selectTemplate(match.ExperienceMatch)
-
-		// Generate tracking ID
 		trackingID := uuid.New().String()
 		messageID := fmt.Sprintf("<%s@jobhunter>", uuid.New().String())
 
-		// Build email content
 		subject := fmt.Sprintf("Interested in %s role at %s", j.Title, j.Company)
-
-		body := p.buildEmailBody(j, match, templateName)
+		body := p.buildEmailBody(j, match.ExperienceMatch)
 		htmlBody := fmt.Sprintf("<html><body><p>%s</p></body></html>", body)
-
-		// Inject tracking pixel
 		htmlBody = sender.InjectTrackingPixel(htmlBody, cfg.TrackingServerURL, trackingID)
 
-		// Send with delay
+		// Delay between emails
 		if cfg.EmailDelay > 0 && i > 0 {
-			log.Info("waiting %v before next email...", cfg.EmailDelay)
+			log.Info("waiting %v...", cfg.EmailDelay)
 			select {
 			case <-ctx.Done():
 				return sdk.SimpleResult(fmt.Sprintf("interrupted after %d sent", sentCount)), ctx.Err()
@@ -129,8 +115,13 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 			}
 		}
 
+		recipient := fmt.Sprintf("careers@%s", p.extractDomain(j.CompanyURL))
+		if len(j.Emails) > 0 {
+			recipient = j.Emails[0]
+		}
+
 		msg := &sender.EmailMessage{
-			To:         j.ID, // This would be the actual email — need to resolve from job
+			To:         recipient,
 			Subject:    subject,
 			HTMLBody:   htmlBody,
 			PlainBody:  body,
@@ -138,93 +129,63 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 			MessageID:  messageID,
 		}
 
-		// For now, use a placeholder recipient (real email extraction TBD)
-		msg.To = "candidate@" + p.extractDomain(j.CompanyURL)
-
 		if err := emailSender.Send(ctx, msg); err != nil {
-			log.Error("failed to send email for %s at %s: %v", j.Title, j.Company, err)
+			log.Error("failed to send for %s at %s: %v", j.Title, j.Company, err)
 			errors++
 			continue
 		}
 
 		sentCount++
-		log.Info("sent email for %s at %s (tracking: %s)", j.Title, j.Company, trackingID)
-
-		// Record in DB via stats collector
+		log.Info("sent: %s at %s (tracking: %s)", j.Title, j.Company, trackingID)
 	}
 
 	return &sdk.Result{
 		Success: true,
 		Message: fmt.Sprintf("sent %d emails, %d errors", sentCount, errors),
 		Metrics: map[string]float64{
-			"jobs_scraped":   float64(len(jobs)),
-			"jobs_matched":   float64(len(filteredJobs)),
-			"emails_sent":    float64(sentCount),
-			"email_errors":   float64(errors),
+			"jobs_scraped": float64(len(jobs)),
+			"jobs_matched": float64(len(filteredJobs)),
+			"emails_sent":  float64(sentCount),
+			"email_errors": float64(errors),
 		},
 	}, nil
 }
 
-// selectTemplate picks the right template based on experience match.
-func (p *JobHunterPlugin) selectTemplate(expMatch string) string {
+func (p *JobHunterPlugin) buildEmailBody(j scraper.JobResult, expMatch string) string {
 	switch expMatch {
-	case "qualified":
-		return "qualified"
 	case "underqualified":
-		return "experience_gap"
-	case "overqualified":
-		return "overqualified"
-	default:
-		return "qualified"
-	}
-}
-
-// buildEmailBody constructs the email plaintext body.
-func (p *JobHunterPlugin) buildEmailBody(j job.JobResult, match job.MatchResult, template string) string {
-	switch template {
-	case "experience_gap":
 		return fmt.Sprintf(
-			"Hi %s team,\n\n"+
-				"I'm reaching out about the %s role. While I'm early in my career with relevant project experience, "+
-				"I'm deeply interested in this space and have been building with similar technologies. "+
-				"I'd love a chance to discuss how my skills could contribute to your team.\n\n"+
-				"Best,\n%s",
+			"Hi %s team,\n\nI'm reaching out about the %s role. While I'm early in my career, "+
+				"I have hands-on experience with the relevant technologies and I'm deeply interested in this space. "+
+				"I'd love a chance to discuss how I can contribute.\n\nBest,\n%s",
 			j.Company, j.Title, "Applicant",
 		)
 	case "overqualified":
 		return fmt.Sprintf(
-			"Hi %s team,\n\n"+
-				"I'm writing about the %s position. My background aligns well with what you're looking for, "+
-				"and I'm specifically drawn to %s because of [specific reason]. "+
-				"I'm looking for a role where I can make a deep impact, and I believe this could be a great fit.\n\n"+
-				"Would you be open to a conversation?\n\n"+
-				"Best,\n%s",
+			"Hi %s team,\n\nI'm writing about the %s position. My background aligns well, "+
+				"and I'm specifically drawn to %s because of the work you're doing. "+
+				"I'd love to discuss how I can make an impact.\n\nBest,\n%s",
 			j.Company, j.Title, j.Company, "Applicant",
 		)
-	default: // qualified
+	default:
 		return fmt.Sprintf(
-			"Hi %s team,\n\n"+
-				"I came across your %s opening and wanted to reach out. "+
-				"My experience aligns well with what you're looking for, and I'm excited about the work you're doing at %s.\n\n"+
-				"I'd love to connect and discuss how I can contribute.\n\n"+
-				"Best,\n%s",
-			j.Company, j.Title, j.Company, "Applicant",
+			"Hi %s team,\n\nI came across your %s opening and wanted to reach out. "+
+				"My experience aligns well with what you're looking for. "+
+				"I'd love to connect and discuss how I can contribute.\n\nBest,\n%s",
+			j.Company, j.Title, "Applicant",
 		)
 	}
 }
 
-// extractDomain extracts a domain from a URL for email purposes.
 func (p *JobHunterPlugin) extractDomain(url string) string {
 	if url == "" {
 		return "unknown.com"
 	}
-	// Simple extraction — would be more robust in production
 	for _, prefix := range []string{"https://", "http://", "www."} {
 		if len(url) > len(prefix) && url[:len(prefix)] == prefix {
 			url = url[len(prefix):]
 		}
 	}
-	// Take just the domain
 	for i, c := range url {
 		if c == '/' || c == ':' {
 			return url[:i]
