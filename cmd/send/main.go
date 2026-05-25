@@ -144,7 +144,7 @@ func main() {
 		}
 
 		// Build LLM prompt
-		sysPrompt := prompt.BuildSystemPrompt(cfg.MinWords, cfg.MaxWords)
+		sysPrompt := prompt.BuildSystemPrompt(120, 300)
 		userPrompt := prompt.BuildUserPrompt(
 			contextText,
 			item.JobTitle,

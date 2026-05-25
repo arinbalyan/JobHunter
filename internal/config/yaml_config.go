@@ -168,12 +168,6 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.Email.DailyLimit > 0 {
 		cfg.DailyEmailLimit = yc.Email.DailyLimit
 	}
-	if yc.Email.MinWords > 0 {
-		cfg.MinWords = yc.Email.MinWords
-	}
-	if yc.Email.MaxWords > 0 {
-		cfg.MaxWords = yc.Email.MaxWords
-	}
 	cfg.EmailDelay = time.Duration(cfg.EmailDelaySeconds) * time.Second
 
 	// LLM settings
