@@ -3,7 +3,6 @@ package router
 import (
 	"context"
 	"fmt"
-	"math"
 	"sync"
 	"sync/atomic"
 )
@@ -297,12 +296,4 @@ func (r *Router) TotalTokensUsed() int64 {
 	return r.totalTokens.Load()
 }
 
-// tokenCost estimates token usage for a prompt.
-func estimateTokens(texts ...string) int {
-	total := 0
-	for _, t := range texts {
-		// Rough estimate: ~4 chars per token for English text
-		total += int(math.Ceil(float64(len(t)) / 4.0))
-	}
-	return total
-}
+

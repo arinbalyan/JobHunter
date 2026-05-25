@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"fmt"
-	"log"
 	"strings"
 	"time"
 )
@@ -47,7 +46,7 @@ type ScanResult struct {
 
 // Scan checks the inbox for bounces and replies since the last check.
 func (s *Scanner) Scan(ctx context.Context) (*ScanResult, error) {
-	log.Printf("[imap] scanning inbox for bounces and replies...")
+	fmt.Printf("[imap] scanning inbox for bounces and replies...")
 
 	result := &ScanResult{}
 
@@ -99,11 +98,11 @@ func (s *Scanner) Scan(ctx context.Context) (*ScanResult, error) {
 	// Mark all scanned messages as SEEN
 	if len(bounceIDs) > 0 || len(replyIDs) > 0 {
 		if err := s.markSeen(conn, append(bounceIDs, replyIDs...)); err != nil {
-			log.Printf("[imap] error marking messages as seen: %v", err)
+			fmt.Printf("[imap] error marking messages as seen: %v", err)
 		}
 	}
 
-	log.Printf("[imap] scan complete: %d bounces, %d replies", result.Bounces, result.Replies)
+	fmt.Printf("[imap] scan complete: %d bounces, %d replies", result.Bounces, result.Replies)
 	return result, nil
 }
 
@@ -249,7 +248,7 @@ func (s *Scanner) processBounce(conn *tls.Conn, msgID string) error {
 	// Gmail bounces include the original message text
 	originalMsgID := extractMessageID(response)
 	if originalMsgID == "" {
-		log.Printf("[imap] could not extract original message ID from bounce %s", msgID)
+		fmt.Printf("[imap] could not extract original message ID from bounce %s", msgID)
 		return nil
 	}
 
@@ -263,7 +262,7 @@ func (s *Scanner) processBounce(conn *tls.Conn, msgID string) error {
 		return fmt.Errorf("mark bounced %s: %w", originalMsgID, err)
 	}
 
-	log.Printf("[imap] processed bounce: msg=%s, type=%s", originalMsgID, bounceType)
+	fmt.Printf("[imap] processed bounce: msg=%s, type=%s", originalMsgID, bounceType)
 	return nil
 }
 
@@ -285,7 +284,7 @@ func (s *Scanner) processReply(conn *tls.Conn, msgID string) error {
 	// Extract In-Reply-To or References to find original message
 	originalMsgID := extractInReplyTo(response)
 	if originalMsgID == "" {
-		log.Printf("[imap] could not extract In-Reply-To from reply %s", msgID)
+		fmt.Printf("[imap] could not extract In-Reply-To from reply %s", msgID)
 		return nil
 	}
 
@@ -296,7 +295,7 @@ func (s *Scanner) processReply(conn *tls.Conn, msgID string) error {
 		return fmt.Errorf("mark replied %s: %w", originalMsgID, err)
 	}
 
-	log.Printf("[imap] processed reply to: %s", originalMsgID)
+	fmt.Printf("[imap] processed reply to: %s", originalMsgID)
 	return nil
 }
 
@@ -394,28 +393,4 @@ func classifyBounce(body string) string {
 	default:
 		return "unknown_bounce"
 	}
-}
-
-// EnsureDatabase checks that the Database interface is satisfied at compile time.
-var _ Database = (*databaseAdapter)(nil)
-
-// databaseAdapter adapts the real db.Pool to the IMAP scanner's Database interface.
-type databaseAdapter struct {
-	pool interface {
-		MarkBounced(ctx context.Context, messageID string, bounceType string) error
-		MarkReplied(ctx context.Context, messageID string) error
-		GetRecentEmails(ctx context.Context, hours int) ([]interface{}, error)
-	}
-}
-
-func (a *databaseAdapter) MarkBounced(ctx context.Context, messageID string, bounceType string) error {
-	return a.pool.MarkBounced(ctx, messageID, bounceType)
-}
-
-func (a *databaseAdapter) MarkReplied(ctx context.Context, messageID string) error {
-	return a.pool.MarkReplied(ctx, messageID)
-}
-
-func (a *databaseAdapter) GetRecentEmails(ctx context.Context, hours int) ([]interface{}, error) {
-	return a.pool.GetRecentEmails(ctx, hours)
 }

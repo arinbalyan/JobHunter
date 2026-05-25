@@ -98,7 +98,7 @@ func main() {
 
 	// ── Summary ──────────────────────────────────────────────────────────
 	logger.Info("run complete")
-	logger.Info(plugin.Summary(results))
+	logger.Info("%s", plugin.Summary(results))
 
 	// Exit with non-zero if any plugin failed
 	for _, r := range results {
