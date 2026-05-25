@@ -1,0 +1,46 @@
+# Agent data (local only)
+AGENTS.md
+.agent-data/
+PLAN.md
+
+# Environment
+.env
+.env.local
+*.env.local
+
+# Binaries
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.out
+
+# Build output
+dist/
+build/
+tmp/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+*.test
+*.test.exe
+*.test.out
+*.test.dll
+*.test.so
+*.test.dylib
+# Go workspace
+go.work
+go.work.sum
