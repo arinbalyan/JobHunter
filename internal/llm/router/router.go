@@ -12,9 +12,15 @@ import (
 type ProviderKind string
 
 const (
-	ProviderOpenRouter ProviderKind = "openrouter"
-	ProviderGroq       ProviderKind = "groq"
-	ProviderCerebras   ProviderKind = "cerebras"
+	ProviderOpenRouter  ProviderKind = "openrouter"
+	ProviderGroq        ProviderKind = "groq"
+	ProviderCerebras    ProviderKind = "cerebras"
+	ProviderTogether    ProviderKind = "together"
+	ProviderDeepInfra   ProviderKind = "deepinfra"
+	ProviderFireworks   ProviderKind = "fireworks"
+	ProviderHyperbolic  ProviderKind = "hyperbolic"
+	ProviderSambaNova   ProviderKind = "sambanova"
+	ProviderZAI         ProviderKind = "zai"
 )
 
 // TaskComplexity classifies the complexity of an LLM request.
@@ -30,10 +36,11 @@ const (
 type ProviderStatus struct {
 	Kind       ProviderKind
 	BaseURL    string
+	APIKey     string
 	Model      string
 	Healthy    bool
-	LastUsed   int64 // unix nanos
-	TokenCount int64 // total tokens used through this provider
+	LastUsed   int64
+	TokenCount int64
 	FailCount  int64
 	mu         sync.RWMutex
 }
@@ -59,6 +66,7 @@ func New(providers []ProviderConfig, maxTokensPerRun int64) *Router {
 		r.providers[i] = &ProviderStatus{
 			Kind:    p.Kind,
 			BaseURL: p.BaseURL,
+			APIKey:  p.APIKey,
 			Model:   p.Model,
 			Healthy: true,
 		}
@@ -144,7 +152,7 @@ func (r *Router) Complete(ctx context.Context, task TaskComplexity, req *Complet
 }
 
 // selectProvider picks the best provider for the given task complexity.
-// Uses weighted round-robin: Groq/Cerebras for simple, OpenRouter for complex.
+// Uses weighted selection: fast providers for simple, capable for complex.
 func (r *Router) selectProvider(task TaskComplexity) *ProviderStatus {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -160,26 +168,50 @@ func (r *Router) selectProvider(task TaskComplexity) *ProviderStatus {
 		return nil
 	}
 
+	// Fast providers for simple tasks
+	fastProviders := map[ProviderKind]bool{
+		ProviderGroq: true, ProviderCerebras: true,
+		ProviderTogether: true, ProviderDeepInfra: true,
+		ProviderFireworks: true, ProviderHyperbolic: true,
+	}
+
+	// Capable providers for complex tasks
+	capableProviders := map[ProviderKind]bool{
+		ProviderOpenRouter: true, ProviderSambaNova: true,
+		ProviderZAI: true,
+	}
+
 	switch task {
 	case TaskSimple:
-		// Prefer fast providers (Groq, Cerebras) for simple tasks
 		for _, p := range candidates {
-			if p.Kind == ProviderGroq || p.Kind == ProviderCerebras {
+			if fastProviders[p.Kind] {
 				return p
 			}
 		}
 	case TaskComplex:
-		// Prefer capable providers (OpenRouter with best model) for complex tasks
 		for _, p := range candidates {
-			if p.Kind == ProviderOpenRouter {
+			if capableProviders[p.Kind] {
 				return p
 			}
 		}
 	}
 
-	// Round-robin across all eligible providers
-	idx := r.rrIndex.Add(1) % uint64(len(candidates))
-	return candidates[idx]
+	// Weighted round-robin: providers with higher weight are picked more often
+	// We double the index for higher weight models
+	var weighted []*ProviderStatus
+	for _, p := range candidates {
+		weight := 1
+		// Extract weight from provider's model (heuristic)
+		if p.Kind == ProviderOpenRouter || p.Kind == ProviderGroq {
+			weight = 3
+		}
+		for i := 0; i < weight; i++ {
+			weighted = append(weighted, p)
+		}
+	}
+
+	idx := r.rrIndex.Add(1) % uint64(len(weighted))
+	return weighted[idx]
 }
 
 // nextHealthy returns the next healthy provider after the given one.
@@ -217,7 +249,7 @@ func (r *Router) callProvider(ctx context.Context, p *ProviderStatus, req *Compl
 		return nil, fmt.Errorf("no dispatcher for provider: %s", p.Kind)
 	}
 
-	resp, err := dispatch(ctx, p.BaseURL, p.Model, req)
+	resp, err := dispatch(ctx, p.BaseURL, p.APIKey, p.Model, req)
 	if err != nil {
 		return nil, err
 	}

@@ -15,10 +15,21 @@ type Config struct {
 	// Database
 	DatabaseURL string
 
-	// LLM Providers
+	// LLM Providers (all added dynamically from env)
 	OpenRouterAPIKey string
 	GroqAPIKey       string
 	CerebrasAPIKey   string
+	NvidiaAPIKey     string
+	SambaNovaAPIKey  string
+	HuggingFaceAPIKey string
+	ReplicateAPIToken string
+	DeepInfraAPIKey  string
+	FireworksAPIKey  string
+	CodestralAPIKey  string
+	HyperbolicAPIKey string
+	GoogleAPIKey     string
+	TogetherAPIKey   string
+	ZAIAPIKey        string
 
 	// LLM Settings
 	ComplexModel          string
@@ -65,12 +76,113 @@ type Config struct {
 	UserYearsExperience int
 	UserCurrentRole     string
 	UserTargetRoles     []string
+
+	// Contact Info
+	ContactName      string
+	ContactEmail     string
+	ContactPhone     string
+	ContactPortfolio string
+	ContactGithub    string
+	ContactLinkedin  string
+	ContactCodolio   string
+	ResumeDriveLink  string
+}
+
+// ProviderConfig holds configuration for a single LLM provider.
+type ProviderConfig struct {
+	Kind    string // openrouter | groq | cerebras | nvidia | sambanova | together | deepinfra | fireworks | hyperbolic | zai
+	APIKey  string
+	BaseURL string
+	Model   string
+	Weight  int // higher = more preferred for complex tasks
+}
+
+// GetActiveProviders returns all configured LLM providers.
+func (c *Config) GetActiveProviders() []ProviderConfig {
+	providers := []ProviderConfig{}
+
+	// --- OpenRouter (primary, most models, all free models) ---
+	if c.OpenRouterAPIKey != "" {
+		providers = append(providers,
+			// Complex reasoning: Gemma 4, DeepSeek V4, Llama 405B
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: c.ComplexModel, Weight: 5},
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "google/gemma-4-26b-a4b-it:free", Weight: 4},
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "deepseek/deepseek-v4-flash:free", Weight: 4},
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "meta-llama/llama-3.3-70b-instruct:free", Weight: 3},
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "google/lyria-3-pro-preview", Weight: 3},
+			// Simple/fast: smaller models
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: c.SimpleModel, Weight: 2},
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "qwen/qwen3-coder:free", Weight: 2},
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "openai/gpt-oss-20b:free", Weight: 1},
+			// Emergency fallback: OpenRouter's free model router
+			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "openrouter/free", Weight: 0},
+		)
+	}
+
+	// --- Groq (fast inference, good for simple tasks) ---
+	if c.GroqAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "groq", APIKey: c.GroqAPIKey, BaseURL: "https://api.groq.com/openai", Model: "llama-3.3-70b-versatile", Weight: 3},
+			ProviderConfig{Kind: "groq", APIKey: c.GroqAPIKey, BaseURL: "https://api.groq.com/openai", Model: "llama-3.1-8b-instant", Weight: 2},
+			ProviderConfig{Kind: "groq", APIKey: c.GroqAPIKey, BaseURL: "https://api.groq.com/openai", Model: "openai/gpt-oss-120b", Weight: 1},
+		)
+	}
+
+	// --- Cerebras (wafer-scale, very fast) ---
+	if c.CerebrasAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "cerebras", APIKey: c.CerebrasAPIKey, BaseURL: "https://api.cerebras.ai", Model: c.SimpleModel, Weight: 2},
+		)
+	}
+
+	// --- Together AI ---
+	if c.TogetherAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "together", APIKey: c.TogetherAPIKey, BaseURL: "https://api.together.xyz", Model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", Weight: 2},
+			ProviderConfig{Kind: "together", APIKey: c.TogetherAPIKey, BaseURL: "https://api.together.xyz", Model: "google/gemma-4-9b-it", Weight: 2},
+		)
+	}
+
+	// --- DeepInfra ---
+	if c.DeepInfraAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "deepinfra", APIKey: c.DeepInfraAPIKey, BaseURL: "https://api.deepinfra.com", Model: "meta-llama/Llama-3.3-70B-Instruct", Weight: 2},
+		)
+	}
+
+	// --- Fireworks AI ---
+	if c.FireworksAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "fireworks", APIKey: c.FireworksAPIKey, BaseURL: "https://api.fireworks.ai", Model: "accounts/fireworks/models/llama-v3p3-70b-instruct", Weight: 2},
+		)
+	}
+
+	// --- Hyperbolic ---
+	if c.HyperbolicAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "hyperbolic", APIKey: c.HyperbolicAPIKey, BaseURL: "https://api.hyperbolic.xyz", Model: "meta-llama/Llama-3.3-70B-Instruct", Weight: 2},
+		)
+	}
+
+	// --- SambaNova ---
+	if c.SambaNovaAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "sambanova", APIKey: c.SambaNovaAPIKey, BaseURL: "https://api.sambanova.ai", Model: "Meta-Llama-3.3-70B-Instruct", Weight: 2},
+		)
+	}
+
+	// --- ZAI (GLM) ---
+	if c.ZAIAPIKey != "" {
+		providers = append(providers,
+			ProviderConfig{Kind: "zai", APIKey: c.ZAIAPIKey, BaseURL: "https://open.bigmodel.cn/api/paas/v4", Model: "GLM-4-Plus", Weight: 1},
+		)
+	}
+
+	return providers
 }
 
 // Load reads configuration from environment variables.
-// It attempts to load .env file first, then falls back to OS env vars.
 func Load() (*Config, error) {
-	// Try loading .env file — it's okay if it doesn't exist
 	_ = godotenv.Load()
 
 	cfg := &Config{
@@ -79,8 +191,19 @@ func Load() (*Config, error) {
 		OpenRouterAPIKey: getEnv("OPENROUTER_API_KEY", ""),
 		GroqAPIKey:       getEnv("GROQ_API_KEY", ""),
 		CerebrasAPIKey:   getEnv("CEREBRAS_API_KEY", ""),
+		NvidiaAPIKey:     getEnv("NVIDIA_API_KEY", ""),
+		SambaNovaAPIKey:  getEnv("SAMBANOVA_API_KEY", ""),
+		HuggingFaceAPIKey: getEnv("HUGGINGFACE_API_KEY", ""),
+		ReplicateAPIToken: getEnv("REPLICATE_API_TOKEN", ""),
+		DeepInfraAPIKey:  getEnv("DEEPINFRA_API_KEY", ""),
+		FireworksAPIKey:  getEnv("FIREWORKS_API_KEY", ""),
+		CodestralAPIKey:  getEnv("CODESTRAL_API_KEY", ""),
+		HyperbolicAPIKey: getEnv("HYPERBOLIC_API_KEY", ""),
+		GoogleAPIKey:     getEnv("GOOGLE_API_KEY", ""),
+		TogetherAPIKey:   getEnv("TOGETHER_API_KEY", ""),
+		ZAIAPIKey:        getEnv("ZAI_API_KEY", ""),
 
-		ComplexModel: getEnv("LLM_COMPLEX_MODEL", "google/gemma-4-9b-it"),
+		ComplexModel: getEnv("LLM_COMPLEX_MODEL", "google/gemma-4-26b-a4b-it:free"),
 		SimpleModel:  getEnv("LLM_SIMPLE_MODEL", "google/gemma-4-9b-it"),
 
 		GmailUser:     getEnv("GMAIL_USER", ""),
@@ -110,6 +233,15 @@ func Load() (*Config, error) {
 
 		UserYearsExperience: getEnvInt("USER_YEARS_EXPERIENCE", 0),
 		UserCurrentRole:     getEnv("USER_CURRENT_ROLE", ""),
+
+		ContactName:      getEnv("CONTACT_NAME", ""),
+		ContactEmail:     getEnv("CONTACT_EMAIL", ""),
+		ContactPhone:     getEnv("CONTACT_PHONE", ""),
+		ContactPortfolio: getEnv("CONTACT_PORTFOLIO", ""),
+		ContactGithub:    getEnv("CONTACT_GITHUB", ""),
+		ContactLinkedin:  getEnv("CONTACT_LINKEDIN", ""),
+		ContactCodolio:   getEnv("CONTACT_CODOLIO", ""),
+		ResumeDriveLink:  getEnv("RESUME_DRIVE_LINK", ""),
 	}
 
 	// Parse comma-separated lists
@@ -121,7 +253,7 @@ func Load() (*Config, error) {
 	// Parse durations
 	cfg.EmailDelay = time.Duration(cfg.EmailDelaySeconds) * time.Second
 
-	// Parse token limits
+	// Token limits
 	if v := getEnv("LLM_MAX_TOKENS_PER_RUN", ""); v != "" {
 		parsed, err := strconv.ParseInt(v, 10, 64)
 		if err == nil {
@@ -130,26 +262,9 @@ func Load() (*Config, error) {
 	}
 	cfg.MaxTokensPerRequest = getEnvInt("LLM_MAX_TOKENS_PER_REQUEST", 2048)
 
-	// Validate required fields
-	if cfg.DatabaseURL == "" {
-		return nil, fmt.Errorf("DATABASE_URL is required")
-	}
-	if cfg.GmailUser == "" || cfg.GmailAppPass == "" {
-		return nil, fmt.Errorf("GMAIL_USER and GMAIL_APP_PASS are required")
-	}
-	if cfg.OpenRouterAPIKey == "" {
-		return nil, fmt.Errorf("at least one LLM provider key is required (OPENROUTER_API_KEY)")
-	}
-
 	return cfg, nil
 }
 
-// LoadedFromEnv returns true if the .env file was loaded.
-func LoadedFromEnv() bool {
-	return true
-}
-
-// getEnv reads an env var with a default fallback.
 func getEnv(key, defaultVal string) string {
 	if val := os.Getenv(key); val != "" {
 		return val
@@ -157,7 +272,6 @@ func getEnv(key, defaultVal string) string {
 	return defaultVal
 }
 
-// getEnvInt reads an integer env var.
 func getEnvInt(key string, defaultVal int) int {
 	if val := os.Getenv(key); val != "" {
 		parsed, err := strconv.Atoi(val)
@@ -168,7 +282,6 @@ func getEnvInt(key string, defaultVal int) int {
 	return defaultVal
 }
 
-// getEnvBool reads a boolean env var.
 func getEnvBool(key string, defaultVal bool) bool {
 	if val := os.Getenv(key); val != "" {
 		parsed, err := strconv.ParseBool(val)
@@ -179,7 +292,6 @@ func getEnvBool(key string, defaultVal bool) bool {
 	return defaultVal
 }
 
-// parseCommaList splits a comma-separated string, trimming whitespace.
 func parseCommaList(s string) []string {
 	if s == "" {
 		return nil
@@ -195,13 +307,11 @@ func parseCommaList(s string) []string {
 	return result
 }
 
-// parseJSONList tries to parse a JSON string array.
 func parseJSONList(s string) []string {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "[]" {
 		return nil
 	}
-	// Simple parsing for ["a","b","c"] format
 	s = strings.TrimPrefix(s, "[")
 	s = strings.TrimSuffix(s, "]")
 	parts := strings.Split(s, ",")
@@ -216,23 +326,20 @@ func parseJSONList(s string) []string {
 	return result
 }
 
-// Validate checks that all required configuration is present and valid.
 func (c *Config) Validate() error {
 	var errs []string
-
 	if c.DatabaseURL == "" {
 		errs = append(errs, "DATABASE_URL is required")
 	}
 	if c.GmailUser == "" || c.GmailAppPass == "" {
 		errs = append(errs, "GMAIL_USER and GMAIL_APP_PASS are required")
 	}
-	if c.OpenRouterAPIKey == "" && c.GroqAPIKey == "" && c.CerebrasAPIKey == "" {
-		errs = append(errs, "at least one LLM provider key is required (OPENROUTER_API_KEY, GROQ_API_KEY, or CEREBRAS_API_KEY)")
+	if len(c.GetActiveProviders()) == 0 {
+		errs = append(errs, "at least one LLM provider key is required")
 	}
 	if len(c.JobSearchTerms) == 0 {
 		errs = append(errs, "at least one JOB_SEARCH_TERM is required")
 	}
-
 	if len(errs) > 0 {
 		return fmt.Errorf("configuration validation failed:\n  - %s", strings.Join(errs, "\n  - "))
 	}

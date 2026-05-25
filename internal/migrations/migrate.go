@@ -3,8 +3,10 @@ package migrations
 import (
 	"embed"
 	"fmt"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
 )
 
@@ -21,7 +23,7 @@ func Run(databaseURL string) error {
 		return fmt.Errorf("load migration source: %w", err)
 	}
 
-	m, err := migrate.NewWithSourceInstance("iofs", src, databaseURL)
+	m, err := migrate.NewWithSourceInstance("iofs", src, fixURL(databaseURL))
 	if err != nil {
 		return fmt.Errorf("init migration engine: %w", err)
 	}
@@ -59,13 +61,18 @@ func Version(databaseURL string) (uint, bool, error) {
 }
 
 // Drop drops all tables (USE WITH CAUTION — for dev only).
+// fixURL converts postgresql:// to postgres:// for go-migrate compatibility
+func fixURL(url string) string {
+	return strings.Replace(url, "postgresql://", "postgres://", 1)
+}
+
 func Drop(databaseURL string) error {
 	src, err := iofs.New(migrationFiles, ".")
 	if err != nil {
 		return fmt.Errorf("load migration source: %w", err)
 	}
 
-	m, err := migrate.NewWithSourceInstance("iofs", src, databaseURL)
+	m, err := migrate.NewWithSourceInstance("iofs", src, fixURL(databaseURL))
 	if err != nil {
 		return fmt.Errorf("init migration engine: %w", err)
 	}

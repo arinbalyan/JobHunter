@@ -11,7 +11,7 @@ import (
 )
 
 // DispatcherFunc dispatches a completion request to a specific LLM API.
-type DispatcherFunc func(ctx context.Context, baseURL, model string, req *CompletionRequest) (*providerResponse, error)
+type DispatcherFunc func(ctx context.Context, baseURL, apiKey, model string, req *CompletionRequest) (*providerResponse, error)
 
 // providerResponse is the standardised internal response from a provider.
 type providerResponse struct {
@@ -77,12 +77,20 @@ type openRouterResponse struct {
 }
 
 func init() {
+	// All providers use OpenAI-compatible API format
+	// Only differences are: BaseURL, API key header name, and auth type
 	registerDispatcher(ProviderOpenRouter, dispatchOpenRouter)
-	registerDispatcher(ProviderGroq, dispatchOpenRouter)     // Groq uses OpenAI-compatible API
-	registerDispatcher(ProviderCerebras, dispatchOpenRouter) // Cerebras uses OpenAI-compatible API
+	registerDispatcher(ProviderGroq, dispatchOpenRouter)
+	registerDispatcher(ProviderCerebras, dispatchOpenRouter)
+	registerDispatcher(ProviderTogether, dispatchOpenRouter)
+	registerDispatcher(ProviderDeepInfra, dispatchOpenRouter)
+	registerDispatcher(ProviderFireworks, dispatchOpenRouter)
+	registerDispatcher(ProviderHyperbolic, dispatchOpenRouter)
+	registerDispatcher(ProviderSambaNova, dispatchOpenRouter)
+	registerDispatcher(ProviderZAI, dispatchOpenRouter)
 }
 
-func dispatchOpenRouter(ctx context.Context, baseURL, model string, req *CompletionRequest) (*providerResponse, error) {
+func dispatchOpenRouter(ctx context.Context, baseURL, apiKey, model string, req *CompletionRequest) (*providerResponse, error) {
 	// Build messages
 	messages := []message{
 		{Role: "system", Content: req.SystemPrompt},
@@ -111,6 +119,7 @@ func dispatchOpenRouter(ctx context.Context, baseURL, model string, req *Complet
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+apiKey)
 
 	resp, err := defaultHTTPClient.Do(httpReq)
 	if err != nil {
