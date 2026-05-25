@@ -6,9 +6,13 @@
 Scrape job boards, match jobs to your profile, send personalized emails with tracking.
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-Attribution-green)](https://github.com/arinbalyan/JobHunter)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
-[![Daily Run](https://github.com/arinbalyan/JobHunter/actions/workflows/send-emails.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions)
+[![Tests](https://github.com/arinbalyan/JobHunter/actions/workflows/tests.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/tests.yml)
+[![Scrape](https://github.com/arinbalyan/JobHunter/actions/workflows/scrape.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/scrape.yml)
+[![Send](https://github.com/arinbalyan/JobHunter/actions/workflows/send.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/send.yml)
+[![Follow-up](https://github.com/arinbalyan/JobHunter/actions/workflows/followup.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/followup.yml)
+[![Cleanup](https://github.com/arinbalyan/JobHunter/actions/workflows/cleanup.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/cleanup.yml)
 
 </div>
 
@@ -165,7 +169,9 @@ PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT -- see [LICENSE](LICENSE).
+This project is for use and modification with attribution.
+You must credit the original repository and author when using, distributing, or building upon this work.
+See the [repository](https://github.com/arinbalyan/JobHunter) for full terms.
 
 ## Credits
 

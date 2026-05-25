@@ -52,8 +52,6 @@ email:
   max_per_run: 5
   delay_seconds: 60
   daily_limit: 200
-  min_words: 100
-  max_words: 400
 llm:
   complex_model: "test/model:free"
   temperature: 0.5
@@ -88,12 +86,7 @@ max_runtime_minutes: 300
 	if cfg.Email.MaxPerRun != 5 {
 		t.Errorf("MaxPerRun = %d, want 5", cfg.Email.MaxPerRun)
 	}
-	if cfg.Email.MinWords != 100 {
-		t.Errorf("MinWords = %d, want 100", cfg.Email.MinWords)
-	}
-	if cfg.Email.MaxWords != 400 {
-		t.Errorf("MaxWords = %d, want 400", cfg.Email.MaxWords)
-	}
+
 	if cfg.LLM.ComplexModel != "test/model:free" {
 		t.Errorf("ComplexModel = %q, want %q", cfg.LLM.ComplexModel, "test/model:free")
 	}

@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -11,14 +12,14 @@ import (
 
 // YAMLConfig holds all user-facing configuration loaded from .agent-data/config.yaml
 type YAMLConfig struct {
-	User        UserConfig        `yaml:"user"`
-	Search      SearchConfig      `yaml:"search"`
+	User         UserConfig        `yaml:"user"`
+	Search       SearchConfig      `yaml:"search"`
 	RejectTitles []string          `yaml:"reject_titles"`
 	EmailFilters []string          `yaml:"email_filters"`
-	Dedup       DedupConfig        `yaml:"dedup"`
-	Email       EmailSendingConfig `yaml:"email"`
-	LLM         LLMConfig          `yaml:"llm"`
-	MaxRuntime  int                `yaml:"max_runtime_minutes"`
+	Dedup        DedupConfig       `yaml:"dedup"`
+	Email        EmailSendingConfig `yaml:"email"`
+	LLM          LLMConfig         `yaml:"llm"`
+	MaxRuntime   int               `yaml:"max_runtime_minutes"`
 }
 
 type UserConfig struct {
@@ -35,14 +36,14 @@ type UserConfig struct {
 }
 
 type SearchConfig struct {
-	Terms          []string        `yaml:"terms"`
-	Locations      []string        `yaml:"locations"`
-	Sites          []string        `yaml:"sites"`
-	RemoteOnly     bool            `yaml:"remote_only"`
-	JobType        string          `yaml:"job_type"`
-	ResultsPerSite int             `yaml:"results_per_site"`
-	HoursOld       int             `yaml:"hours_old"`
-	Onsite         OnsiteConfig    `yaml:"onsite"`
+	Terms          []string     `yaml:"terms"`
+	Locations      []string     `yaml:"locations"`
+	Sites          []string     `yaml:"sites"`
+	RemoteOnly     bool         `yaml:"remote_only"`
+	JobType        string       `yaml:"job_type"`
+	ResultsPerSite int          `yaml:"results_per_site"`
+	HoursOld       int          `yaml:"hours_old"`
+	Onsite         OnsiteConfig `yaml:"onsite"`
 }
 
 type OnsiteConfig struct {
@@ -58,31 +59,54 @@ type OnsiteConfig struct {
 }
 
 type DedupConfig struct {
-	EmailCooldownDays  int `yaml:"email_cooldown_days"`
-	DomainCooldownHours int `yaml:"domain_cooldown_hours"`
+	EmailCooldownDays    int `yaml:"email_cooldown_days"`
+	DomainCooldownHours  int `yaml:"domain_cooldown_hours"`
 	CompanyCooldownHours int `yaml:"company_cooldown_hours"`
 }
 
 type EmailSendingConfig struct {
-	MaxPerRun         int           `yaml:"max_per_run"`
-	DelaySeconds      int           `yaml:"delay_seconds"`
-	DailyLimit        int           `yaml:"daily_limit"`
-	RetryAttempts     int           `yaml:"retry_attempts"`
-	RetryDelaySeconds int           `yaml:"retry_delay_seconds"`
-	MinWords          int           `yaml:"min_words"`
-	MaxWords          int           `yaml:"max_words"`
+	MaxPerRun         int `yaml:"max_per_run"`
+	DelaySeconds      int `yaml:"delay_seconds"`
+	DailyLimit        int `yaml:"daily_limit"`
+	RetryAttempts     int `yaml:"retry_attempts"`
+	RetryDelaySeconds int `yaml:"retry_delay_seconds"`
 }
 
 type LLMConfig struct {
-	ComplexModel       string  `yaml:"complex_model"`
-	SimpleModel        string  `yaml:"simple_model"`
-	MaxTokensPerRun    int64   `yaml:"max_tokens_per_run"`
-	MaxTokensPerReq    int     `yaml:"max_tokens_per_request"`
-	Temperature        float64 `yaml:"temperature"`
+	ComplexModel    string  `yaml:"complex_model"`
+	SimpleModel     string  `yaml:"simple_model"`
+	MaxTokensPerRun int64   `yaml:"max_tokens_per_run"`
+	MaxTokensPerReq int     `yaml:"max_tokens_per_request"`
+	Temperature     float64 `yaml:"temperature"`
+}
+
+// knownKeys is the set of all valid YAML key paths for validation.
+var knownKeys = map[string]bool{
+	"user": true, "user.name": true, "user.current_role": true,
+	"user.years_experience": true, "user.email": true, "user.phone": true,
+	"user.portfolio": true, "user.github": true, "user.linkedin": true,
+	"user.codolio": true, "user.resume_drive_link": true,
+	"search": true, "search.terms": true, "search.locations": true,
+	"search.sites": true, "search.remote_only": true, "search.job_type": true,
+	"search.results_per_site": true, "search.hours_old": true,
+	"search.onsite": true, "search.onsite.enabled": true, "search.onsite.terms": true,
+	"search.onsite.locations": true, "search.onsite.sites": true,
+	"search.onsite.remote_only": true, "search.onsite.job_type": true,
+	"search.onsite.results_per_site": true, "search.onsite.hours_old": true,
+	"search.onsite.max_emails_per_day": true,
+	"reject_titles": true, "email_filters": true,
+	"dedup": true, "dedup.email_cooldown_days": true,
+	"dedup.domain_cooldown_hours": true, "dedup.company_cooldown_hours": true,
+	"email": true, "email.max_per_run": true, "email.delay_seconds": true,
+	"email.daily_limit": true, "email.retry_attempts": true,
+	"email.retry_delay_seconds": true,
+	"llm": true, "llm.complex_model": true, "llm.simple_model": true,
+	"llm.max_tokens_per_run": true, "llm.max_tokens_per_request": true,
+	"llm.temperature": true, "max_runtime_minutes": true,
 }
 
 // LoadYAML loads config from the .agent-data/config.yaml file.
-// Returns defaults if file doesn't exist.
+// Returns defaults if file doesn't exist. Warns about unknown keys.
 func LoadYAML(path string) (*YAMLConfig, error) {
 	cfg := defaultYAMLConfig()
 
@@ -94,6 +118,13 @@ func LoadYAML(path string) (*YAMLConfig, error) {
 		return nil, fmt.Errorf("read config: %w", err)
 	}
 
+	// Validate for unknown keys before unmarshalling
+	if warnings := validateYAMLKeys(data, ""); len(warnings) > 0 {
+		for _, w := range warnings {
+			log.Printf("[config] Warning: unknown key in %s: %s", path, w)
+		}
+	}
+
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		return nil, fmt.Errorf("parse config: %w", err)
 	}
@@ -101,9 +132,50 @@ func LoadYAML(path string) (*YAMLConfig, error) {
 	return cfg, nil
 }
 
+// validateYAMLKeys walks the parsed YAML tree and reports unknown keys.
+func validateYAMLKeys(data []byte, prefix string) []string {
+	var node yaml.Node
+	if err := yaml.Unmarshal(data, &node); err != nil {
+		return nil
+	}
+	if node.Kind != yaml.DocumentNode || len(node.Content) == 0 {
+		return nil
+	}
+
+	var warnings []string
+	walkYAMLNode(node.Content[0], prefix, &warnings)
+	return warnings
+}
+
+func walkYAMLNode(node *yaml.Node, prefix string, warnings *[]string) {
+	if node.Kind != yaml.MappingNode {
+		return
+	}
+	for i := 0; i < len(node.Content)-1; i += 2 {
+		keyNode := node.Content[i]
+		valNode := node.Content[i+1]
+		if keyNode.Kind != yaml.ScalarNode {
+			continue
+		}
+		key := keyNode.Value
+		fullPath := key
+		if prefix != "" {
+			fullPath = prefix + "." + key
+		}
+
+		if !knownKeys[fullPath] {
+			*warnings = append(*warnings, fullPath)
+		}
+
+		// Recurse into mapping nodes
+		if valNode.Kind == yaml.MappingNode {
+			walkYAMLNode(valNode, fullPath, warnings)
+		}
+	}
+}
+
 // MergeIntoConfig merges YAML settings into the env-based Config.
 func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
-	// User profile from YAML overrides env vars if set
 	if yc.User.Name != "" {
 		cfg.ContactName = yc.User.Name
 	}
@@ -134,8 +206,6 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.User.YearsExperience > 0 {
 		cfg.UserYearsExperience = yc.User.YearsExperience
 	}
-
-	// Search terms from YAML
 	if len(yc.Search.Terms) > 0 {
 		cfg.JobSearchTerms = yc.Search.Terms
 	}
@@ -157,8 +227,6 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.Search.HoursOld > 0 {
 		cfg.JobHoursOld = yc.Search.HoursOld
 	}
-
-	// Email settings
 	if yc.Email.MaxPerRun > 0 {
 		cfg.MaxEmailsPerRun = yc.Email.MaxPerRun
 	}
@@ -169,8 +237,6 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 		cfg.DailyEmailLimit = yc.Email.DailyLimit
 	}
 	cfg.EmailDelay = time.Duration(cfg.EmailDelaySeconds) * time.Second
-
-	// LLM settings
 	if yc.LLM.ComplexModel != "" {
 		cfg.ComplexModel = yc.LLM.ComplexModel
 	}
@@ -185,7 +251,6 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	}
 }
 
-// RejectTitle checks if a title matches any rejection pattern.
 func (yc *YAMLConfig) RejectTitle(title string) bool {
 	titleLow := strings.ToLower(title)
 	for _, pattern := range yc.RejectTitles {
@@ -196,7 +261,6 @@ func (yc *YAMLConfig) RejectTitle(title string) bool {
 	return false
 }
 
-// FilterEmail checks if an email matches any filter pattern.
 func (yc *YAMLConfig) FilterEmail(email string) bool {
 	emailLow := strings.ToLower(email)
 	for _, pattern := range yc.EmailFilters {
@@ -248,8 +312,6 @@ func defaultYAMLConfig() *YAMLConfig {
 			DailyLimit:        500,
 			RetryAttempts:     3,
 			RetryDelaySeconds: 5,
-			MinWords:          120,
-			MaxWords:          300,
 		},
 		LLM: LLMConfig{
 			ComplexModel:    "google/gemma-4-26b-a4b-it:free",
