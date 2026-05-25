@@ -7,11 +7,11 @@ Scrape job boards, match jobs to your profile, send personalized emails with tra
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Attribution-green)](https://github.com/arinbalyan/JobHunter)
-[![Tests](https://github.com/arinbalyan/JobHunter/actions/workflows/tests.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/tests.yml)
-[![Scrape](https://github.com/arinbalyan/JobHunter/actions/workflows/scrape.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/scrape.yml)
-[![Send](https://github.com/arinbalyan/JobHunter/actions/workflows/send.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/send.yml)
-[![Follow-up](https://github.com/arinbalyan/JobHunter/actions/workflows/followup.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/followup.yml)
-[![Cleanup](https://github.com/arinbalyan/JobHunter/actions/workflows/cleanup.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/cleanup.yml)
+[![Tests](https://img.shields.io/github/actions/workflow/status/arinbalyan/JobHunter/tests.yml?label=Tests&logo=github)](https://github.com/arinbalyan/JobHunter/actions/workflows/tests.yml)
+[![Scrape](https://img.shields.io/github/actions/workflow/status/arinbalyan/JobHunter/scrape.yml?label=Scrape&logo=github)](https://github.com/arinbalyan/JobHunter/actions/workflows/scrape.yml)
+[![Send](https://img.shields.io/github/actions/workflow/status/arinbalyan/JobHunter/send.yml?label=Send&logo=github)](https://github.com/arinbalyan/JobHunter/actions/workflows/send.yml)
+[![Follow-up](https://img.shields.io/github/actions/workflow/status/arinbalyan/JobHunter/followup.yml?label=Follow-up&logo=github)](https://github.com/arinbalyan/JobHunter/actions/workflows/followup.yml)
+[![Cleanup](https://img.shields.io/github/actions/workflow/status/arinbalyan/JobHunter/cleanup.yml?label=Cleanup&logo=github)](https://github.com/arinbalyan/JobHunter/actions/workflows/cleanup.yml)
 
 </div>
 
