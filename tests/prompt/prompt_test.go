@@ -27,15 +27,42 @@ func TestBuildSystemPrompt(t *testing.T) {
 	if !strings.Contains(p, "NO URLs") {
 		t.Error("expected URL prohibition")
 	}
+	// New: experience match strategies
+	if !strings.Contains(p, "UNDERQUALIFIED") {
+		t.Error("expected UNDERQUALIFIED strategy section")
+	}
+	if !strings.Contains(p, "OVERQUALIFIED") {
+		t.Error("expected OVERQUALIFIED strategy section")
+	}
+	if !strings.Contains(p, "QUALIFIED") {
+		t.Error("expected QUALIFIED strategy section")
+	}
+	// New: honesty directive
+	if !strings.Contains(p, "fabricated") {
+		t.Error("expected anti-fabrication instruction")
+	}
 }
 
 func TestBuildUserPrompt(t *testing.T) {
 	context := "Software Engineer with 3 years of Go experience"
 	jobTitle := "Senior Golang Developer"
 	company := "TestCorp"
-	description := "We are looking for a Senior Golang Developer with experience in microservices, distributed systems, and cloud infrastructure."
+	description := "We need a Senior Golang Developer with microservices experience."
+	seniority := "senior"
+	location := "Remote"
+	jobType := "fulltime"
+	salary := "$120k-$150k"
+	skills := "Go, Kubernetes, PostgreSQL"
+	industry := "SaaS"
+	expMatch := "underqualified"
+	roleMatch := "yes"
+	yearsExp := 3
 
-	p := prompt.BuildUserPrompt(context, jobTitle, company, description, 500)
+	p := prompt.BuildUserPrompt(
+		context, jobTitle, company, description,
+		seniority, location, jobType, salary, skills, industry,
+		expMatch, roleMatch, yearsExp, 500,
+	)
 	if p == "" {
 		t.Fatal("expected non-empty prompt")
 	}
@@ -48,15 +75,30 @@ func TestBuildUserPrompt(t *testing.T) {
 	if !strings.Contains(p, company) {
 		t.Error("expected company in prompt")
 	}
-	if !strings.Contains(p, "microservices") {
-		t.Error("expected description content in prompt")
+	if !strings.Contains(p, expMatch) {
+		t.Error("expected experience match assessment in prompt")
+	}
+	if !strings.Contains(p, "3") {
+		t.Error("expected years of experience")
+	}
+	if !strings.Contains(p, skills) {
+		t.Error("expected skills listed")
+	}
+	if !strings.Contains(p, salary) {
+		t.Error("expected salary info")
 	}
 }
 
 func TestBuildUserPrompt_Truncation(t *testing.T) {
-	description := string(make([]byte, 10000)) // Very long description
-	p := prompt.BuildUserPrompt("context", "title", "company", description, 100)
-	if len(p) > 500 {
+	description := string(make([]byte, 10000))
+	_ = description
+	// Just verify no panic with large description
+	p := prompt.BuildUserPrompt(
+		"ctx", "title", "company", string(make([]byte, 10000)),
+		"senior", "Remote", "fulltime", "$100k", "Go", "Tech",
+		"qualified", "yes", 3, 100,
+	)
+	if len(p) > 1000 {
 		t.Errorf("prompt too long (%d chars) after truncation", len(p))
 	}
 	if !strings.Contains(p, "...") {

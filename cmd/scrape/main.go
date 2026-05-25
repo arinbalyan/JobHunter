@@ -1,0 +1,281 @@
+// Command: scrape
+// Runs scrappy with config.yaml, stores all results in DB, evaluates
+// each job against filters/rejections/dedup, and marks as pending/skipped.
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"runtime/debug"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/arinbalyan/jobhunter/internal/config"
+	"github.com/arinbalyan/jobhunter/internal/db"
+	"github.com/arinbalyan/jobhunter/internal/dedup"
+	"github.com/arinbalyan/jobhunter/internal/logging"
+	"github.com/arinbalyan/jobhunter/internal/migrations"
+	"github.com/arinbalyan/jobhunter/internal/scraper"
+	"github.com/google/uuid"
+)
+
+func main() {
+	if val := os.Getenv("GOMEMLIMIT"); val == "" {
+		debug.SetMemoryLimit(80 * 1024 * 1024)
+	}
+
+	startTime := time.Now()
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load config: %v", err)
+	}
+	yamlCfg, err := config.LoadYAML(".agent-data/config.yaml")
+	if err == nil {
+		yamlCfg.MergeIntoConfig(cfg)
+	}
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid config: %v", err)
+	}
+
+	logger := logging.New(cfg.LogLevel, os.Stdout)
+	logger.Info("Scrape workflow starting...")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigCh
+		logger.Info("shutting down...")
+		cancel()
+	}()
+
+	// Database
+	dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		logger.Error("database connection failed: %v", err)
+		os.Exit(1)
+	}
+	defer dbPool.Close()
+
+	// Migrations
+	if err := migrations.Run(cfg.DatabaseURL); err != nil {
+		logger.Error("migrations failed: %v", err)
+		os.Exit(1)
+	}
+
+	// Load scrappy config path — either from env or use scrappy's default locations
+	scrappyCfg := getEnv("SCRAPPY_CONFIG", "")
+	if scrappyCfg == "" {
+		// Try common locations
+		for _, p := range []string{
+			"/home/nemesis/projects/scrappy/config.yaml",
+			"../scrappy/config.yaml",
+			"config.yaml",
+			os.Getenv("HOME") + "/.scrappy/config.yaml",
+		} {
+			if _, err := os.Stat(p); err == nil {
+				scrappyCfg = p
+				break
+			}
+		}
+	}
+
+	if scrappyCfg != "" {
+		logger.Info("using scrappy config: %s", scrappyCfg)
+	}
+
+	// Build scrappy CLI args: --config path + --non-interactive
+	scrCfg := scraper.Config{
+		SearchTerms:   cfg.JobSearchTerms,
+		Locations:     cfg.JobLocations,
+		Sites:         cfg.JobSites,
+		ResultsWanted: cfg.JobResultsPerSite,
+		RemoteOnly:    cfg.JobRemoteOnly,
+		JobType:       cfg.JobType,
+		MemoryCapMB:   cfg.ScrapyMemoryCapMB,
+		Proxy:         cfg.ScrapyProxy,
+		ConfigPath:    scrappyCfg,
+		EmailOnly:     true,
+	}
+
+	scr := scraper.New(scrCfg)
+	jobs, err := scr.Scrape(ctx)
+	if err != nil {
+		logger.Error("scrape failed: %v", err)
+		// Record the failed run
+		recordRun(ctx, dbPool, "scrape", "failed", 0, 0, 0, 0, 0, time.Since(startTime), err.Error())
+		os.Exit(1)
+	}
+
+	logger.Info("scraped %d jobs from %d sites", len(jobs), len(cfg.JobSites))
+
+	if len(jobs) == 0 {
+		logger.Info("no jobs found")
+		recordRun(ctx, dbPool, "scrape", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
+		return
+	}
+
+	// Evaluates each job and insert into DB
+	pending := 0
+	skipped := 0
+	skippedReasons := make(map[string]int)
+
+	de := dedup.New(dbPool, yamlCfg.Dedup.EmailCooldownDays)
+
+	for _, j := range jobs {
+		// 1. Title rejection
+		if yamlCfg.RejectTitle(j.Title) {
+			skipped++
+			skippedReasons["title_rejected"]++
+			insertJob(ctx, dbPool, &j, "skipped", "title_rejected", "", &skipped)
+			continue
+		}
+
+		// 2. Extract and filter emails
+		emails := j.FlatEmails()
+		if len(emails) == 0 {
+			skipped++
+			skippedReasons["no_email"]++
+			insertJob(ctx, dbPool, &j, "skipped", "no_email", "", &skipped)
+			continue
+		}
+
+		// Filter emails
+		var validEmails []string
+		for _, e := range emails {
+			if !yamlCfg.FilterEmail(e) {
+				validEmails = append(validEmails, e)
+			} else {
+				skippedReasons["email_filtered"]++
+			}
+		}
+		if len(validEmails) == 0 {
+			skipped++
+			skippedReasons["no_valid_email"]++
+			insertJob(ctx, dbPool, &j, "skipped", "no_valid_email", "", &skipped)
+			continue
+		}
+
+		primaryEmail := validEmails[0]
+
+		// 3. Dedup check
+		canSend, reason := de.CanSend(ctx, primaryEmail)
+		if !canSend {
+			skipped++
+			skippedReasons["dedup"]++
+			insertJob(ctx, dbPool, &j, "skipped", reason, primaryEmail, &skipped)
+			continue
+		}
+
+		// 4. Mark as pending
+		insertJob(ctx, dbPool, &j, "pending", "", primaryEmail, &pending)
+		pending++
+		de.MarkSent(ctx, &db.EmailRecord{
+			RecipientEmail: primaryEmail,
+			Subject:        j.Title,
+			BodyPreview:    truncate(j.Description, 200),
+			Status:         "pending",
+			TrackingID:     uuid.New().String(),
+		})
+	}
+
+	duration := time.Since(startTime)
+	logger.Info("results: %d pending, %d skipped (%s)", pending, skipped, summarizeReasons(skippedReasons))
+
+	recordRun(ctx, dbPool, "scrape", "completed", len(jobs), pending, skipped, 0, 0, duration, "")
+
+	// Check for Telegram
+	tgToken := cfg.TelegramBotToken
+	tgChat := cfg.TelegramChatID
+	if tgToken != "" && tgChat != "" {
+		msg := fmt.Sprintf(
+			"<b>Scrape Complete</b>\nScraped: %d\nPending: %d\nSkipped: %d\nDuration: %.0fs\n%s",
+			len(jobs), pending, skipped, duration.Seconds(), summarizeReasons(skippedReasons),
+		)
+		sendTelegram(ctx, tgToken, tgChat, msg)
+	}
+}
+
+func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status, skipReason, recipientEmail string, inserted *int) {
+	emails := j.FlatEmails()
+	emailsJSON := "[]"
+	if len(emails) > 0 {
+		emailsJSON = fmt.Sprintf(`["%s"]`, strings.Join(emails, `","`))
+	}
+
+	_, isNew, _ := pool.InsertJobFull(ctx, &db.FullJobRecord{
+		JobID:       j.ID,
+		Title:       j.Title,
+		Company:     j.CompanyName,
+		CompanyURL:  j.CompanyURL,
+		JobURL:      j.JobURL,
+		Location:    j.Location,
+		IsRemote:    j.IsRemote,
+		Description: j.Description,
+		JobType:     j.JobType,
+		DatePosted:  j.DatePosted,
+		Source:      j.Site,
+		Seniority:   j.Seniority,
+		Department:  j.Department,
+		Emails:      emailsJSON,
+		Status:      status,
+		SkipReason:  skipReason,
+		RecipientEmail: recipientEmail,
+	})
+	if isNew {
+		*inserted++
+	}
+}
+
+func truncate(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "..."
+}
+
+func summarizeReasons(reasons map[string]int) string {
+	var parts []string
+	for k, v := range reasons {
+		parts = append(parts, fmt.Sprintf("%s=%d", k, v))
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, ", ")
+}
+
+func getEnv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}
+
+func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scraped, pending, skipped, sent, failed int, dur time.Duration, errMsg string) {
+	if pool == nil {
+		return
+	}
+	_ = pool.RecordRunLog(ctx, workflow, status, scraped, pending, skipped, sent, failed, int(dur.Milliseconds()), errMsg)
+}
+
+func sendTelegram(ctx context.Context, token, chatID, msg string) {
+	// Simple HTTP call to Telegram API
+	body := fmt.Sprintf(`{"chat_id":"%s","text":"%s","parse_mode":"HTML"}`, chatID, strings.ReplaceAll(msg, `"`, `\"`))
+	req, _ := http.NewRequestWithContext(ctx, "POST",
+		fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token),
+		strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err == nil {
+		resp.Body.Close()
+	}
+}

@@ -1,0 +1,30 @@
+name: Send Emails
+on:
+  schedule:
+    # Daily at 2 PM UTC (after scrape completes)
+    - cron: '0 14 * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    name: Send Pending Emails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Send pending emails
+        run: go run ./cmd/send/
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          TRACKING_SERVER_URL: ${{ secrets.TRACKING_SERVER_URL }}
+          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
