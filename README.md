@@ -7,7 +7,6 @@ Scrape job boards, match jobs to your profile, send personalized emails with tra
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Attribution-green)](https://github.com/arinbalyan/JobHunter)
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](CONTRIBUTING.md)
 [![Tests](https://github.com/arinbalyan/JobHunter/actions/workflows/tests.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/tests.yml)
 [![Scrape](https://github.com/arinbalyan/JobHunter/actions/workflows/scrape.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/scrape.yml)
 [![Send](https://github.com/arinbalyan/JobHunter/actions/workflows/send.yml/badge.svg)](https://github.com/arinbalyan/JobHunter/actions/workflows/send.yml)
@@ -160,8 +159,7 @@ Tables are auto-created via embedded migrations:
 
 ## Contributing
 
-PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
-
+PRs welcome! 
 - Create feature branches from `dev`
 - Follow Go conventions (`gofmt`, `go vet`)
 - Add tests for new plugins
