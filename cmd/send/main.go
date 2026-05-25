@@ -28,6 +28,13 @@ func main() {
 		debug.SetMemoryLimit(80 * 1024 * 1024)
 	}
 
+	dryRun := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--dry-run" || arg == "-n" {
+			dryRun = true
+		}
+	}
+
 	startTime := time.Now()
 
 	cfg, err := config.Load()
@@ -188,7 +195,10 @@ func main() {
 
 		logger.Info("sending (%d/%d): %s at %s -> %s", i+1, len(queueItems), item.JobTitle, item.Company, item.RecipientEmail)
 
-		if err := emailSender.Send(ctx, msg); err != nil {
+		if dryRun {
+			logger.Info("[DRY-RUN] would send: subject=%s, body=%d chars", msg.Subject, len(msg.PlainBody))
+			sent++
+		} else if err := emailSender.Send(ctx, msg); err != nil {
 			logger.Error("failed: %v", err)
 			dbPool.UpdateQueueStatus(ctx, item.ID, "failed", err.Error())
 			failed++
