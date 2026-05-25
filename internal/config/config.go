@@ -101,20 +101,59 @@ type ProviderConfig struct {
 func (c *Config) GetActiveProviders() []ProviderConfig {
 	providers := []ProviderConfig{}
 
-	// --- OpenRouter (primary, most models, all free models) ---
+	// ─── OpenRouter: Dynamic free model picker ──────────────
+	// On startup, fetches all models from OpenRouter, filters those with ":free" suffix,
+	// sorts by context length (largest = most capable first), and injects them all.
+	// This means new free models are automatically picked up without code changes.
 	if c.OpenRouterAPIKey != "" {
+		// Priority 1: User's preferred complex model (if specified)
+		if c.ComplexModel != "" {
+			providers = append(providers,
+				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: c.ComplexModel, Weight: 10},
+			)
+		}
+
+		// Priority 2: User's preferred simple model
+		if c.SimpleModel != "" && c.SimpleModel != c.ComplexModel {
+			providers = append(providers,
+				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: c.SimpleModel, Weight: 5},
+			)
+		}
+
+		// Priority 3: Dynamically discovered free models
+		// Ranks by context length: bigger context = more capable = higher weight
+		freeModels, err := FetchFreeModels(c.OpenRouterAPIKey)
+		if err == nil && len(freeModels) > 0 {
+			for i, m := range freeModels {
+				// Weight: higher context = higher weight, capped at 8, min 1
+				weight := 8 - i
+				if weight < 1 {
+					weight = 1
+				}
+				if weight > 8 {
+					weight = 8
+				}
+				providers = append(providers,
+					ProviderConfig{
+						Kind:    "openrouter",
+						APIKey:  c.OpenRouterAPIKey,
+						BaseURL: "https://openrouter.ai/api",
+						Model:   m.ID,
+						Weight:  weight,
+					},
+				)
+			}
+		} else {
+			// Fallback: if API call fails, use a few well-known free models
+			providers = append(providers,
+				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "google/gemma-4-26b-a4b-it:free", Weight: 6},
+				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "deepseek/deepseek-v4-flash:free", Weight: 5},
+				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "meta-llama/llama-3.3-70b-instruct:free", Weight: 4},
+			)
+		}
+
+		// Priority 4: Emergency catch-all — OpenRouter's free router
 		providers = append(providers,
-			// Complex reasoning: Gemma 4, DeepSeek V4, Llama 405B
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: c.ComplexModel, Weight: 5},
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "google/gemma-4-26b-a4b-it:free", Weight: 4},
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "deepseek/deepseek-v4-flash:free", Weight: 4},
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "meta-llama/llama-3.3-70b-instruct:free", Weight: 3},
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "google/lyria-3-pro-preview", Weight: 3},
-			// Simple/fast: smaller models
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: c.SimpleModel, Weight: 2},
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "qwen/qwen3-coder:free", Weight: 2},
-			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "openai/gpt-oss-20b:free", Weight: 1},
-			// Emergency fallback: OpenRouter's free model router
 			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "openrouter/free", Weight: 0},
 		)
 	}
