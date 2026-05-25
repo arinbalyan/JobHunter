@@ -5,7 +5,10 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"io"
 	"net/smtp"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,29 +17,33 @@ import (
 
 // SMTPConfig holds Gmail SMTP configuration.
 type SMTPConfig struct {
-	User     string
-	Password string
-	FromName string
-	FromAddr string
+	User       string
+	Password   string
+	FromName   string
+	FromAddr   string
+	ResumePath string // optional path to PDF resume
 }
 
 // EmailMessage represents a complete email to send.
 type EmailMessage struct {
-	To           string
-	Subject      string
-	HTMLBody     string
-	PlainBody    string
-	TrackingID   string
-	MessageID    string
+	To         string
+	Subject    string
+	HTMLBody   string
+	PlainBody  string
+	TrackingID string
+	MessageID  string
 }
 
-// Sender handles sending emails via Gmail SMTP.
+// Sender handles sending emails via Gmail SMTP with retry + optional resume.
 type Sender struct {
 	config    SMTPConfig
 	auth      smtp.Auth
 	host      string
 	port      string
 }
+
+const maxRetries = 3
+const retryDelay = 5 * time.Second
 
 // New creates a new Gmail SMTP sender.
 func New(cfg SMTPConfig) *Sender {
@@ -48,48 +55,72 @@ func New(cfg SMTPConfig) *Sender {
 	}
 }
 
-// Send sends an email. Returns the tracking ID and message ID.
+// Send sends an email with retry logic and optional resume attachment.
 func (s *Sender) Send(ctx context.Context, msg *EmailMessage) error {
-	// Generate tracking ID if not provided
 	if msg.TrackingID == "" {
 		msg.TrackingID = uuid.New().String()
 	}
-
-	// Generate Message-ID for bounce/reply tracking
 	if msg.MessageID == "" {
 		msg.MessageID = fmt.Sprintf("<%s@jobhunter>", uuid.New().String())
 	}
 
-	// Build the email
 	emailBody, err := s.buildEmail(msg)
 	if err != nil {
 		return fmt.Errorf("build email: %w", err)
 	}
 
 	addr := fmt.Sprintf("%s:%s", s.host, s.port)
+	to := []string{msg.To}
 
-	// Send via SMTP
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
+	var lastErr error
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
+		err := smtp.SendMail(addr, s.auth, s.config.FromAddr, to, emailBody)
+		if err == nil {
+			return nil
+		}
+
+		lastErr = err
+		if isQuotaError(err) {
+			return fmt.Errorf("gmail quota exceeded: %w", err)
+		}
+
+		if attempt < maxRetries {
+			time.Sleep(retryDelay)
+		}
 	}
 
-	if err := smtp.SendMail(addr, s.auth, s.config.FromAddr, []string{msg.To}, emailBody); err != nil {
-		return fmt.Errorf("smtp send: %w", err)
-	}
-
-	return nil
+	return fmt.Errorf("after %d attempts: %w", maxRetries, lastErr)
 }
 
-// buildEmail constructs the raw MIME email.
+// buildEmail constructs the raw MIME email with optional PDF attachment.
 func (s *Sender) buildEmail(msg *EmailMessage) ([]byte, error) {
+	// Check if we have a resume to attach
+	resumePath := s.findResume()
+	hasResume := resumePath != ""
+
 	var buf bytes.Buffer
 
-	// Headers
-	from := fmt.Sprintf("%s <%s>", s.config.FromName, s.config.FromAddr)
-	if s.config.FromName == "" {
-		from = s.config.FromAddr
+	// Choose content type
+	contentType := `multipart/alternative; boundary="boundary-jobhunter"`
+	boundary := "boundary-jobhunter"
+	closeBoundary := "--boundary-jobhunter--"
+
+	if hasResume {
+		// Mixed content: multipart/mixed wrapping multipart/alternative + attachment
+		boundary = "boundary-mixed"
+		closeBoundary = "--boundary-mixed--"
+		contentType = fmt.Sprintf(`multipart/mixed; boundary="%s"`, boundary)
+	}
+
+	from := s.config.FromAddr
+	if s.config.FromName != "" {
+		from = fmt.Sprintf("%s <%s>", s.config.FromName, s.config.FromAddr)
 	}
 
 	headers := map[string]string{
@@ -97,58 +128,123 @@ func (s *Sender) buildEmail(msg *EmailMessage) ([]byte, error) {
 		"To":           msg.To,
 		"Subject":      msg.Subject,
 		"MIME-Version": "1.0",
-		"Content-Type": `multipart/alternative; boundary="boundary-jobhunter"`,
+		"Content-Type": contentType,
 		"Message-ID":   msg.MessageID,
 		"Date":         time.Now().UTC().Format(time.RFC1123Z),
 	}
-
 	for k, v := range headers {
 		fmt.Fprintf(&buf, "%s: %s\r\n", k, v)
 	}
 	buf.WriteString("\r\n")
 
+	if hasResume {
+		// Start the multipart/alternative wrapper inside mixed
+		buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+		buf.WriteString(`Content-Type: multipart/alternative; boundary="boundary-jobhunter"` + "\r\n\r\n")
+	}
+
 	// Plain text part
 	buf.WriteString("--boundary-jobhunter\r\n")
 	buf.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
-	buf.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
-	buf.WriteString("\r\n")
+	buf.WriteString("Content-Transfer-Encoding: quoted-printable\r\n\r\n")
 	buf.WriteString(msg.PlainBody)
 	buf.WriteString("\r\n")
 
-	// HTML part with tracking pixel
+	// HTML part
 	buf.WriteString("--boundary-jobhunter\r\n")
 	buf.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
-	buf.WriteString("Content-Transfer-Encoding: quoted-printable\r\n")
-	buf.WriteString("\r\n")
+	buf.WriteString("Content-Transfer-Encoding: quoted-printable\r\n\r\n")
 	buf.WriteString(msg.HTMLBody)
 	buf.WriteString("\r\n")
 
 	buf.WriteString("--boundary-jobhunter--\r\n")
 
+	// Attach resume PDF if found
+	if hasResume {
+		buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
+		buf.WriteString(fmt.Sprintf(`Content-Type: application/pdf; name="%s"`+"\r\n", filepath.Base(resumePath)))
+		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
+		buf.WriteString(fmt.Sprintf(`Content-Disposition: attachment; filename="%s"`+"\r\n\r\n", filepath.Base(resumePath)))
+
+		data, err := os.ReadFile(resumePath)
+		if err == nil {
+			encoded := make([]byte, len(data)*4/3+len(data)/57+100)
+			// Simple base64 encoding with line wrapping
+			dst := encoded[:0]
+			lineLen := 0
+			for _, b := range data {
+				const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+				dst = append(dst, base64Chars[b>>2])
+				dst = append(dst, base64Chars[(b&0x03)<<4|(b>>4)])
+				dst = append(dst, base64Chars[(b&0x0f)<<2|(b>>6)])
+				dst = append(dst, base64Chars[b&0x3f])
+				lineLen += 4
+				if lineLen >= 76 {
+					dst = append(dst, '\r', '\n')
+					lineLen = 0
+				}
+			}
+			buf.Write(dst)
+			buf.WriteString("\r\n")
+		}
+
+		buf.WriteString(closeBoundary + "\r\n")
+	}
+
 	return buf.Bytes(), nil
 }
 
+// findResume looks for a PDF in .agent-data/ or the configured path.
+func (s *Sender) findResume() string {
+	// Check configured path first
+	if s.config.ResumePath != "" {
+		if _, err := os.Stat(s.config.ResumePath); err == nil {
+			return s.config.ResumePath
+		}
+	}
+
+	// Scan .agent-data/ for first PDF
+	entries, err := os.ReadDir(".agent-data")
+	if err != nil {
+		return ""
+	}
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".pdf") {
+			return filepath.Join(".agent-data", e.Name())
+		}
+	}
+	return ""
+}
+
+func isQuotaError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "quota") ||
+		strings.Contains(msg, "daily limit") ||
+		strings.Contains(msg, "too many messages") ||
+		strings.Contains(msg, "exceeded")
+}
+
+// RenderTemplate is kept for compatibility.
+func RenderTemplate(tmpl *template.Template, name string, data interface{}) (string, error) {
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
+		return "", fmt.Errorf("execute template %s: %w", name, err)
+	}
+	return buf.String(), nil
+}
+
 // InjectTrackingPixel adds a tracking pixel to an HTML email body.
-// trackingURL should be the full URL to the tracking server's /track endpoint.
 func InjectTrackingPixel(htmlBody string, trackingServerURL, trackingID string) string {
 	pixelURL := fmt.Sprintf("%s/track?id=%s", strings.TrimRight(trackingServerURL, "/"), trackingID)
-	pixel := fmt.Sprintf(
-		`<img src="%s" width="1" height="1" alt="" style="display:none;" />`,
-		pixelURL,
-	)
-
-	// Insert before closing </body> or append
+	pixel := fmt.Sprintf(`<img src="%s" width="1" height="1" alt="" style="display:none;" />`, pixelURL)
 	if strings.Contains(htmlBody, "</body>") {
 		return strings.Replace(htmlBody, "</body>", pixel+"</body>", 1)
 	}
 	return htmlBody + pixel
 }
 
-// RenderTemplate renders an HTML template with the given data.
-func RenderTemplate(tmpl *template.Template, name string, data interface{}) (string, error) {
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
-		return "", fmt.Errorf("render template %s: %w", name, err)
-	}
-	return buf.String(), nil
-}
+// unused import silencer
+var _ = io.Discard
