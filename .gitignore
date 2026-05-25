@@ -1,46 +1,56 @@
-# Agent config (local only, user-specific)
+# ────────────────────────────────────────────────────
+# JobHunter — Environment & Secrets
+# ────────────────────────────────────────────────────
+.env
+.env.local
+*.env.local
+
+# ────────────────────────────────────────────────────
+# Agent config (user-specific, NOT committed)
+# ────────────────────────────────────────────────────
 .agent-data/CONTEXT.md
 .agent-data/RULES.md
 AGENTS.md
 PLAN.md
 
-# Environment
-.env
-.env.local
-*.env.local
-
-# Binaries
+# ────────────────────────────────────────────────────
+# Build artifacts
+# ────────────────────────────────────────────────────
 bin/
+dist/
+build/
+tmp/
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
 *.out
-
-# Build output
-dist/
-build/
-tmp/
-
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Go
-vendor/
 *.test
 *.test.exe
 *.test.out
 *.test.dll
 *.test.so
 *.test.dylib
+
+# ────────────────────────────────────────────────────
+# IDE & editors
+# ────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ────────────────────────────────────────────────────
+# OS files
+# ────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ────────────────────────────────────────────────────
+# Go
+# ────────────────────────────────────────────────────
+vendor/
 go.work
 go.work.sum
