@@ -14,8 +14,10 @@ providers:
     env_key: OPENROUTER_API_KEY
     base_url: "https://openrouter.ai/api"
     models:
+      # All :free models — dynamically discovered at startup via API call.
+      # These are fallbacks in case discovery fails.
       complex: "google/gemma-4-26b-a4b-it:free"
-      simple: "qwen/qwen3-coder:free"
+      simple: "openrouter/free"
       reasoning: "deepseek/deepseek-v4-flash:free"
     supports_reasoning: true
     weight: 10
