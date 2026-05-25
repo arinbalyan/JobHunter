@@ -1,9 +1,9 @@
 <div align="center">
 
-# 🎯 JobHunter
+# JobHunter
 
 **An open-source AI-powered job outreach agent.**
-Scrape job boards → Match jobs to your profile → Send personalized emails with tracking.
+Scrape job boards, match jobs to your profile, send personalized emails with tracking.
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
@@ -14,27 +14,27 @@ Scrape job boards → Match jobs to your profile → Send personalized emails wi
 
 ---
 
-## ✨ Features
+## Features
 
-- **🔍 Smart Scraping** — 55+ job boards via [scrappy](https://github.com/arinbalyan/scrappy) engine
-- **🎯 Intelligent Matching** — Experience-level aware, role matching, seniority comparison
-- **📧 Personalized Emails** — Context-aware templates for qualified/underqualified/overqualified scenarios
-- **👁️ Email Tracking** — Open/click tracking via invisible pixel, bounce/reply detection via IMAP
-- **🧠 Multi-Provider LLM** — Round-robin across OpenRouter, Groq, Cerebras with token budgeting
-- **🔌 Plugin Architecture** — Drop-in plugins for custom bots and workflows
-- **📊 Stats Pipeline** — Time-series stats collection across all plugins
-- **🔄 Auto Migrations** — Embedded SQL migrations via golang-migrate, safe to run repeatedly
-- **⚡ Memory Optimized** — Runs under 80MB RAM with Go's GC tuning
-- **🚀 CI/CD Ready** — GitHub Actions workflow with secrets management
+- **Smart Scraping** -- 55+ job boards via [scrappy](https://github.com/arinbalyan/scrappy) engine
+- **Intelligent Matching** -- Experience-level aware, role matching, seniority comparison
+- **Personalized Emails** -- Context-aware templates for qualified/underqualified/overqualified scenarios
+- **Email Tracking** -- Open/click tracking via invisible pixel, bounce/reply detection via IMAP
+- **Multi-Provider LLM** -- Dynamic round-robin across 10+ providers with automatic free model discovery
+- **Plugin Architecture** -- Drop-in plugins for custom bots and workflows
+- **Stats Pipeline** -- Time-series stats collection across all plugins
+- **Auto Migrations** -- Embedded SQL migrations via golang-migrate, safe to run repeatedly
+- **Memory Optimized** -- Runs under 80MB RAM with Go's GC tuning
+- **CI/CD Ready** -- GitHub Actions workflow with secrets management
 
-## 📋 Prerequisites
+## Prerequisites
 
 - Go 1.26+
 - A [NeonDB](https://console.neon.tech) PostgreSQL database (free tier)
 - A Gmail account with [App Password](https://myaccount.google.com/apppasswords)
-- An [OpenRouter](https://openrouter.ai/keys) API key (or Groq/Cerebras)
+- An [OpenRouter](https://openrouter.ai/keys) API key (or Groq/Cerebras/Together/etc.)
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 # Clone
@@ -52,35 +52,54 @@ go run ./cmd/sender
 go run ./cmd/tracker
 ```
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 cmd/
-├── sender/      → Main agent (migrations → plugins → stats flush)
-├── tracker/     → Email tracking server (pixel + click redirect)
-└── migrate/     → Manual migration tool
+├── sender/      -> Main agent (migrations -> plugins -> stats flush)
+├── tracker/     -> Email tracking server (pixel + click redirect)
+└── migrate/     -> Manual migration tool
 
 internal/
-├── plugin/sdk/  → Plugin interface & contracts
-├── migrations/  → Embedded SQL migrations
+├── plugin/sdk/  -> Plugin interface and contracts
+├── migrations/  -> Embedded SQL migrations
 ├── email/
-│   ├── sender/  → Gmail SMTP with MIME building
-│   ├── tracker/ → HTTP tracking server
-│   └── imap/    → Bounce & reply scanner
-├── llm/router/  → Multi-provider LLM router
-├── scraper/     → Scrappy CLI adapter
-├── job/         → Job filtering & matching
-├── template/    → HTML email templates
-├── stats/       → Time-series stats collector
-├── ratelimit/   → Token bucket rate limiter
-└── config/      → Environment configuration
+│   ├── sender/  -> Gmail SMTP with MIME building
+│   ├── tracker/ -> HTTP tracking server
+│   └── imap/    -> Bounce and reply scanner
+├── llm/router/  -> Multi-provider LLM router with dynamic model discovery
+├── scraper/     -> Scrappy CLI adapter
+├── job/         -> Job filtering and matching
+├── template/    -> HTML email templates
+├── stats/       -> Time-series stats collector
+├── ratelimit/   -> Token bucket rate limiter
+└── config/      -> Environment configuration with auto model fetching
 
 plugins/
-├── jobhunter.go → Core job outreach plugin
-└── register.go  → Plugin registration
+├── jobhunter.go -> Core job outreach plugin
+└── register.go  -> Plugin registration
 ```
 
-## 📚 Documentation
+## LLM Providers (10+)
+
+The router dynamically discovers and load-balances across all configured providers:
+
+| Provider | Models | Access |
+|----------|--------|--------|
+| OpenRouter | 28+ free models (Gemma 4, DeepSeek V4, Llama 405B, etc.) | API key |
+| Groq | Llama 3.3 70B, Llama 3.1 8B | API key |
+| Together AI | Llama 3.3 70B Turbo | API key |
+| DeepInfra | Llama 3.3 70B | API key |
+| Fireworks AI | Llama 3.3 70B | API key |
+| Hyperbolic | Llama 3.3 70B | API key |
+| SambaNova | Meta-Llama 3.3 70B | API key |
+| Cerebras | Wafer-scale fast inference | API key |
+| NVIDIA NIM | Nemotron models | API key |
+| Z.AI | GLM-4 Plus | API key |
+
+OpenRouter models are discovered dynamically at startup by fetching all `:free` models from their API, sorted by context length.
+
+## Documentation
 
 | Guide | Description |
 |-------|-------------|
@@ -91,7 +110,7 @@ plugins/
 | [Database Schema](docs/guides/005-Database-Schema.md) | All tables and migration system |
 | [GitHub Actions](docs/guides/006-GitHub-Actions.md) | CI/CD setup and secrets |
 
-## 🔌 Writing a Plugin
+## Writing a Plugin
 
 ```go
 package plugins
@@ -122,7 +141,7 @@ func (p *MyPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result, error
 
 Register in `plugins/register.go` and done.
 
-## 🗄️ Database
+## Database
 
 Tables are auto-created via embedded migrations:
 
@@ -131,11 +150,11 @@ Tables are auto-created via embedded migrations:
 | `jobs` | Scraped job postings |
 | `emails` | Sent emails with full tracking |
 | `stats` | Time-series events across all plugins |
-| `applications` | Pipeline tracking (sent → opened → replied → offer) |
+| `applications` | Pipeline tracking (sent, opened, replied, offer) |
 | `blacklist` | Bounced/rejected domains |
 | `plugin_state` | Plugin health and run counts |
 
-## 🤝 Contributing
+## Contributing
 
 PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -144,12 +163,12 @@ PRs welcome! See [CONTRIBUTING.md](CONTRIBUTING.md).
 - Add tests for new plugins
 - Update docs for new features
 
-## 📄 License
+## License
 
-MIT — see [LICENSE](LICENSE).
+MIT -- see [LICENSE](LICENSE).
 
-## 🙏 Credits
+## Credits
 
-- [scrappy](https://github.com/arinbalyan/scrappy) — Fast Go-based job scraper with 55+ boards
-- [golang-migrate](https://github.com/golang-migrate/migrate) — Database migrations
-- [pgx](https://github.com/jackc/pgx) — PostgreSQL driver
+- [scrappy](https://github.com/arinbalyan/scrappy) -- Fast Go-based job scraper with 55+ boards
+- [golang-migrate](https://github.com/golang-migrate/migrate) -- Database migrations
+- [pgx](https://github.com/jackc/pgx) -- PostgreSQL driver
