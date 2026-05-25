@@ -1,6 +1,7 @@
-# Agent data (local only)
+# Agent config (local only, user-specific)
+.agent-data/CONTEXT.md
+.agent-data/RULES.md
 AGENTS.md
-.agent-data/
 PLAN.md
 
 # Environment
@@ -41,6 +42,5 @@ vendor/
 *.test.dll
 *.test.so
 *.test.dylib
-# Go workspace
 go.work
 go.work.sum
