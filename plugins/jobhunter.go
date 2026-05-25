@@ -42,15 +42,15 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 	// ── Step 1: Scrape jobs ──
 	log.Info("scraping job boards...")
 	scr := scraper.New(scraper.Config{
-		Sites:          cfg.JobSites,
-		SearchTerms:    cfg.JobSearchTerms,
-		Locations:      cfg.JobLocations,
-		ResultsPerSite: cfg.JobResultsPerSite,
-		HoursOld:       cfg.JobHoursOld,
-		RemoteOnly:     cfg.JobRemoteOnly,
-		JobType:        cfg.JobType,
-		MemoryCapMB:    cfg.ScrapyMemoryCapMB,
-		Proxy:          cfg.ScrapyProxy,
+		Sites:         cfg.JobSites,
+		SearchTerms:   cfg.JobSearchTerms,
+		Locations:     cfg.JobLocations,
+		ResultsWanted: cfg.JobResultsPerSite,
+		RemoteOnly:    cfg.JobRemoteOnly,
+		JobType:       cfg.JobType,
+		MemoryCapMB:   cfg.ScrapyMemoryCapMB,
+		Proxy:         cfg.ScrapyProxy,
+		EmailOnly:     true,
 	})
 
 	jobs, err := scr.Scrape(ctx)
@@ -97,10 +97,11 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 		}
 
 		match := matches[i]
+		emails := j.FlatEmails()
 		trackingID := uuid.New().String()
 		messageID := fmt.Sprintf("<%s@jobhunter>", uuid.New().String())
 
-		subject := fmt.Sprintf("Interested in %s role at %s", j.Title, j.Company)
+		subject := fmt.Sprintf("Interested in %s role at %s", j.Title, j.CompanyName)
 		body := p.buildEmailBody(j, match.ExperienceMatch)
 		htmlBody := fmt.Sprintf("<html><body><p>%s</p></body></html>", body)
 		htmlBody = sender.InjectTrackingPixel(htmlBody, cfg.TrackingServerURL, trackingID)
@@ -115,9 +116,11 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 			}
 		}
 
-		recipient := fmt.Sprintf("careers@%s", p.extractDomain(j.CompanyURL))
-		if len(j.Emails) > 0 {
-			recipient = j.Emails[0]
+		recipient := ""
+		if len(emails) > 0 {
+			recipient = emails[0]
+		} else {
+			recipient = fmt.Sprintf("careers@%s", p.extractDomain(j.CompanyURL))
 		}
 
 		msg := &sender.EmailMessage{
@@ -130,13 +133,13 @@ func (p *JobHunterPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result
 		}
 
 		if err := emailSender.Send(ctx, msg); err != nil {
-			log.Error("failed to send for %s at %s: %v", j.Title, j.Company, err)
+			log.Error("failed to send for %s at %s: %v", j.Title, j.CompanyName, err)
 			errors++
 			continue
 		}
 
 		sentCount++
-		log.Info("sent: %s at %s (tracking: %s)", j.Title, j.Company, trackingID)
+		log.Info("sent: %s at %s (tracking: %s)", j.Title, j.CompanyName, trackingID)
 	}
 
 	return &sdk.Result{
@@ -158,21 +161,21 @@ func (p *JobHunterPlugin) buildEmailBody(j scraper.JobResult, expMatch string) s
 			"Hi %s team,\n\nI'm reaching out about the %s role. While I'm early in my career, "+
 				"I have hands-on experience with the relevant technologies and I'm deeply interested in this space. "+
 				"I'd love a chance to discuss how I can contribute.\n\nBest,\n%s",
-			j.Company, j.Title, "Applicant",
+			j.CompanyName, j.Title, "Applicant",
 		)
 	case "overqualified":
 		return fmt.Sprintf(
 			"Hi %s team,\n\nI'm writing about the %s position. My background aligns well, "+
 				"and I'm specifically drawn to %s because of the work you're doing. "+
 				"I'd love to discuss how I can make an impact.\n\nBest,\n%s",
-			j.Company, j.Title, j.Company, "Applicant",
+			j.CompanyName, j.Title, j.CompanyName, "Applicant",
 		)
 	default:
 		return fmt.Sprintf(
 			"Hi %s team,\n\nI came across your %s opening and wanted to reach out. "+
 				"My experience aligns well with what you're looking for. "+
 				"I'd love to connect and discuss how I can contribute.\n\nBest,\n%s",
-			j.Company, j.Title, "Applicant",
+			j.CompanyName, j.Title, "Applicant",
 		)
 	}
 }
