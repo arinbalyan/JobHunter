@@ -34,8 +34,14 @@ func main() {
 	if _, err := os.Stat(".env"); err == nil {
 		fmt.Println(checkMark + " found")
 	} else {
-		fmt.Println(crossMark + " missing — create from .env.example")
-		exitCode = 1
+		// Auto-create from .env.example
+		if example, err := os.ReadFile(".env.example"); err == nil {
+			os.WriteFile(".env", example, 0644)
+			fmt.Println(checkMark + " created from .env.example (edit it with your keys)")
+		} else {
+			fmt.Println(crossMark + " missing — create from .env.example")
+			exitCode = 1
+		}
 	}
 
 	// ── 2. Load config ──
