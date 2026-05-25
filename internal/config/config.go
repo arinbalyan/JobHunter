@@ -67,6 +67,8 @@ type Config struct {
 	EmailDelaySeconds   int
 	EmailDelay          time.Duration
 	DailyEmailLimit     int
+	MinWords            int
+	MaxWords            int
 
 	// Job Search
 	JobSearchTerms  []string

@@ -1,6 +1,3 @@
-// Command: send
-// Picks up pending emails from email_queue and sends them.
-// Updates status to sent/failed after each attempt.
 package main
 
 import (
@@ -18,6 +15,8 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/config"
 	"github.com/arinbalyan/jobhunter/internal/db"
 	"github.com/arinbalyan/jobhunter/internal/email/sender"
+	"github.com/arinbalyan/jobhunter/internal/llm/prompt"
+	"github.com/arinbalyan/jobhunter/internal/llm/router"
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
 	"github.com/google/uuid"
@@ -33,6 +32,10 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
+	}
+	yamlCfg, err := config.LoadYAML(".agent-data/config.yaml")
+	if err == nil {
+		yamlCfg.MergeIntoConfig(cfg)
 	}
 	if err := cfg.Validate(); err != nil {
 		log.Fatalf("Invalid config: %v", err)
@@ -63,25 +66,60 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Fetch pending queue items
-	queueItems, err := dbPool.GetPendingQueue(ctx, cfg.MaxEmailsPerRun)
+	// ── Quota check ──
+	quota := newQuotaTracker(ctx, dbPool, cfg.DailyEmailLimit)
+	if quota.exhausted() {
+		logger.Warn("daily email quota exhausted (%d/%d)", quota.todayCount, cfg.DailyEmailLimit)
+		recordRun(ctx, dbPool, "send", "quota_exhausted", 0, 0, 0, 0, 0, time.Since(startTime), "daily quota exhausted")
+		return
+	}
+	logger.Info("email quota: %d/%d used, %d remaining", quota.todayCount, cfg.DailyEmailLimit, quota.remaining())
+
+	// ── Fetch pending queue ──
+	maxToSend := quota.remaining()
+	if maxToSend > cfg.MaxEmailsPerRun {
+		maxToSend = cfg.MaxEmailsPerRun
+	}
+
+	queueItems, err := dbPool.GetPendingQueue(ctx, maxToSend)
 	if err != nil {
 		logger.Error("fetch queue: %v", err)
 		os.Exit(1)
 	}
-
 	logger.Info("found %d pending emails to send", len(queueItems))
-
 	if len(queueItems) == 0 {
 		recordRun(ctx, dbPool, "send", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
 		return
 	}
 
+	// ── Load context for LLM ──
+	contextText := loadContext()
+
+	// ── Init LLM router ──
+	llmProviders := cfg.GetActiveProviders()
+	var llmRouter *router.Router
+	if len(llmProviders) > 0 {
+		routerCfgs := make([]router.ProviderConfig, len(llmProviders))
+		for i, p := range llmProviders {
+			routerCfgs[i] = router.ProviderConfig{
+				Kind:    router.ProviderKind(p.Kind),
+				APIKey:  p.APIKey,
+				BaseURL: p.BaseURL,
+				Model:   p.Model,
+				Weight:  p.Weight,
+			}
+		}
+		llmRouter = router.New(routerCfgs, cfg.MaxTokensPerRun)
+		logger.Info("LLM router initialized with %d providers", len(llmProviders))
+	}
+
+	// ── Init email sender with resume attachment support ──
 	emailSender := sender.New(sender.SMTPConfig{
-		User:     cfg.GmailUser,
-		Password: cfg.GmailAppPass,
-		FromName: cfg.EmailFromName,
-		FromAddr: cfg.GmailUser,
+		User:       cfg.GmailUser,
+		Password:   cfg.GmailAppPass,
+		FromName:   cfg.EmailFromName,
+		FromAddr:   cfg.GmailUser,
+		ResumePath: cfg.ResumeDriveLink,
 	})
 
 	sent := 0
@@ -99,8 +137,34 @@ func main() {
 		trackingID := uuid.New().String()
 		messageID := fmt.Sprintf("<%s@jobhunter>", uuid.New().String())
 
-		subject := fmt.Sprintf("Interested in %s role at %s", item.JobTitle, item.Company)
-		body := buildEmail(item, cfg.ContactName)
+		// Determine experience match from item metadata (stored during scrape)
+		expMatch := item.ExperienceMatch
+		if expMatch == "" {
+			expMatch = "qualified"
+		}
+
+		// Build LLM prompt
+		sysPrompt := prompt.BuildSystemPrompt(cfg.MinWords, cfg.MaxWords)
+		userPrompt := prompt.BuildUserPrompt(
+			contextText,
+			item.JobTitle,
+			item.Company,
+			item.JobDescription,
+			item.Seniority,
+			item.JobLocation,
+			item.JobType,
+			formatSalary(item.SalaryMin, item.SalaryMax, item.SalaryCurrency),
+			item.Skills,
+			item.CompanyIndustry,
+			expMatch,
+			"yes", // role match
+			cfg.UserYearsExperience,
+			3000,
+		)
+
+		// Generate email via LLM or fallback
+		subject, body := generateEmail(ctx, llmRouter, sysPrompt, userPrompt, item, cfg.ContactName, cfg, logger)
+
 		htmlBody := fmt.Sprintf("<html><body><p>%s</p></body></html>", body)
 		htmlBody = sender.InjectTrackingPixel(htmlBody, cfg.TrackingServerURL, trackingID)
 
@@ -122,12 +186,10 @@ func main() {
 		} else {
 			logger.Info("sent successfully")
 			dbPool.UpdateQueueStatus(ctx, item.ID, "sent", "")
-			// Also update the job status
 			dbPool.UpdateJobStatus(ctx, item.JobID, "sent", "", item.RecipientEmail)
 			sent++
 		}
 
-		// Delay between sends
 		if i < len(queueItems)-1 && cfg.EmailDelay > 0 {
 			select {
 			case <-ctx.Done():
@@ -139,27 +201,113 @@ func main() {
 
 	duration := time.Since(startTime)
 	logger.Info("send complete: %d sent, %d failed in %.0fs", sent, failed, duration.Seconds())
-
 	recordRun(ctx, dbPool, "send", "completed", 0, 0, 0, sent, failed, duration, "")
 
-	// Telegram notification
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
 		msg := fmt.Sprintf(
 			"<b>Send Complete</b>\nSent: %d\nFailed: %d\nDuration: %.0fs",
 			sent, failed, duration.Seconds(),
 		)
-		sendTelegram(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
+		telegramNotify(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}
 }
 
-func buildEmail(item db.QueueItem, contactName string) string {
-	// Simple template — will be replaced by LLM
-	return fmt.Sprintf(
+func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, userPrompt string, item db.QueueItem, contactName string, cfg *config.Config, logger *logging.Logger) (string, string) {
+	subject := fmt.Sprintf("Interested in %s role at %s", item.JobTitle, item.Company)
+	body := fmt.Sprintf(
 		"Hi %s team,\n\nI came across your %s opening and wanted to reach out. "+
 			"My background aligns well with what you're looking for. "+
 			"I'd love to connect and discuss how I can contribute.\n\nBest,\n%s",
 		item.Company, item.JobTitle, contactName,
 	)
+
+	if llmRouter == nil || sysPrompt == "" || userPrompt == "" {
+		return subject, body
+	}
+
+	resp, err := llmRouter.Complete(ctx, router.TaskComplex, &router.CompletionRequest{
+		SystemPrompt: sysPrompt,
+		UserPrompt:   userPrompt,
+		MaxTokens:    1024,
+		Temperature:  0.7,
+	})
+	if err != nil {
+		logger.Warn("LLM generation failed: %v — using fallback template", err)
+		return subject, body
+	}
+
+	// Parse SUBJECT: prefix
+	content := resp.Content
+	subj := subject
+	if strings.HasPrefix(strings.ToUpper(content), "SUBJECT:") {
+		parts := strings.SplitN(content, "\n", 2)
+		subj = strings.TrimSpace(strings.TrimPrefix(parts[0], "SUBJECT:"))
+		subj = strings.Trim(subj, "\"' ")
+		if len(parts) > 1 {
+			content = parts[1]
+		}
+	}
+
+	// Append contact footer (no resume mention)
+	body = strings.TrimSpace(content)
+	body += fmt.Sprintf("\n\n%s\nPhone: %s\nPortfolio: %s\nGitHub: %s",
+		contactName, cfg.ContactPhone, cfg.ContactPortfolio, cfg.ContactGithub)
+	if cfg.ContactLinkedin != "" {
+		body += "\nLinkedIn: " + cfg.ContactLinkedin
+	}
+
+	return subj, body
+}
+
+func loadContext() string {
+	data, err := os.ReadFile(".agent-data/CONTEXT.md")
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func formatSalary(min, max *float64, currency string) string {
+	if min == nil && max == nil {
+		return "Not specified"
+	}
+	if min != nil && max != nil && *min == *max {
+		return fmt.Sprintf("%s%.0f", currency, *min)
+	}
+	if min != nil && max != nil {
+		return fmt.Sprintf("%s%.0f - %s%.0f", currency, *min, currency, *max)
+	}
+	if min != nil {
+		return fmt.Sprintf("From %s%.0f", currency, *min)
+	}
+	return fmt.Sprintf("Up to %s%.0f", currency, *max)
+}
+
+type quotaTracker struct {
+	todayCount int
+	dailyLimit int
+}
+
+func newQuotaTracker(ctx context.Context, pool *db.Pool, dailyLimit int) *quotaTracker {
+	count := 0
+	if pool != nil {
+		if c, err := pool.GetTodaySentCount(ctx); err == nil {
+			count = c
+		}
+	}
+	return &quotaTracker{todayCount: count, dailyLimit: dailyLimit}
+}
+
+func (q *quotaTracker) remaining() int {
+	r := q.dailyLimit - q.todayCount
+	if r < 0 {
+		return 0
+	}
+	return r
+}
+
+func (q *quotaTracker) exhausted() bool {
+	return q.todayCount >= q.dailyLimit
 }
 
 func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scraped, pending, skipped, sent, failed int, dur time.Duration, errMsg string) {
@@ -169,7 +317,7 @@ func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scra
 	_ = pool.RecordRunLog(ctx, workflow, status, scraped, pending, skipped, sent, failed, int(dur.Milliseconds()), errMsg)
 }
 
-func sendTelegram(ctx context.Context, token, chatID, msg string) {
+func telegramNotify(ctx context.Context, token, chatID, msg string) {
 	body := fmt.Sprintf(`{"chat_id":"%s","text":"%s","parse_mode":"HTML"}`, chatID, strings.ReplaceAll(msg, `"`, `\"`))
 	req, _ := http.NewRequestWithContext(ctx, "POST",
 		fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token),

@@ -36,7 +36,7 @@ type FullJobRecord struct {
 	RecipientEmail  string
 }
 
-// QueueItem represents an email_queue entry.
+// QueueItem represents an email_queue entry with all job metadata.
 type QueueItem struct {
 	ID              int64
 	JobID           int64
@@ -51,6 +51,11 @@ type QueueItem struct {
 	JobDescription  string
 	SalaryMin       *float64
 	SalaryMax       *float64
+	SalaryCurrency  string
+	Seniority       string
+	Skills          string
+	CompanyIndustry string
+	ExperienceMatch string
 	Status          string
 	CreatedAt       time.Time
 }
@@ -114,7 +119,9 @@ func (p *Pool) GetPendingQueue(ctx context.Context, limit int) ([]QueueItem, err
 	rows, err := p.Query(ctx,
 		`SELECT id, job_id, recipient_email, company, job_title, job_url,
 		        job_location, is_remote, job_type, job_description,
-		        salary_min, salary_max, status, created_at
+		        salary_min, salary_max, salary_currency,
+		        seniority, company_industry, experience_match, skills,
+		        status, created_at
 		 FROM email_queue
 		 WHERE status = 'pending'
 		 ORDER BY created_at ASC
@@ -132,7 +139,9 @@ func (p *Pool) GetPendingQueue(ctx context.Context, limit int) ([]QueueItem, err
 			&item.ID, &item.JobID, &item.RecipientEmail, &item.Company,
 			&item.JobTitle, &item.JobURL, &item.JobLocation, &item.IsRemote,
 			&item.JobType, &item.JobDescription,
-			&item.SalaryMin, &item.SalaryMax, &item.Status, &item.CreatedAt,
+			&item.SalaryMin, &item.SalaryMax, &item.SalaryCurrency,
+			&item.Seniority, &item.CompanyIndustry, &item.ExperienceMatch, &item.Skills,
+			&item.Status, &item.CreatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan queue: %w", err)
@@ -164,6 +173,102 @@ func (p *Pool) MarkStalePendingQueue(ctx context.Context, days int) (int, error)
 		return 0, err
 	}
 	return int(tag.RowsAffected()), nil
+}
+
+// FollowUpCandidate is a sent email eligible for follow-up.
+type FollowUpCandidate struct {
+	ID              int64
+	JobID           int64
+	RecipientEmail  string
+	Company         string
+	JobTitle        string
+	SentAt          time.Time
+}
+
+// FollowUpRecord holds a follow-up queue entry.
+type FollowUpRecord struct {
+	JobID           int64
+	OriginalEmailID int64
+	RecipientEmail  string
+	Domain          string
+	Company         string
+	JobTitle        string
+	Subject         string
+	Body            string
+	TrackingID      string
+	MessageID       string
+	Status          string
+}
+
+// GetFollowUpCandidates finds sent emails from N+ days ago with no reply.
+func (p *Pool) GetFollowUpCandidates(ctx context.Context, minDaysAgo int) ([]FollowUpCandidate, error) {
+	rows, err := p.Query(ctx,
+		`SELECT e.id, e.job_id, e.recipient_email, eq.company, eq.job_title, e.sent_at
+		 FROM emails e
+		 JOIN email_queue eq ON eq.job_id = e.job_id
+		 WHERE e.status = 'sent'
+		   AND NOT e.replied
+		   AND NOT e.bounced
+		   AND e.sent_at < NOW() - $1::INTERVAL
+		   AND e.sent_at > NOW() - $2::INTERVAL
+		   AND NOT EXISTS (
+		     SELECT 1 FROM email_queue f
+		     WHERE f.job_id = e.job_id AND f.status = 'pending'
+		   )
+		 ORDER BY e.sent_at ASC`,
+		fmt.Sprintf("%d days", minDaysAgo),
+		fmt.Sprintf("%d days", minDaysAgo+14), // Don't look back more than 14 days
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query follow-up candidates: %w", err)
+	}
+	defer rows.Close()
+
+	var candidates []FollowUpCandidate
+	for rows.Next() {
+		var c FollowUpCandidate
+		if err := rows.Scan(&c.ID, &c.JobID, &c.RecipientEmail, &c.Company, &c.JobTitle, &c.SentAt); err != nil {
+			return nil, fmt.Errorf("scan: %w", err)
+		}
+		candidates = append(candidates, c)
+	}
+	return candidates, rows.Err()
+}
+
+// HasFollowUpForDomain checks if a follow-up was sent to this domain recently.
+func (p *Pool) HasFollowUpForDomain(ctx context.Context, domain string, hoursBack int) (bool, error) {
+	var count int
+	err := p.QueryRow(ctx,
+		`SELECT COUNT(*) FROM email_queue
+		 WHERE domain = $1
+		   AND status IN ('pending', 'sent')
+		   AND created_at > NOW() - $2::INTERVAL`,
+		domain, fmt.Sprintf("%d hours", hoursBack),
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("check follow-up domain: %w", err)
+	}
+	return count > 0, nil
+}
+
+// InsertFollowUp inserts a follow-up queue item.
+func (p *Pool) InsertFollowUp(ctx context.Context, f *FollowUpRecord) (int64, error) {
+	var id int64
+	err := p.QueryRow(ctx,
+		`INSERT INTO email_queue
+			(job_id, plugin_id, recipient_email, company, job_title,
+			 subject, body_preview, tracking_id, message_id, domain, status,
+			 is_follow_up, original_email_id)
+		 VALUES ($1, 'followup', $2, $3, $4, $5, $6, $7, $8, $9, $10, true, $11)
+		 RETURNING id`,
+		f.JobID, f.RecipientEmail, f.Company, f.JobTitle,
+		f.Subject, f.Body, f.TrackingID, f.MessageID, f.Domain, f.Status,
+		f.OriginalEmailID,
+	).Scan(&id)
+	if err != nil {
+		return 0, fmt.Errorf("insert follow-up: %w", err)
+	}
+	return id, nil
 }
 
 // RecordRunLog inserts a run_log entry.
