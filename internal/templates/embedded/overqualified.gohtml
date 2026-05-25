@@ -1,0 +1,18 @@
+{{define "overqualified"}}
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <p>Hi <strong>{{.CompanyName}}</strong> team,</p>
+    <p>I'm reaching out about your <strong>{{.JobTitle}}</strong> position. While my experience level may be beyond what you're targeting, I have a specific reason for being interested in this role at {{.CompanyName}}.</p>
+    <p>I'm at a point in my career where I'm looking for <em>impact</em>, not just a title — and I believe I can make a real difference in this role by bringing:</p>
+    <ul>
+        <li>Deep expertise that accelerates your team's capabilities</li>
+        <li>A broad perspective from working across different domains</li>
+        <li>A commitment to mentoring and elevating those around me</li>
+    </ul>
+    <p>I'd love to chat about how my experience could be an asset, not a mismatch. Are you open to a conversation?</p>
+    <p>Best regards,<br><strong>{{.UserName}}</strong></p>
+</body>
+</html>
+{{end}}

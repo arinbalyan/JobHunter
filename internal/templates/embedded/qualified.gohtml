@@ -1,0 +1,18 @@
+{{define "qualified"}}
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <p>Hi <strong>{{.CompanyName}}</strong> team,</p>
+    <p>I came across your <strong>{{.JobTitle}}</strong> opening and wanted to reach out directly. My background aligns well with what you're looking for — I have relevant experience in this space and I'm genuinely excited about the work you're doing at {{.CompanyName}}.</p>
+    <p>A few things that make me a strong fit:</p>
+    <ul>
+        <li>Direct experience with the technologies and challenges this role entails</li>
+        <li>A track record of delivering results in similar environments</li>
+        <li>Genuine interest in {{.CompanyName}}'s mission and product</li>
+    </ul>
+    <p>I'd love to connect and discuss how I can contribute to your team. Are you available for a brief chat this week?</p>
+    <p>Best regards,<br><strong>{{.UserName}}</strong></p>
+</body>
+</html>
+{{end}}
