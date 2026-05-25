@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS blacklist;
+DROP TABLE IF EXISTS applications;
+DROP TABLE IF EXISTS plugin_state;
+DROP TABLE IF EXISTS stats;
