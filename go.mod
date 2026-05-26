@@ -24,4 +24,4 @@ require (
 	golang.org/x/text v0.34.0 // indirect
 )
 
-replace github.com/arinbalyan/scrappy => /home/nemesis/projects/scrappy
+replace github.com/arinbalyan/scrappy => ../scrappy
