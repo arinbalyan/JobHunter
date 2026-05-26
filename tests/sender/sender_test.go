@@ -91,15 +91,6 @@ func TestInjectTrackingPixel_TrailingSlash(t *testing.T) {
 	}
 }
 
-func TestRenderTemplate(t *testing.T) {
-	// RenderTemplate is exported but uses html/template
-	// Just test it doesn't panic with nil template
-	tmpl := sender.RenderTemplate
-	if tmpl == nil {
-		t.Log("RenderTemplate is a function, not a field")
-	}
-}
-
 func TestEmailMessage_Defaults(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping SMTP-dependent test in short mode")

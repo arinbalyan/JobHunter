@@ -179,9 +179,7 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.User.Name != "" {
 		cfg.ContactName = yc.User.Name
 	}
-	if yc.User.Email != "" {
-		cfg.ContactEmail = yc.User.Email
-	}
+
 	if yc.User.Phone != "" {
 		cfg.ContactPhone = yc.User.Phone
 	}
@@ -194,15 +192,11 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.User.Linkedin != "" {
 		cfg.ContactLinkedin = yc.User.Linkedin
 	}
-	if yc.User.Codolio != "" {
-		cfg.ContactCodolio = yc.User.Codolio
-	}
+
 	if yc.User.ResumeDriveLink != "" {
 		cfg.ResumeDriveLink = yc.User.ResumeDriveLink
 	}
-	if yc.User.CurrentRole != "" {
-		cfg.UserCurrentRole = yc.User.CurrentRole
-	}
+
 	if yc.User.YearsExperience > 0 {
 		cfg.UserYearsExperience = yc.User.YearsExperience
 	}

@@ -226,26 +226,6 @@ func TestParseCommaList(t *testing.T) {
 	}
 }
 
-func TestParseJSONList(t *testing.T) {
-	tests := []struct {
-		input string
-		want  int
-	}{
-		{`["a","b","c"]`, 3},
-		{`["a", "b"]`, 2},
-		{"[]", 0},
-		{"", 0},
-		{`["single"]`, 1},
-	}
-
-	for _, tt := range tests {
-		result := cfgParseJSONList(tt.input)
-		if len(result) != tt.want {
-			t.Errorf("parseJSONList(%q) = %d items, want %d; got %v", tt.input, len(result), tt.want, result)
-		}
-	}
-}
-
 func TestGetActiveProviders_OpenRouterOnly(t *testing.T) {
 	os.Clearenv()
 	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost/db")
@@ -352,18 +332,6 @@ func cfgParseCommaList(s string) []string {
 	os.Setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
 	cfg, _ := config.Load()
 	return cfg.JobSearchTerms
-}
-
-func cfgParseJSONList(s string) []string {
-	os.Clearenv()
-	os.Setenv("USER_TARGET_ROLES", s)
-	os.Setenv("DATABASE_URL", "postgres://u:p@localhost/db")
-	os.Setenv("GMAIL_USER", "t@gmail.com")
-	os.Setenv("GMAIL_APP_PASS", "pass")
-	os.Setenv("OPENROUTER_API_KEY", "sk-or-v1-test")
-	os.Setenv("JOB_SEARCH_TERMS", "golang")
-	cfg, _ := config.Load()
-	return cfg.UserTargetRoles
 }
 
 func containsSub(s, sub string) bool {

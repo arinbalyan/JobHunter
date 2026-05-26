@@ -17,26 +17,12 @@ func TestNew(t *testing.T) {
 	if r == nil {
 		t.Fatal("New() returned nil")
 	}
-
-	stats := r.Stats()
-	if len(stats) != 2 {
-		t.Errorf("expected 2 providers in stats, got %d", len(stats))
-	}
 }
 
 func TestNew_EmptyProviders(t *testing.T) {
 	r := router.New(nil, 0)
 	if r == nil {
 		t.Fatal("New() returned nil")
-	}
-
-	stats := r.Stats()
-	if len(stats) != 0 {
-		t.Errorf("expected 0 providers, got %d", len(stats))
-	}
-
-	if r.TotalTokensUsed() != 0 {
-		t.Errorf("expected 0 tokens, got %d", r.TotalTokensUsed())
 	}
 }
 
@@ -107,46 +93,6 @@ func TestSelectProvider_WithHealth(t *testing.T) {
 	})
 	if err == nil {
 		t.Log("Complete succeeded (may have mock API configured — this is fine in CI)")
-	}
-}
-
-func TestStats_Tracking(t *testing.T) {
-	providers := []router.ProviderConfig{
-		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
-	}
-
-	r := router.New(providers, 100000)
-
-	stats := r.Stats()
-	if len(stats) != 1 {
-		t.Fatalf("expected 1 provider stat, got %d", len(stats))
-	}
-
-	for kind, s := range stats {
-		if kind != router.ProviderOpenRouter {
-			t.Errorf("expected ProviderOpenRouter, got %s", kind)
-		}
-		if !s.Healthy {
-			t.Error("provider should be healthy initially")
-		}
-		if s.Tokens != 0 {
-			t.Errorf("expected 0 tokens, got %d", s.Tokens)
-		}
-		if s.Fails != 0 {
-			t.Errorf("expected 0 fails, got %d", s.Fails)
-		}
-	}
-}
-
-func TestTotalTokensUsed(t *testing.T) {
-	providers := []router.ProviderConfig{
-		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
-	}
-
-	r := router.New(providers, 100000)
-
-	if r.TotalTokensUsed() != 0 {
-		t.Errorf("expected 0 total tokens, got %d", r.TotalTokensUsed())
 	}
 }
 

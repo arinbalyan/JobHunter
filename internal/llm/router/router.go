@@ -261,39 +261,4 @@ func (r *Router) callProvider(ctx context.Context, p *ProviderStatus, req *Compl
 	}, nil
 }
 
-// Stats returns usage statistics for all providers.
-func (r *Router) Stats() map[ProviderKind]struct {
-	Tokens   int64
-	Fails    int64
-	Healthy  bool
-} {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	stats := make(map[ProviderKind]struct {
-		Tokens  int64
-		Fails   int64
-		Healthy bool
-	})
-	for _, p := range r.providers {
-		p.mu.RLock()
-		stats[p.Kind] = struct {
-			Tokens  int64
-			Fails   int64
-			Healthy bool
-		}{
-			Tokens:  p.TokenCount,
-			Fails:   p.FailCount,
-			Healthy: p.Healthy,
-		}
-		p.mu.RUnlock()
-	}
-	return stats
-}
-
-// TotalTokensUsed returns total tokens consumed across all providers.
-func (r *Router) TotalTokensUsed() int64 {
-	return r.totalTokens.Load()
-}
-
 

@@ -88,20 +88,6 @@ func (l *Logger) Error(format string, args ...interface{}) {
 	l.log(LevelError, format, args...)
 }
 
-// WithField returns a new Logger with the given field added.
-func (l *Logger) WithField(key string, value interface{}) *Logger {
-	newFields := make(map[string]interface{})
-	for k, v := range l.fields {
-		newFields[k] = v
-	}
-	newFields[key] = value
-	return &Logger{
-		level:  l.level,
-		logger: l.logger,
-		fields: newFields,
-	}
-}
-
 func (l *Logger) log(level Level, format string, args ...interface{}) {
 	if level < l.level {
 		return

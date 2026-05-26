@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	"html/template"
 	"net/smtp"
 	"os"
 	"path/filepath"
@@ -220,15 +219,6 @@ func isQuotaError(err error) bool {
 		strings.Contains(msg, "exceeded")
 }
 
-// RenderTemplate is kept for compatibility.
-func RenderTemplate(tmpl *template.Template, name string, data interface{}) (string, error) {
-	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, name, data); err != nil {
-		return "", fmt.Errorf("execute template %s: %w", name, err)
-	}
-	return buf.String(), nil
-}
-
 // InjectTrackingPixel adds a tracking pixel to an HTML email body.
 func InjectTrackingPixel(htmlBody string, trackingServerURL, trackingID string) string {
 	pixelURL := fmt.Sprintf("%s/track?id=%s", strings.TrimRight(trackingServerURL, "/"), trackingID)
@@ -239,4 +229,3 @@ func InjectTrackingPixel(htmlBody string, trackingServerURL, trackingID string) 
 	return htmlBody + pixel
 }
 
-// unused import silencer

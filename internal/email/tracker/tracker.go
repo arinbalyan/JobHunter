@@ -213,13 +213,6 @@ Go: %s
 `, s.startTime.UTC().Format(time.RFC3339), runtime.Version())
 }
 
-func (s *Server) Stop(ctx context.Context) error {
-	if s.server != nil {
-		return s.server.Shutdown(ctx)
-	}
-	return nil
-}
-
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()

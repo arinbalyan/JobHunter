@@ -124,7 +124,6 @@ func TestServer_HandleTrack_Direct(t *testing.T) {
 		// May or may not succeed depending on port availability
 	}
 
-	s.Stop(ctx)
 	<-errCh
 }
 
@@ -402,17 +401,6 @@ func TestHandleRoot(t *testing.T) {
 	body, _ := io.ReadAll(resp.Body)
 	if !strings.Contains(string(body), "JobHunter Tracking Server") {
 		t.Errorf("expected root handler text, got: %s", string(body))
-	}
-}
-
-func TestStop(t *testing.T) {
-	db := newMockDB()
-	s := tracker.New(db, 8080)
-
-	ctx := context.Background()
-	err := s.Stop(ctx)
-	if err != nil {
-		t.Errorf("Stop with nil server: %v", err)
 	}
 }
 

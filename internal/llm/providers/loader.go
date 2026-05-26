@@ -122,9 +122,4 @@ func selectModel(p ProviderEntry, taskType string) string {
 	return p.Models.Simple
 }
 
-// ConvertToRouterConfig converts resolved providers to router.ProviderConfig.
-// This avoids circular imports — the caller imports both packages.
-func ToRouterKind(kind string) interface{} {
-	// Return the string as-is; the router uses ProviderKind which is string-based
-	return kind
-}
+

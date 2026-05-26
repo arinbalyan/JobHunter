@@ -19,15 +19,10 @@ type Config struct {
 	OpenRouterAPIKey string
 	GroqAPIKey       string
 	CerebrasAPIKey   string
-	NvidiaAPIKey     string
 	SambaNovaAPIKey  string
-	HuggingFaceAPIKey string
-	ReplicateAPIToken string
 	DeepInfraAPIKey  string
 	FireworksAPIKey  string
-	CodestralAPIKey  string
 	HyperbolicAPIKey string
-	GoogleAPIKey     string
 	TogetherAPIKey   string
 	ZAIAPIKey        string
 
@@ -79,17 +74,13 @@ type Config struct {
 
 	// User Profile
 	UserYearsExperience int
-	UserCurrentRole     string
-	UserTargetRoles     []string
 
 	// Contact Info
 	ContactName      string
-	ContactEmail     string
 	ContactPhone     string
 	ContactPortfolio string
 	ContactGithub    string
 	ContactLinkedin  string
-	ContactCodolio   string
 	ResumeDriveLink  string
 }
 
@@ -125,39 +116,7 @@ func (c *Config) GetActiveProviders() []ProviderConfig {
 			)
 		}
 
-		// Priority 3: Dynamically discovered free models
-		// Ranks by context length: bigger context = more capable = higher weight
-		freeModels, err := FetchFreeModels(c.OpenRouterAPIKey)
-		if err == nil && len(freeModels) > 0 {
-			for i, m := range freeModels {
-				// Weight: higher context = higher weight, capped at 8, min 1
-				weight := 8 - i
-				if weight < 1 {
-					weight = 1
-				}
-				if weight > 8 {
-					weight = 8
-				}
-				providers = append(providers,
-					ProviderConfig{
-						Kind:    "openrouter",
-						APIKey:  c.OpenRouterAPIKey,
-						BaseURL: "https://openrouter.ai/api",
-						Model:   m.ID,
-						Weight:  weight,
-					},
-				)
-			}
-		} else {
-			// Fallback: if API call fails, use a few well-known free models
-			providers = append(providers,
-				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "google/gemma-4-26b-a4b-it:free", Weight: 6},
-				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "deepseek/deepseek-v4-flash:free", Weight: 5},
-				ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "meta-llama/llama-3.3-70b-instruct:free", Weight: 4},
-			)
-		}
-
-		// Priority 4: Emergency catch-all — OpenRouter's free router
+		// Priority 3: Emergency catch-all — OpenRouter's free router
 		providers = append(providers,
 			ProviderConfig{Kind: "openrouter", APIKey: c.OpenRouterAPIKey, BaseURL: "https://openrouter.ai/api", Model: "openrouter/free", Weight: 0},
 		)
@@ -235,15 +194,10 @@ func Load() (*Config, error) {
 		OpenRouterAPIKey: getEnv("OPENROUTER_API_KEY", ""),
 		GroqAPIKey:       getEnv("GROQ_API_KEY", ""),
 		CerebrasAPIKey:   getEnv("CEREBRAS_API_KEY", ""),
-		NvidiaAPIKey:     getEnv("NVIDIA_API_KEY", ""),
 		SambaNovaAPIKey:  getEnv("SAMBANOVA_API_KEY", ""),
-		HuggingFaceAPIKey: getEnv("HUGGINGFACE_API_KEY", ""),
-		ReplicateAPIToken: getEnv("REPLICATE_API_TOKEN", ""),
 		DeepInfraAPIKey:  getEnv("DEEPINFRA_API_KEY", ""),
 		FireworksAPIKey:  getEnv("FIREWORKS_API_KEY", ""),
-		CodestralAPIKey:  getEnv("CODESTRAL_API_KEY", ""),
 		HyperbolicAPIKey: getEnv("HYPERBOLIC_API_KEY", ""),
-		GoogleAPIKey:     getEnv("GOOGLE_API_KEY", ""),
 		TogetherAPIKey:   getEnv("TOGETHER_API_KEY", ""),
 		ZAIAPIKey:        getEnv("ZAI_API_KEY", ""),
 
@@ -280,15 +234,12 @@ func Load() (*Config, error) {
 		JobType:            getEnv("JOB_TYPE", "fulltime"),
 
 		UserYearsExperience: getEnvInt("USER_YEARS_EXPERIENCE", 0),
-		UserCurrentRole:     getEnv("USER_CURRENT_ROLE", ""),
 
 		ContactName:      getEnv("CONTACT_NAME", ""),
-		ContactEmail:     getEnv("CONTACT_EMAIL", ""),
 		ContactPhone:     getEnv("CONTACT_PHONE", ""),
 		ContactPortfolio: getEnv("CONTACT_PORTFOLIO", ""),
 		ContactGithub:    getEnv("CONTACT_GITHUB", ""),
 		ContactLinkedin:  getEnv("CONTACT_LINKEDIN", ""),
-		ContactCodolio:   getEnv("CONTACT_CODOLIO", ""),
 		ResumeDriveLink:  getEnv("RESUME_DRIVE_LINK", ""),
 	}
 
@@ -296,7 +247,6 @@ func Load() (*Config, error) {
 	cfg.JobSearchTerms = parseCommaList(getEnv("JOB_SEARCH_TERMS", ""))
 	cfg.JobLocations = parseCommaList(getEnv("JOB_LOCATIONS", ""))
 	cfg.JobSites = parseCommaList(getEnv("JOB_SITES", "all"))
-	cfg.UserTargetRoles = parseJSONList(getEnv("USER_TARGET_ROLES", "[]"))
 
 	// Parse durations
 	cfg.EmailDelay = time.Duration(cfg.EmailDelaySeconds) * time.Second
@@ -350,25 +300,6 @@ func parseCommaList(s string) []string {
 		trimmed := strings.TrimSpace(p)
 		if trimmed != "" {
 			result = append(result, trimmed)
-		}
-	}
-	return result
-}
-
-func parseJSONList(s string) []string {
-	s = strings.TrimSpace(s)
-	if s == "" || s == "[]" {
-		return nil
-	}
-	s = strings.TrimPrefix(s, "[")
-	s = strings.TrimSuffix(s, "]")
-	parts := strings.Split(s, ",")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		p = strings.Trim(p, "\"")
-		if p != "" {
-			result = append(result, p)
 		}
 	}
 	return result
