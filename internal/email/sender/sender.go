@@ -3,9 +3,9 @@ package sender
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"fmt"
 	"html/template"
-	"io"
 	"net/smtp"
 	"os"
 	"path/filepath"
@@ -168,24 +168,17 @@ func (s *Sender) buildEmail(msg *EmailMessage) ([]byte, error) {
 
 		data, err := os.ReadFile(resumePath)
 		if err == nil {
-			encoded := make([]byte, len(data)*4/3+len(data)/57+100)
-			// Simple base64 encoding with line wrapping
-			dst := encoded[:0]
-			lineLen := 0
-			for _, b := range data {
-				const base64Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-				dst = append(dst, base64Chars[b>>2])
-				dst = append(dst, base64Chars[(b&0x03)<<4|(b>>4)])
-				dst = append(dst, base64Chars[(b&0x0f)<<2|(b>>6)])
-				dst = append(dst, base64Chars[b&0x3f])
-				lineLen += 4
-				if lineLen >= 76 {
-					dst = append(dst, '\r', '\n')
-					lineLen = 0
+			// Use stdlib base64 with RFC 2045 line wrapping (76 chars per line)
+			encoded := base64.StdEncoding.EncodeToString(data)
+			for len(encoded) > 0 {
+				chunk := encoded
+				if len(chunk) > 76 {
+					chunk = chunk[:76]
 				}
+				buf.WriteString(chunk)
+				buf.WriteString("\r\n")
+				encoded = encoded[len(chunk):]
 			}
-			buf.Write(dst)
-			buf.WriteString("\r\n")
 		}
 
 		buf.WriteString(closeBoundary + "\r\n")
@@ -247,4 +240,3 @@ func InjectTrackingPixel(htmlBody string, trackingServerURL, trackingID string) 
 }
 
 // unused import silencer
-var _ = io.Discard

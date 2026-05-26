@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -208,7 +209,8 @@ func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status,
 	emails := j.FlatEmails()
 	emailsJSON := "[]"
 	if len(emails) > 0 {
-		emailsJSON = fmt.Sprintf(`["%s"]`, strings.Join(emails, `","`))
+		b, _ := json.Marshal(emails)
+		emailsJSON = string(b)
 	}
 
 	// Extract salary from compensation
@@ -225,7 +227,8 @@ func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status,
 	// Skills as JSON
 	skillsJSON := "[]"
 	if len(j.Skills) > 0 {
-		skillsJSON = fmt.Sprintf(`["%s"]`, strings.Join(j.Skills, `","`))
+		b, _ := json.Marshal(j.Skills)
+		skillsJSON = string(b)
 	}
 
 	_, isNew, _ := pool.InsertJobFull(ctx, &db.FullJobRecord{
