@@ -30,8 +30,6 @@ func main() {
 		debug.SetMemoryLimit(80 * 1024 * 1024)
 	}
 
-	startTime := time.Now()
-
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -45,6 +43,12 @@ func main() {
 	}
 
 	logger := logging.New(cfg.LogLevel, os.Stdout)
+	os.Exit(run(cfg, yamlCfg, logger))
+}
+
+func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger) int {
+	startTime := time.Now()
+
 	logger.Info("Scrape workflow starting...")
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -61,14 +65,14 @@ func main() {
 	dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("database connection failed: %v", err)
-		os.Exit(1)
+		return 1
 	}
 	defer dbPool.Close()
 
 	// Migrations
 	if err := migrations.Run(cfg.DatabaseURL); err != nil {
 		logger.Error("migrations failed: %v", err)
-		os.Exit(1)
+		return 1
 	}
 
 	// Load scrappy config path — either from env or use scrappy's default locations
@@ -113,7 +117,7 @@ func main() {
 		logger.Error("scrape failed: %v", err)
 		// Record the failed run
 		recordRun(ctx, dbPool, "scrape", "failed", 0, 0, 0, 0, 0, time.Since(startTime), err.Error())
-		os.Exit(1)
+		return 1
 	}
 
 	logger.Info("scraped %d jobs from %d sites", len(jobs), len(cfg.JobSites))
@@ -121,7 +125,7 @@ func main() {
 	if len(jobs) == 0 {
 		logger.Info("no jobs found")
 		recordRun(ctx, dbPool, "scrape", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
-		return
+		return 0
 	}
 
 	// Evaluates each job and insert into DB
@@ -203,6 +207,8 @@ func main() {
 		)
 		sendTelegram(ctx, tgToken, tgChat, msg)
 	}
+
+	return 0
 }
 
 func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status, skipReason, recipientEmail string, inserted *int) {

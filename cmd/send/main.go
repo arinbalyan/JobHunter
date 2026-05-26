@@ -35,8 +35,6 @@ func main() {
 		}
 	}
 
-	startTime := time.Now()
-
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -50,6 +48,12 @@ func main() {
 	}
 
 	logger := logging.New(cfg.LogLevel, os.Stdout)
+	os.Exit(run(cfg, logger, dryRun))
+}
+
+func run(cfg *config.Config, logger *logging.Logger, dryRun bool) int {
+	startTime := time.Now()
+
 	logger.Info("Send workflow starting...")
 
 	// Load LLM provider config from llm.yaml
@@ -73,13 +77,13 @@ func main() {
 	dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("database connection failed: %v", err)
-		os.Exit(1)
+		return 1
 	}
 	defer dbPool.Close()
 
 	if err := migrations.Run(cfg.DatabaseURL); err != nil {
 		logger.Error("migrations failed: %v", err)
-		os.Exit(1)
+		return 1
 	}
 
 	// ── Quota check ──
@@ -87,7 +91,7 @@ func main() {
 	if quota.exhausted() {
 		logger.Warn("daily email quota exhausted (%d/%d)", quota.todayCount, cfg.DailyEmailLimit)
 		recordRun(ctx, dbPool, "send", "quota_exhausted", 0, 0, 0, 0, 0, time.Since(startTime), "daily quota exhausted")
-		return
+		return 0
 	}
 	logger.Info("email quota: %d/%d used, %d remaining", quota.todayCount, cfg.DailyEmailLimit, quota.remaining())
 
@@ -100,12 +104,12 @@ func main() {
 	queueItems, err := dbPool.GetPendingQueue(ctx, maxToSend)
 	if err != nil {
 		logger.Error("fetch queue: %v", err)
-		os.Exit(1)
+		return 1
 	}
 	logger.Info("found %d pending emails to send", len(queueItems))
 	if len(queueItems) == 0 {
 		recordRun(ctx, dbPool, "send", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
-		return
+		return 0
 	}
 
 	// ── Load context for LLM ──
@@ -146,7 +150,7 @@ func main() {
 		case <-ctx.Done():
 			logger.Info("interrupted after %d sent", sent)
 			recordRun(ctx, dbPool, "send", "interrupted", 0, len(queueItems)-i, 0, sent, failed, time.Since(startTime), "interrupted")
-			return
+			return 0
 		default:
 		}
 
@@ -212,7 +216,7 @@ func main() {
 		if i < len(queueItems)-1 && cfg.EmailDelay > 0 {
 			select {
 			case <-ctx.Done():
-				return
+				return 0
 			case <-time.After(cfg.EmailDelay):
 			}
 		}
@@ -229,6 +233,8 @@ func main() {
 		)
 		telegramNotify(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}
+
+	return 0
 }
 
 func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, userPrompt string, item db.QueueItem, contactName string, cfg *config.Config, logger *logging.Logger) (string, string) {

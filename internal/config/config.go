@@ -24,6 +24,7 @@ type Config struct {
 	FireworksAPIKey  string
 	HyperbolicAPIKey string
 	TogetherAPIKey   string
+	NvidiaAPIKey     string
 	ZAIAPIKey        string
 
 	// LLM Settings
@@ -122,63 +123,35 @@ func (c *Config) GetActiveProviders() []ProviderConfig {
 		)
 	}
 
-	// --- Groq (fast inference, good for simple tasks) ---
-	if c.GroqAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "groq", APIKey: c.GroqAPIKey, BaseURL: "https://api.groq.com/openai", Model: "llama-3.3-70b-versatile", Weight: 3},
-			ProviderConfig{Kind: "groq", APIKey: c.GroqAPIKey, BaseURL: "https://api.groq.com/openai", Model: "llama-3.1-8b-instant", Weight: 2},
-			ProviderConfig{Kind: "groq", APIKey: c.GroqAPIKey, BaseURL: "https://api.groq.com/openai", Model: "openai/gpt-oss-120b", Weight: 1},
-		)
+	zaiAPIKey := c.ZAIAPIKey
+
+	// Table-driven generic providers: {kind, apiKey, baseURL, model, weight}
+	type def struct {
+		kind    string
+		apiKey  string
+		baseURL string
+		model   string
+		weight  int
 	}
 
-	// --- Cerebras (wafer-scale, very fast) ---
-	if c.CerebrasAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "cerebras", APIKey: c.CerebrasAPIKey, BaseURL: "https://api.cerebras.ai", Model: c.SimpleModel, Weight: 2},
-		)
+	defs := []def{
+		{"groq", c.GroqAPIKey, "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile", 3},
+		{"together", c.TogetherAPIKey, "https://api.together.xyz/v1", "meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo", 2},
+		{"deepinfra", c.DeepInfraAPIKey, "https://api.deepinfra.com/v1/openai", "meta-llama/Meta-Llama-3.3-70B-Instruct", 2},
+		{"fireworks", c.FireworksAPIKey, "https://api.fireworks.ai/inference/v1", "accounts/fireworks/models/llama-v3p3-70b-instruct", 2},
+		{"hyperbolic", c.HyperbolicAPIKey, "https://api.hyperbolic.xyz/v1", "meta-llama/Meta-Llama-3.3-70B-Instruct", 1},
+		{"sambanova", c.SambaNovaAPIKey, "https://api.sambanova.ai/v1", "Meta-Llama-3.3-70B-Instruct", 2},
+		{"cerebras", c.CerebrasAPIKey, "https://api.cerebras.ai/v1", c.SimpleModel, 1},
+		{"nvidia", c.NvidiaAPIKey, "https://integrate.api.nvidia.com/v1", "nvidia/nemotron-4-340b-instruct", 2},
+		{"zai", zaiAPIKey, "https://open.bigmodel.cn/api/paas/v4", "GLM-4-Plus", 2},
 	}
 
-	// --- Together AI ---
-	if c.TogetherAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "together", APIKey: c.TogetherAPIKey, BaseURL: "https://api.together.xyz", Model: "meta-llama/Llama-3.3-70B-Instruct-Turbo", Weight: 2},
-			ProviderConfig{Kind: "together", APIKey: c.TogetherAPIKey, BaseURL: "https://api.together.xyz", Model: "google/gemma-4-9b-it", Weight: 2},
-		)
-	}
-
-	// --- DeepInfra ---
-	if c.DeepInfraAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "deepinfra", APIKey: c.DeepInfraAPIKey, BaseURL: "https://api.deepinfra.com", Model: "meta-llama/Llama-3.3-70B-Instruct", Weight: 2},
-		)
-	}
-
-	// --- Fireworks AI ---
-	if c.FireworksAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "fireworks", APIKey: c.FireworksAPIKey, BaseURL: "https://api.fireworks.ai", Model: "accounts/fireworks/models/llama-v3p3-70b-instruct", Weight: 2},
-		)
-	}
-
-	// --- Hyperbolic ---
-	if c.HyperbolicAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "hyperbolic", APIKey: c.HyperbolicAPIKey, BaseURL: "https://api.hyperbolic.xyz", Model: "meta-llama/Llama-3.3-70B-Instruct", Weight: 2},
-		)
-	}
-
-	// --- SambaNova ---
-	if c.SambaNovaAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "sambanova", APIKey: c.SambaNovaAPIKey, BaseURL: "https://api.sambanova.ai", Model: "Meta-Llama-3.3-70B-Instruct", Weight: 2},
-		)
-	}
-
-	// --- ZAI (GLM) ---
-	if c.ZAIAPIKey != "" {
-		providers = append(providers,
-			ProviderConfig{Kind: "zai", APIKey: c.ZAIAPIKey, BaseURL: "https://open.bigmodel.cn/api/paas/v4", Model: "GLM-4-Plus", Weight: 1},
-		)
+	for _, d := range defs {
+		if d.apiKey != "" {
+			providers = append(providers, ProviderConfig{
+				Kind: d.kind, APIKey: d.apiKey, BaseURL: d.baseURL, Model: d.model, Weight: d.weight,
+			})
+		}
 	}
 
 	return providers
@@ -199,6 +172,7 @@ func Load() (*Config, error) {
 		FireworksAPIKey:  getEnv("FIREWORKS_API_KEY", ""),
 		HyperbolicAPIKey: getEnv("HYPERBOLIC_API_KEY", ""),
 		TogetherAPIKey:   getEnv("TOGETHER_API_KEY", ""),
+		NvidiaAPIKey:     getEnv("NVIDIA_API_KEY", ""),
 		ZAIAPIKey:        getEnv("ZAI_API_KEY", ""),
 
 		ComplexModel: getEnv("LLM_COMPLEX_MODEL", "google/gemma-4-26b-a4b-it:free"),
