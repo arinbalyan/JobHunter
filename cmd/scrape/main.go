@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -22,6 +21,7 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
 	"github.com/arinbalyan/jobhunter/internal/scraper"
+	"github.com/arinbalyan/jobhunter/internal/telegram"
 	"github.com/google/uuid"
 )
 
@@ -205,7 +205,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 			"<b>Scrape Complete</b>\nScraped: %d\nPending: %d\nSkipped: %d\nDuration: %.0fs\n%s",
 			len(jobs), pending, skipped, duration.Seconds(), summarizeReasons(skippedReasons),
 		)
-		sendTelegram(ctx, tgToken, tgChat, msg)
+		_ = telegram.SendMessage(ctx, tgToken, tgChat, msg)
 	}
 
 	return 0
@@ -297,16 +297,3 @@ func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scra
 	_ = pool.RecordRunLog(ctx, workflow, status, scraped, pending, skipped, sent, failed, int(dur.Milliseconds()), errMsg)
 }
 
-func sendTelegram(ctx context.Context, token, chatID, msg string) {
-	// Simple HTTP call to Telegram API
-	body := fmt.Sprintf(`{"chat_id":"%s","text":"%s","parse_mode":"HTML"}`, chatID, strings.ReplaceAll(msg, `"`, `\"`))
-	req, _ := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token),
-		strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
-}

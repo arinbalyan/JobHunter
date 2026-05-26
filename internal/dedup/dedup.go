@@ -62,6 +62,8 @@ func (d *Deduplicator) MarkSent(ctx context.Context, record *db.EmailRecord) err
 }
 
 // IsRejectedTitle checks if a job title should be rejected.
+// NOTE: Duplicated in internal/config/yaml_config.go (YAMLConfig.RejectTitle).
+// Both are tested; yaml_config.go is the canonical production version.
 func IsRejectedTitle(title string, rejectPatterns []string) bool {
 	titleLow := strings.ToLower(title)
 	for _, pattern := range rejectPatterns {
@@ -73,6 +75,8 @@ func IsRejectedTitle(title string, rejectPatterns []string) bool {
 }
 
 // FilterEmail checks if an email matches any filter pattern.
+// NOTE: Duplicated in internal/config/yaml_config.go (YAMLConfig.FilterEmail).
+// Both are tested; yaml_config.go is the canonical production version.
 func FilterEmail(email string, filterPatterns []string) bool {
 	emailLow := strings.ToLower(email)
 	for _, pattern := range filterPatterns {

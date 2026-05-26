@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -19,6 +18,7 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/db"
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
+	"github.com/arinbalyan/jobhunter/internal/telegram"
 	"github.com/google/uuid"
 )
 
@@ -139,7 +139,7 @@ func main() {
 			"<b>Follow-up Complete</b>\nQueued: %d\nSkipped: %d\nDuration: %.0fs",
 			followups, skipped, duration.Seconds(),
 		)
-		sendTelegram(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
+		_ = telegram.SendMessage(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}
 }
 
@@ -152,15 +152,3 @@ func extractDomain(email string) string {
 	return strings.ToLower(strings.TrimSpace(parts[1]))
 }
 
-func sendTelegram(ctx context.Context, token, chatID, msg string) {
-	body := fmt.Sprintf(`{"chat_id":"%s","text":"%s","parse_mode":"HTML"}`, chatID, strings.ReplaceAll(msg, `"`, `\"`))
-	req, _ := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token),
-		strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
-}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"net/http"
 	"os"
 	"os/signal"
 	"runtime/debug"
@@ -20,6 +19,7 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/llm/router"
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
+	"github.com/arinbalyan/jobhunter/internal/telegram"
 	"github.com/google/uuid"
 )
 
@@ -231,7 +231,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool) int {
 			"<b>Send Complete</b>\nSent: %d\nFailed: %d\nDuration: %.0fs",
 			sent, failed, duration.Seconds(),
 		)
-		telegramNotify(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
+		_ = telegram.SendMessage(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}
 
 	return 0
@@ -342,15 +342,3 @@ func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scra
 	_ = pool.RecordRunLog(ctx, workflow, status, scraped, pending, skipped, sent, failed, int(dur.Milliseconds()), errMsg)
 }
 
-func telegramNotify(ctx context.Context, token, chatID, msg string) {
-	body := fmt.Sprintf(`{"chat_id":"%s","text":"%s","parse_mode":"HTML"}`, chatID, strings.ReplaceAll(msg, `"`, `\"`))
-	req, _ := http.NewRequestWithContext(ctx, "POST",
-		fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", token),
-		strings.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-	}
-}
