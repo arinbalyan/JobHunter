@@ -3,7 +3,7 @@
 # JobHunter
 
 **An open-source AI-powered job outreach agent.**
-Scrape job boards, match jobs to your profile, send personalized emails with tracking.
+Scrape 55+ job boards, match jobs to your profile, send personalized emails with open/click tracking.
 
 [![Go Version](https://img.shields.io/badge/Go-1.26%2B-00ADD8?logo=go)](https://go.dev/)
 [![License](https://img.shields.io/badge/license-Attribution-green)](https://github.com/arinbalyan/JobHunter)
@@ -17,25 +17,33 @@ Scrape job boards, match jobs to your profile, send personalized emails with tra
 
 ---
 
-## Features
+## What is JobHunter?
 
-- **Smart Scraping** -- 55+ job boards via [scrappy](https://github.com/arinbalyan/scrappy) engine
-- **Intelligent Matching** -- Experience-level aware, role matching, seniority comparison
-- **Personalized Emails** -- Context-aware templates for qualified/underqualified/overqualified scenarios
-- **Email Tracking** -- Open/click tracking via invisible pixel, bounce/reply detection via IMAP
-- **Multi-Provider LLM** -- Dynamic round-robin across 10+ providers with automatic free model discovery
-- **Plugin Architecture** -- Drop-in plugins for custom bots and workflows
-- **Stats Pipeline** -- Time-series stats collection across all plugins
-- **Auto Migrations** -- Embedded SQL migrations via golang-migrate, safe to run repeatedly
-- **Memory Optimized** -- Runs under 80MB RAM with Go's GC tuning
-- **CI/CD Ready** -- GitHub Actions workflow with secrets management
+JobHunter is a **Go-based** automated job scraping and email outreach system. It:
 
-## Prerequisites
+1. **Scrapes** job boards via the [scrappy](https://github.com/arinbalyan/scrappy) engine (55+ boards)
+2. **Filters** jobs using configurable title rejection patterns, email filters, and deduplication
+3. **Generates** personalized outreach emails using LLMs (10+ providers, round-robin)
+4. **Sends** emails via Gmail SMTP with tracking pixels and optional resume attachments
+5. **Tracks** opens, clicks, bounces, and replies via a built-in tracking server + IMAP scanner
+6. **Follows up** automatically on sent emails that haven't received replies
+7. **Reports** results to Telegram after every run
 
-- Go 1.26+
-- A [NeonDB](https://console.neon.tech) PostgreSQL database (free tier)
-- A Gmail account with [App Password](https://myaccount.google.com/apppasswords)
-- An [OpenRouter](https://openrouter.ai/keys) API key (or Groq/Cerebras/Together/etc.)
+## 11 Commands
+
+| Command | Purpose |
+|---------|---------|
+| `scrape` | Run scrappy, filter jobs, insert pending items into queue |
+| `send` | Generate LLM emails and send pending queued items |
+| `followup` | Find sent+no-reply emails and queue gentle follow-ups |
+| `cleanup` | Delete old skipped jobs and mark stale pending items |
+| `tracker` | Standalone HTTP server for open/click tracking |
+| `inbox` | Show telemetry dashboard: engagement rates, IMAP scan, daily stats |
+| `doctor` | 15-point diagnostic checklist (auto-creates `.env`) |
+| `migrate` | Manual database migrations (up/drop) |
+| `botid` | Discover your Telegram chat ID |
+| `syncsecrets` | Push `.env` values to GitHub Secrets via `gh` CLI |
+| `send` (legacy alias: `sender`) | The main email-sending workflow |
 
 ## Quick Start
 
@@ -44,132 +52,116 @@ Scrape job boards, match jobs to your profile, send personalized emails with tra
 git clone https://github.com/arinbalyan/JobHunter.git
 cd JobHunter
 
-# Setup
-cp .env.example .env
-# Edit .env with your keys (see docs/guides/001-Getting-Started.md)
+# Start local Postgres + tracker
+docker compose up -d
 
-# Run migrations (auto-runs on first start)
-go run ./cmd/sender
+# Run doctor (auto-creates .env if missing)
+go run ./cmd/doctor/
 
-# Deploy tracking server (separate terminal)
-go run ./cmd/tracker
+# Edit .env with your API keys
+# Then scrape jobs
+go run ./cmd/scrape/
+
+# Send pending emails (dry run first)
+go run ./cmd/send/ --dry-run
+
+# Check telemetry
+go run ./cmd/inbox/
 ```
+
+## Prerequisites
+
+- **Go 1.26+**
+- **PostgreSQL** (NeonDB free tier recommended, or use Docker Compose for local dev)
+- **Gmail account** with [App Password](https://myaccount.google.com/apppasswords)
+- **OpenRouter API key** (free, for LLM email generation) or any of 10+ supported providers
+- **scrappy** (optional -- the scrape workflow builds it from source in CI, or install locally from [github.com/arinbalyan/scrappy](https://github.com/arinbalyan/scrappy))
 
 ## Architecture
 
 ```
-cmd/
-├── sender/      -> Main agent (migrations -> plugins -> stats flush)
-├── tracker/     -> Email tracking server (pixel + click redirect)
-└── migrate/     -> Manual migration tool
-
-internal/
-├── plugin/sdk/  -> Plugin interface and contracts
-├── migrations/  -> Embedded SQL migrations
-├── email/
-│   ├── sender/  -> Gmail SMTP with MIME building
-│   ├── tracker/ -> HTTP tracking server
-│   └── imap/    -> Bounce and reply scanner
-├── llm/router/  -> Multi-provider LLM router with dynamic model discovery
-├── scraper/     -> Scrappy CLI adapter
-├── job/         -> Job filtering and matching
-├── template/    -> HTML email templates
-├── stats/       -> Time-series stats collector
-├── ratelimit/   -> Token bucket rate limiter
-└── config/      -> Environment configuration with auto model fetching
-
-plugins/
-├── jobhunter.go -> Core job outreach plugin
-└── register.go  -> Plugin registration
+cmd/                          internal/
+├── scrape/                   ├── config/        env + YAML config + model discovery
+├── send/                     ├── db/            PostgreSQL pool, queries, migrations
+├── followup/                 ├── dedup/         email dedup, title rejection, email filters
+├── cleanup/                  ├── scraper/       scrappy CLI adapter
+├── tracker/                  ├── email/
+├── migrate/                  │   ├── sender/    SMTP with retry + resume attachment
+├── inbox/                    │   ├── tracker/   HTTP server (/track, /click, /health, /stats, /version)
+├── doctor/                   │   └── imap/      IMAP scanner for bounces/replies
+├── botid/                    ├── llm/
+├── syncsecrets/              │   ├── router/    Multi-provider round-robin dispatcher
+plugins/                      │   ├── providers/ llm.yaml loader (10 providers)
+├── jobhunter.go              │   └── prompt/    System + user prompt builders
+└── register.go               ├── logging/       Structured logger
+                              ├── migrations/    5 SQL migration files
+                              ├── template/      HTML email templates (embedded)
+                              ├── stats/         Time-series stats collector
+                              ├── telegram/      Telegram bot notifications
+                              ├── report/        Run report generation
+                              ├── job/           Job filtering and matching
+                              └── plugin/        Plugin SDK + manager
 ```
 
 ## LLM Providers (10+)
 
-The router dynamically discovers and load-balances across all configured providers:
+The router dynamically discovers free OpenRouter models at startup and load-balances across all configured providers:
 
-| Provider | Models | Access |
-|----------|--------|--------|
-| OpenRouter | 28+ free models (Gemma 4, DeepSeek V4, Llama 405B, etc.) | API key |
-| Groq | Llama 3.3 70B, Llama 3.1 8B | API key |
-| Together AI | Llama 3.3 70B Turbo | API key |
-| DeepInfra | Llama 3.3 70B | API key |
-| Fireworks AI | Llama 3.3 70B | API key |
-| Hyperbolic | Llama 3.3 70B | API key |
-| SambaNova | Meta-Llama 3.3 70B | API key |
-| Cerebras | Wafer-scale fast inference | API key |
-| NVIDIA NIM | Nemotron models | API key |
-| Z.AI | GLM-4 Plus | API key |
-
-OpenRouter models are discovered dynamically at startup by fetching all `:free` models from their API, sorted by context length.
+| Provider | Complex Models | Simple Models |
+|----------|---------------|---------------|
+| OpenRouter | gemma-4-26b:free (auto-discovers 28+) | openrouter/free |
+| Groq | llama-3.3-70b | llama-3.1-8b |
+| Together | llama-3.3-70b-turbo | gemma-4-9b |
+| DeepInfra | llama-3.3-70b | llama-3.3-70b |
+| Fireworks | llama-v3p3-70b | llama-v3p3-70b |
+| Hyperbolic | llama-3.3-70b | llama-3.3-70b |
+| SambaNova | Meta-Llama-3.3-70B | Meta-Llama-3.3-70B |
+| Cerebras | gemma-4-9b | gemma-4-9b |
+| NVIDIA | nemotron-4-340b | nemotron-4-340b |
+| Z.AI | GLM-4-Plus | GLM-4-Air |
 
 ## Documentation
 
-| Guide | Description |
-|-------|-------------|
-| [Getting Started](docs/guides/001-Getting-Started.md) | Setup and first run |
-| [Plugin System](docs/guides/002-Plugin-System.md) | Create custom plugins |
-| [Email Tracking](docs/guides/003-Email-Tracking.md) | Open/click/bounce/reply tracking |
-| [LLM Router](docs/guides/004-LLM-Router.md) | Multi-provider AI routing |
-| [Database Schema](docs/guides/005-Database-Schema.md) | All tables and migration system |
-| [GitHub Actions](docs/guides/006-GitHub-Actions.md) | CI/CD setup and secrets |
+| # | Guide | Description |
+|---|-------|-------------|
+| 001 | [Getting Started](docs/guides/001-Getting-Started.md) | Setup, configuration, first run |
+| 002 | [Plugin System](docs/guides/002-Plugin-System.md) | Writing and registering plugins |
+| 003 | [Email Tracking](docs/guides/003-Email-Tracking.md) | Open/click tracking, IMAP bounce/reply detection |
+| 004 | [LLM Router](docs/guides/004-LLM-Router.md) | Multi-provider AI routing, model discovery |
+| 005 | [Database Schema](docs/guides/005-Database-Schema.md) | All tables, migrations, indexes |
+| 006 | [GitHub Actions](docs/guides/006-GitHub-Actions.md) | CI/CD, secrets, automation |
+| 007 | [Commands Reference](docs/guides/007-Commands-Reference.md) | All 11 CLI commands in detail |
+| 008 | [Docker Deployment](docs/guides/008-Docker-Deployment.md) | Local dev with Docker Compose |
+| 009 | [Telemetry & Monitoring](docs/guides/009-Telemetry-and-Monitoring.md) | Tracking server, inbox, IMAP |
+| 010 | [Troubleshooting](docs/guides/010-Troubleshooting.md) | Common issues and fixes |
 
-## Writing a Plugin
+## Docker
 
-```go
-package plugins
+```bash
+# Start local Postgres and tracking server
+docker compose up -d
 
-import "github.com/arinbalyan/jobhunter/internal/plugin/sdk"
-
-type MyPlugin struct {
-    sdk.BasePlugin
-}
-
-func NewMyPlugin() *MyPlugin {
-    return &MyPlugin{
-        BasePlugin: sdk.BasePlugin{
-            PluginID:   "mybot",
-            PluginName: "My Bot",
-            PluginDesc: "Does something awesome",
-        },
-    }
-}
-
-func (p *MyPlugin) Execute(ctx context.Context, env sdk.Env) (*sdk.Result, error) {
-    apiKey := env.Getenv("API_KEY")  // reads PLUGIN_MYBOT_API_KEY
-    env.Logger().Info("running...")
-    // env.DB() for database access
-    return sdk.SimpleResult("done"), nil
-}
+# View tracking logs
+docker compose logs -f tracker
 ```
 
-Register in `plugins/register.go` and done.
+## GitHub Actions
 
-## Database
+The project runs fully from GitHub Actions -- no server needed. Five workflows automate the pipeline:
 
-Tables are auto-created via embedded migrations:
+- **Scrape Jobs** (4x daily) -- builds scrappy from source, scrapes boards, filters into queue
+- **Send Emails** (daily) -- generates LLM emails and sends pending queue items
+- **Follow-up** (daily) -- queues follow-ups for sent+no-reply emails
+- **Cleanup** (weekly) -- removes old skipped/stale jobs
+- **Deploy Tracker** (on push) -- deploys tracking server to Vercel/Railway
 
-| Table | Purpose |
-|-------|---------|
-| `jobs` | Scraped job postings |
-| `emails` | Sent emails with full tracking |
-| `stats` | Time-series events across all plugins |
-| `applications` | Pipeline tracking (sent, opened, replied, offer) |
-| `blacklist` | Bounced/rejected domains |
-| `plugin_state` | Plugin health and run counts |
+## Project Status
 
-## Contributing
-
-PRs welcome! 
-- Create feature branches from `dev`
-- Follow Go conventions (`gofmt`, `go vet`)
-- Add tests for new plugins
-- Update docs for new features
+**Phase: Early Development.** Active development on `dev` branch. `main` still contains old Python V2 code. Not yet ready for production or merge to main.
 
 ## License
 
-This project is for use and modification with attribution.
-You must credit the original repository and author when using, distributing, or building upon this work.
-See the [repository](https://github.com/arinbalyan/JobHunter) for full terms.
+Attribution-required open source. Credit the original repository and author when using, distributing, or building upon this work.
 
 ## Credits
 
