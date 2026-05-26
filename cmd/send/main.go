@@ -125,7 +125,7 @@ func main() {
 				Weight:  p.Weight,
 			}
 		}
-		llmRouter = router.New(routerCfgs, cfg.MaxTokensPerRun)
+		llmRouter = router.New(routerCfgs, cfg.MaxTokensPerRun, logger)
 		logger.Info("LLM router initialized with %d providers", len(activeProvs))
 	}
 

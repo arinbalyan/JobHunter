@@ -12,7 +12,7 @@ func TestDispatcher_NoAPIKey(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
 	}
 
-	r := router.New(providers, 100000)
+	r := router.New(providers, 100000, nil)
 
 	_, err := r.Complete(context.Background(), router.TaskSimple, &router.CompletionRequest{
 		SystemPrompt: "test",
@@ -30,7 +30,7 @@ func TestDispatcher_InvalidBaseURL(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://invalid-url-that-does-not-exist.example.com", Model: "test/model", Weight: 10},
 	}
 
-	r := router.New(providers, 100000)
+	r := router.New(providers, 100000, nil)
 
 	_, err := r.Complete(context.Background(), router.TaskSimple, &router.CompletionRequest{
 		SystemPrompt: "test",
@@ -47,7 +47,7 @@ func TestDispatcher_ContextCancelled(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
 	}
 
-	r := router.New(providers, 100000)
+	r := router.New(providers, 100000, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Cancel immediately
@@ -76,6 +76,6 @@ func TestDispatcher_AllRegistered(t *testing.T) {
 		{Kind: router.ProviderZAI, APIKey: "sk-test", BaseURL: "https://open.bigmodel.cn/api/paas/v4", Model: "test", Weight: 1},
 	}
 
-	r := router.New(providers, 100000)
+	r := router.New(providers, 100000, nil)
 	_ = r
 }

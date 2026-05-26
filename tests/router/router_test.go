@@ -13,14 +13,14 @@ func TestNew(t *testing.T) {
 		{Kind: router.ProviderGroq, APIKey: "gsk-test", BaseURL: "https://api.groq.com/openai", Model: "test/model", Weight: 3},
 	}
 
-	r := router.New(providers, 100000)
+	r := router.New(providers, 100000, nil)
 	if r == nil {
 		t.Fatal("New() returned nil")
 	}
 }
 
 func TestNew_EmptyProviders(t *testing.T) {
-	r := router.New(nil, 0)
+	r := router.New(nil, 0, nil)
 	if r == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -31,7 +31,7 @@ func TestNew_ZeroMaxTokens(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
 	}
 
-	r := router.New(providers, 0) // 0 = unlimited
+	r := router.New(providers, 0, nil) // 0 = unlimited
 	if r == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -42,7 +42,7 @@ func TestComplete_TokenBudgetExhausted(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
 	}
 
-	r := router.New(providers, 0) // 0 = unlimited, should not exhaust immediately
+	r := router.New(providers, 0, nil) // 0 = unlimited, should not exhaust immediately
 
 	_, err := r.Complete(context.Background(), router.TaskSimple, &router.CompletionRequest{
 		SystemPrompt: "test",
@@ -59,7 +59,7 @@ func TestComplete_TokenBudgetZeroExhausted(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
 	}
 
-	r := router.New(providers, 0)
+	r := router.New(providers, 0, nil)
 
 	// Should not get token budget error with maxTokens=0 (unlimited)
 	_, err := r.Complete(context.Background(), router.TaskSimple, &router.CompletionRequest{
@@ -82,7 +82,7 @@ func TestSelectProvider_WithHealth(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "complex/model", Weight: 10},
 	}
 
-	r := router.New(providers, 100000)
+	r := router.New(providers, 100000, nil)
 
 	// Test that Complete returns a proper error (no real API keys)
 	// but doesn't crash
@@ -98,7 +98,7 @@ func TestSelectProvider_WithHealth(t *testing.T) {
 
 func TestComplete_NoHealthyProvider(t *testing.T) {
 	// Create router without providers
-	r := router.New(nil, 100000)
+	r := router.New(nil, 100000, nil)
 
 	_, err := r.Complete(context.Background(), router.TaskSimple, &router.CompletionRequest{
 		SystemPrompt: "test",
@@ -115,7 +115,7 @@ func TestComplete_NegativeMaxTokens(t *testing.T) {
 		{Kind: router.ProviderOpenRouter, APIKey: "sk-test", BaseURL: "https://openrouter.ai/api", Model: "test/model", Weight: 10},
 	}
 
-	r := router.New(providers, 100000)
+	r := router.New(providers, 100000, nil)
 
 	// MaxTokens <= 0 should be capped to 2048 (or whatever default)
 	_, err := r.Complete(context.Background(), router.TaskSimple, &router.CompletionRequest{
