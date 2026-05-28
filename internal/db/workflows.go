@@ -8,33 +8,35 @@ import (
 
 // FullJobRecord matches the extended jobs schema.
 type FullJobRecord struct {
-	JobID           string
-	Title           string
-	Company         string
-	CompanyURL      string
-	JobURL          string
-	JobURLDirect    string
-	Location        string
-	IsRemote        bool
-	Description     string
-	JobType         string
-	DatePosted      *time.Time
-	Source          string
-	Seniority       string
-	Department      string
-	CompanyIndustry string
-	SalaryMin       *float64
-	SalaryMax       *float64
-	SalaryCurrency  string
-	SalaryInterval  string
-	ExperienceRange string
-	JobLevel        string
-	QualityScore    int
-	Skills          string
-	Emails          string
-	Status          string
-	SkipReason      string
-	RecipientEmail  string
+	JobID              string
+	Title              string
+	Company            string
+	CompanyURL         string
+	JobURL             string
+	JobURLDirect       string
+	Location           string
+	IsRemote           bool
+	Description        string
+	JobType            string
+	DatePosted         *time.Time
+	Source             string
+	Seniority          string
+	Department         string
+	CompanyIndustry    string
+	SalaryMin          *float64
+	SalaryMax          *float64
+	SalaryCurrency     string
+	SalaryInterval     string
+	ExperienceRange    string
+	JobLevel           string
+	QualityScore       int
+	Skills             string
+	Emails             string
+	Domain             string
+	CompanyDescription string
+	Status             string
+	SkipReason         string
+	RecipientEmail     string
 }
 
 // QueueItem represents an email_queue entry with all job metadata.
@@ -72,20 +74,23 @@ func (p *Pool) InsertJobFull(ctx context.Context, j *FullJobRecord) (int64, bool
 			 seniority, department, company_industry,
 			 salary_min, salary_max, salary_currency, salary_interval,
 			 experience_range, job_level, quality_score,
-			 skills, emails, status, skip_reason, recipient_email, fetched_at)
+			 skills, emails, domain, company_description,
+			 status, skip_reason, recipient_email, fetched_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
-		         $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,NOW())
+		         $16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,NOW())
 		 ON CONFLICT (url) DO UPDATE SET
 		   fetched_at = NOW(),
 		   skills = COALESCE($23, jobs.skills),
-		   status = CASE WHEN jobs.status = 'new' THEN $25 ELSE jobs.status END
+		   domain = COALESCE($26, jobs.domain),
+		   status = CASE WHEN jobs.status = 'new' THEN $27 ELSE jobs.status END
 		 RETURNING id`,
 		j.JobID, j.Title, j.Company, j.CompanyURL, j.JobURL, j.JobURLDirect,
 		j.Location, j.IsRemote, j.Description, j.JobType, j.DatePosted, j.Source,
 		j.Seniority, j.Department, j.CompanyIndustry,
 		j.SalaryMin, j.SalaryMax, j.SalaryCurrency, j.SalaryInterval,
 		j.ExperienceRange, j.JobLevel, j.QualityScore,
-		j.Skills, j.Emails, j.Status, j.SkipReason, j.RecipientEmail,
+		j.Skills, j.Emails, j.Domain, j.CompanyDescription,
+		j.Status, j.SkipReason, j.RecipientEmail,
 	).Scan(&id)
 	if err != nil {
 		// If unique constraint violation — job exists, return existing ID
