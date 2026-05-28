@@ -20,6 +20,18 @@
     {
       "src": "/health",
       "dest": "cmd/tracker/main.go"
+    },
+    {
+      "src": "/stats",
+      "dest": "cmd/tracker/main.go"
+    },
+    {
+      "src": "/version",
+      "dest": "cmd/tracker/main.go"
+    },
+    {
+      "src": "/",
+      "dest": "cmd/tracker/main.go"
     }
   ]
 }
