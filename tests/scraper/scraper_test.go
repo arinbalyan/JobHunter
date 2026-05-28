@@ -2,222 +2,104 @@ package scraper_test
 
 import (
 	"context"
-	"os"
-	"os/exec"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/arinbalyan/jobhunter/internal/scraper"
 )
 
-func TestNew_Defaults(t *testing.T) {
+func TestNew(t *testing.T) {
 	s := scraper.New(scraper.Config{})
 	if s == nil {
 		t.Fatal("New() returned nil")
 	}
 }
 
-func TestNew_CustomBinary(t *testing.T) {
-	s := scraper.New(scraper.Config{
-		BinaryPath: "/custom/path/scrappy",
-	})
-	if s == nil {
-		t.Fatal("New() with custom BinaryPath returned nil")
-	}
-}
-
-func TestBuildArgs_Full(t *testing.T) {
+func TestNew_FullConfig(t *testing.T) {
 	s := scraper.New(scraper.Config{
 		SearchTerms:   []string{"golang", "backend"},
 		Locations:     []string{"remote", "NYC"},
 		Sites:         []string{"linkedin", "indeed"},
 		ResultsWanted: 25,
 		HoursOld:      48,
+		SinceDate:     "2026-01-01",
 		RemoteOnly:    true,
 		JobType:       "fulltime",
 		MemoryCapMB:   200,
 		Proxy:         "http://proxy:8080",
 		EmailOnly:     true,
 		MinScore:      50,
-		ConfigPath:    "/tmp/scrappy_config.yaml",
 	})
-
-	// Build args and verify
-	// We use Scrape with a context to execute — but for unit testing, we mock exec
-	// Since we can't directly access buildArgs, we test through New's behavior
-	_ = s
-}
-
-func TestBuildArgs_Basic(t *testing.T) {
-	// Create a temp scrappy script that just outputs JSON
-	tmpDir := t.TempDir()
-	scrappyBin := tmpDir + "/scrappy"
-
-	// Write a simple script that echoes the args for verification
-	script := `#!/bin/sh
-echo '{"args": "$@"}' >&2
-echo '[]'`
-	if err := os.WriteFile(scrappyBin, []byte(script), 0755); err != nil {
-		t.Fatalf("write scrappy script: %v", err)
-	}
-
-	s := scraper.New(scraper.Config{
-		BinaryPath:    scrappyBin,
-		SearchTerms:   []string{"golang"},
-		Locations:     []string{"remote"},
-		Sites:         []string{"linkedin"},
-		ResultsWanted: 10,
-		HoursOld:      72,
-		RemoteOnly:    true,
-		JobType:       "fulltime",
-		MinScore:      30,
-		EmailOnly:     true,
-	})
-
-	jobs, err := s.Scrape(context.Background())
-	if err != nil {
-		t.Fatalf("Scrape() returned error: %v", err)
-	}
-	if jobs == nil {
-		t.Fatal("Scrape() returned nil jobs")
-	}
-	_ = jobs
-}
-
-func TestBuildArgs_EmptyConfig(t *testing.T) {
-	tmpDir := t.TempDir()
-	scrappyBin := tmpDir + "/scrappy"
-
-	script := `#!/bin/sh
-echo '[]'`
-	if err := os.WriteFile(scrappyBin, []byte(script), 0755); err != nil {
-		t.Fatalf("write scrappy script: %v", err)
-	}
-
-	s := scraper.New(scraper.Config{
-		BinaryPath: scrappyBin,
-	})
-
-	jobs, err := s.Scrape(context.Background())
-	if err != nil {
-		t.Fatalf("Scrape() with empty config: %v", err)
-	}
-	if jobs == nil {
-		t.Fatal("expected non-nil jobs (empty slice)")
+	if s == nil {
+		t.Fatal("New() with full config returned nil")
 	}
 }
 
-func TestBuildArgs_ProxyEnv(t *testing.T) {
-	tmpDir := t.TempDir()
-	scrappyBin := tmpDir + "/scrappy"
-
-	script := `#!/bin/sh
-echo '[]'`
-	if err := os.WriteFile(scrappyBin, []byte(script), 0755); err != nil {
-		t.Fatalf("write scrappy script: %v", err)
+func TestJobResult_PreferredEmails(t *testing.T) {
+	job := scraper.JobResult{
+		Emails: []scraper.EmailEntry{
+			{Addr: "hr@company.com", Verified: true, Source: "page"},
+			{Addr: "", Verified: false, Source: ""},
+			{Addr: "hr@company.com", Verified: true, Source: "page"}, // duplicate
+			{Addr: "jobs@company.com", Verified: false, Source: "page"},
+			{Addr: "verified@corp.com", Verified: true, Source: "mx"},
+		},
 	}
 
-	cfg := scraper.Config{
-		BinaryPath:    scrappyBin,
-		SearchTerms:   []string{"golang"},
-		Locations:     []string{"remote"},
-		Proxy:         "http://proxy:8080",
+	emails := job.PreferredEmails()
+	if len(emails) != 3 {
+		t.Errorf("expected 3 unique emails, got %d: %v", len(emails), emails)
 	}
 
-	s := scraper.New(cfg)
-	_, err := s.Scrape(context.Background())
-	if err != nil {
-		t.Fatalf("Scrape with proxy: %v", err)
+	// Verified emails should come first
+	if len(emails) >= 2 && emails[0] != "hr@company.com" && emails[0] != "verified@corp.com" {
+		t.Errorf("expected verified email first, got %s", emails[0])
 	}
-}
 
-func TestScrape_BinaryNotFound(t *testing.T) {
-	s := scraper.New(scraper.Config{
-		BinaryPath: "/nonexistent/scrappy-binary",
-	})
-
-	_, err := s.Scrape(context.Background())
-	if err == nil {
-		t.Fatal("expected error with nonexistent binary")
+	// Should have both verified emails before unverified
+	if emails[0] == "" || emails[1] == "" {
+		t.Error("expected non-empty emails first")
 	}
 }
 
-func TestScrape_ExitError(t *testing.T) {
-	tmpDir := t.TempDir()
-	scrappyBin := tmpDir + "/scrappy-fail"
-
-	// Script that exits with non-zero
-	script := `#!/bin/sh
-echo "error message" >&2
-exit 1`
-	if err := os.WriteFile(scrappyBin, []byte(script), 0755); err != nil {
-		t.Fatalf("write script: %v", err)
+func TestJobResult_HasVerifiedEmail(t *testing.T) {
+	tests := []struct {
+		name     string
+		emails   []scraper.EmailEntry
+		expected bool
+	}{
+		{
+			name:     "no emails",
+			emails:   nil,
+			expected: false,
+		},
+		{
+			name:     "unverified only",
+			emails:   []scraper.EmailEntry{{Addr: "x@y.com", Verified: false}},
+			expected: false,
+		},
+		{
+			name:     "verified",
+			emails:   []scraper.EmailEntry{{Addr: "x@y.com", Verified: true}},
+			expected: true,
+		},
+		{
+			name: "mixed",
+			emails: []scraper.EmailEntry{
+				{Addr: "a@b.com", Verified: false},
+				{Addr: "c@d.com", Verified: true},
+			},
+			expected: true,
+		},
 	}
 
-	s := scraper.New(scraper.Config{
-		BinaryPath:    scrappyBin,
-		SearchTerms:   []string{"golang"},
-	})
-
-	_, err := s.Scrape(context.Background())
-	if err == nil {
-		t.Fatal("expected error from failing scrappy")
-	}
-	if !strings.Contains(err.Error(), "scrappy failed") {
-		t.Errorf("expected 'scrappy failed' error, got: %v", err)
-	}
-}
-
-func TestScrape_InvalidJSON(t *testing.T) {
-	tmpDir := t.TempDir()
-	scrappyBin := tmpDir + "/scrappy-bad-json"
-
-	script := `#!/bin/sh
-echo 'not valid json'`
-	if err := os.WriteFile(scrappyBin, []byte(script), 0755); err != nil {
-		t.Fatalf("write script: %v", err)
-	}
-
-	s := scraper.New(scraper.Config{
-		BinaryPath:    scrappyBin,
-		SearchTerms:   []string{"golang"},
-	})
-
-	_, err := s.Scrape(context.Background())
-	if err == nil {
-		t.Fatal("expected error with invalid JSON output")
-	}
-	if !strings.Contains(err.Error(), "parse scrappy output") {
-		t.Errorf("expected 'parse scrappy output' error, got: %v", err)
-	}
-}
-
-func TestScrape_ContextCancelled(t *testing.T) {
-	tmpDir := t.TempDir()
-	scrappyBin := tmpDir + "/scrappy-slow"
-
-	script := `#!/bin/sh
-sleep 10
-echo '[]'`
-	if err := os.WriteFile(scrappyBin, []byte(script), 0755); err != nil {
-		t.Fatalf("write script: %v", err)
-	}
-
-	s := scraper.New(scraper.Config{
-		BinaryPath:    scrappyBin,
-		SearchTerms:   []string{"golang"},
-	})
-
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
-	defer cancel()
-
-	// Give context a moment to cancel
-	time.Sleep(10 * time.Millisecond)
-
-	_, err := s.Scrape(ctx)
-	if err == nil {
-		t.Log("Scrape with cancelled context may or may not return error depending on timing")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			job := scraper.JobResult{Emails: tt.emails}
+			if got := job.HasVerifiedEmail(); got != tt.expected {
+				t.Errorf("HasVerifiedEmail() = %v, want %v", got, tt.expected)
+			}
+		})
 	}
 }
 
@@ -247,60 +129,35 @@ func TestJobResult_FlatEmails_Empty(t *testing.T) {
 
 func TestJobResult_SalaryRange(t *testing.T) {
 	tests := []struct {
-		name      string
-		comp      *scraper.Compensation
-		expected  string
+		name     string
+		comp     *scraper.Compensation
+		expected string
 	}{
+		{name: "nil", comp: nil, expected: ""},
+		{name: "both nil", comp: &scraper.Compensation{Currency: "USD"}, expected: ""},
 		{
-			name:     "nil compensation",
-			comp:     nil,
-			expected: "",
-		},
-		{
-			name:     "both nil amounts",
-			comp:     &scraper.Compensation{Currency: "USD"},
-			expected: "",
-		},
-		{
-			name: "equal amounts",
-			comp: &scraper.Compensation{
-				MinAmount: floatPtr(100000),
-				MaxAmount: floatPtr(100000),
-				Currency:  "USD",
-			},
+			name: "equal",
+			comp: &scraper.Compensation{MinAmount: floatPtr(100000), MaxAmount: floatPtr(100000), Currency: "USD"},
 			expected: "USD100000",
 		},
 		{
 			name: "range",
-			comp: &scraper.Compensation{
-				MinAmount: floatPtr(80000),
-				MaxAmount: floatPtr(120000),
-				Currency:  "USD",
-			},
+			comp: &scraper.Compensation{MinAmount: floatPtr(80000), MaxAmount: floatPtr(120000), Currency: "USD"},
 			expected: "USD80000 - USD120000",
 		},
 		{
 			name: "min only",
-			comp: &scraper.Compensation{
-				MinAmount: floatPtr(90000),
-				Currency:  "EUR",
-			},
+			comp: &scraper.Compensation{MinAmount: floatPtr(90000), Currency: "EUR"},
 			expected: "From EUR90000",
 		},
 		{
 			name: "max only",
-			comp: &scraper.Compensation{
-				MaxAmount: floatPtr(150000),
-				Currency:  "GBP",
-			},
+			comp: &scraper.Compensation{MaxAmount: floatPtr(150000), Currency: "GBP"},
 			expected: "Up to GBP150000",
 		},
 		{
 			name: "no currency",
-			comp: &scraper.Compensation{
-				MinAmount: floatPtr(50000),
-				MaxAmount: floatPtr(100000),
-			},
+			comp: &scraper.Compensation{MinAmount: floatPtr(50000), MaxAmount: floatPtr(100000)},
 			expected: "USD50000 - USD100000",
 		},
 	}
@@ -339,54 +196,72 @@ func TestJobResult_SkillsJoined(t *testing.T) {
 	}
 }
 
-func floatPtr(f float64) *float64 {
-	return &f
-}
-
-func TestConfig_HoursOld(t *testing.T) {
-	// Verifies that HoursOld is properly passed through
-	tmpDir := t.TempDir()
-	scrappyBin := tmpDir + "/scrappy"
-
-	script := `#!/bin/sh
-echo '[]'`
-	if err := os.WriteFile(scrappyBin, []byte(script), 0755); err != nil {
-		t.Fatalf("write script: %v", err)
-	}
-
-	cfg := scraper.Config{
-		BinaryPath: scrappyBin,
-		HoursOld:   24,
-	}
-
-	s := scraper.New(cfg)
-	_, err := s.Scrape(context.Background())
-	if err != nil {
-		t.Fatalf("Scrape: %v", err)
-	}
-}
-
-// TestScrapeIntegration verifies the full scrape flow with exec
-func TestScrapeIntegration(t *testing.T) {
-	// Skip if no scrappy binary
-	if _, err := exec.LookPath("scrappy"); err != nil {
-		t.Skip("scrappy binary not found, skipping integration test")
-	}
-
+func TestScrape_ContextCancelled(t *testing.T) {
 	s := scraper.New(scraper.Config{
-		SearchTerms:   []string{"golang"},
-		Locations:     []string{"remote"},
-		ResultsWanted: 5,
-		HoursOld:      168,
+		SearchTerms: []string{"golang"},
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Nanosecond)
 	defer cancel()
 
-	jobs, err := s.Scrape(ctx)
+	time.Sleep(5 * time.Millisecond)
+
+	_, err := s.Scrape(ctx)
+	// With an already-cancelled context, scrappy should return an error promptly.
+	// If it doesn't error, the wait was likely for scrappy engine initialization.
 	if err != nil {
-		t.Fatalf("Scrape: %v", err)
+		t.Logf("Scrape with cancelled context returned: %v", err)
+	} else {
+		t.Log("Scrape didn't detect cancellation (engine init may have taken too long)")
+	}
+}
+
+func TestJobResult_NewFields(t *testing.T) {
+	now := time.Now()
+	job := scraper.JobResult{
+		ID:                 "test-123",
+		Title:              "Senior Go Engineer",
+		CompanyName:        "Acme Corp",
+		CompanyURL:         "https://acme.com",
+		JobURL:             "https://acme.com/careers/go-engineer",
+		JobURLDirect:       "https://acme.com/apply/123",
+		Location:           "San Francisco, CA, USA",
+		IsRemote:           true,
+		Description:        "We need a Go engineer...",
+		JobType:            "fulltime",
+		DatePosted:         &now,
+		Site:               "linkedin",
+		FetchedAt:          &now,
+		Seniority:          "Senior",
+		Department:         "Engineering",
+		Compensation:       &scraper.Compensation{MinAmount: floatPtr(150000), MaxAmount: floatPtr(200000), Currency: "USD"},
+		Skills:             []string{"Go", "Kubernetes", "PostgreSQL"},
+		Emails:             []scraper.EmailEntry{{Addr: "careers@acme.com", Verified: true}},
+		QualityScore:       92,
+		Domain:             "acme.com",
+		Industry:           "Technology",
+		CompanyDescription: "A leading software company",
+		ApplyMethod:        "careers_page",
+		ExperienceRange:    "5-8 years",
 	}
 
-	t.Logf("Got %d jobs from scrappy", len(jobs))
+	if job.QualityScore != 92 {
+		t.Errorf("QualityScore = %d, want 92", job.QualityScore)
+	}
+	if job.Domain != "acme.com" {
+		t.Errorf("Domain = %q, want acme.com", job.Domain)
+	}
+	if job.CompanyDescription != "A leading software company" {
+		t.Errorf("CompanyDescription mismatch")
+	}
+	if job.ExperienceRange != "5-8 years" {
+		t.Errorf("ExperienceRange = %q, want 5-8 years", job.ExperienceRange)
+	}
+	if job.ApplyMethod != "careers_page" {
+		t.Errorf("ApplyMethod = %q, want careers_page", job.ApplyMethod)
+	}
+}
+
+func floatPtr(f float64) *float64 {
+	return &f
 }

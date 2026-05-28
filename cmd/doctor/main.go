@@ -160,13 +160,17 @@ func main() {
 		fmt.Println(warnMark + " none — only OpenRouter will be used")
 	}
 
-	// ── 10. scrappy binary ──
-	fmt.Print("  [10] scrappy binary ......... ")
-	_, err = exec.LookPath("scrappy")
-	if err != nil {
-		fmt.Println(warnMark + " not in PATH — install from github.com/arinbalyan/scrappy")
+	// ── 10. scrappy Go library ──
+	fmt.Print("  [10] scrappy Go library ...... ")
+	// Verify the library import compiles by checking go.mod has the dependency
+	importOK := false
+	if data, err := os.ReadFile("go.mod"); err == nil {
+		importOK = strings.Contains(string(data), "github.com/arinbalyan/scrappy")
+	}
+	if importOK {
+		fmt.Println(checkMark + " found in go.mod — using pkg/scrappy")
 	} else {
-		fmt.Println(checkMark + " found in PATH")
+		fmt.Println(crossMark + " missing from go.mod — run: go get github.com/arinbalyan/scrappy")
 	}
 
 	// ── 11. Telegram ──

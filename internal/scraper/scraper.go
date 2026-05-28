@@ -9,22 +9,20 @@ import (
 	"github.com/arinbalyan/scrappy/pkg/scrappy"
 )
 
-// Config matches scrappy's CLI flags and library ScraperInput.
+// Config maps to scrappy's ScraperInput.
 type Config struct {
 	SearchTerms   []string
 	Locations     []string
 	Sites         []string
 	ResultsWanted int
 	HoursOld      int
-	SinceDate     string   // new: YYYY-MM-DD or RFC3339
+	SinceDate     string   // YYYY-MM-DD or RFC3339
 	RemoteOnly    bool
 	JobType       string
 	MemoryCapMB   int
 	Proxy         string
 	EmailOnly     bool
 	MinScore      int
-	BinaryPath    string // kept for backward compat, library ignores it
-	ConfigPath    string // kept for backward compat, library ignores it
 }
 
 // Compensation holds salary data from scrappy's JSON output.
@@ -61,6 +59,7 @@ type JobResult struct {
 	ExperienceRange    string             `json:"experience_range,omitempty"`
 }
 
+// FlatEmails returns all unique email addresses (without verification status).
 func (j *JobResult) FlatEmails() []string {
 	seen := make(map[string]bool)
 	var result []string
@@ -71,6 +70,35 @@ func (j *JobResult) FlatEmails() []string {
 		}
 	}
 	return result
+}
+
+// PreferredEmails returns verified emails first (MX-verified by scrappy),
+// then falls back to unverified ones. Deduplicates by address.
+func (j *JobResult) PreferredEmails() []string {
+	seen := make(map[string]bool)
+	var verified, unverified []string
+	for _, e := range j.Emails {
+		if e.Addr == "" || seen[e.Addr] {
+			continue
+		}
+		seen[e.Addr] = true
+		if e.Verified {
+			verified = append(verified, e.Addr)
+		} else {
+			unverified = append(unverified, e.Addr)
+		}
+	}
+	return append(verified, unverified...)
+}
+
+// HasVerifiedEmail returns true if any email passed MX verification.
+func (j *JobResult) HasVerifiedEmail() bool {
+	for _, e := range j.Emails {
+		if e.Verified {
+			return true
+		}
+	}
+	return false
 }
 
 // SalaryRange returns a human-readable salary string.

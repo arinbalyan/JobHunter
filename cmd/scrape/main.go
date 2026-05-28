@@ -75,28 +75,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		return 1
 	}
 
-	// Load scrappy config path — either from env or use scrappy's default locations
-	scrappyCfg := getEnv("SCRAPPY_CONFIG", "")
-	if scrappyCfg == "" {
-		// Try common locations
-		for _, p := range []string{
-			"/home/nemesis/projects/scrappy/config.yaml",
-			"../scrappy/config.yaml",
-			"config.yaml",
-			os.Getenv("HOME") + "/.scrappy/config.yaml",
-		} {
-			if _, err := os.Stat(p); err == nil {
-				scrappyCfg = p
-				break
-			}
-		}
-	}
-
-	if scrappyCfg != "" {
-		logger.Info("using scrappy config: %s", scrappyCfg)
-	}
-
-	// Build scrappy CLI args: --config path + --non-interactive
 	scrCfg := scraper.Config{
 		SearchTerms:   cfg.JobSearchTerms,
 		Locations:     cfg.JobLocations,
@@ -108,7 +86,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		JobType:       cfg.JobType,
 		MemoryCapMB:   cfg.ScrapyMemoryCapMB,
 		Proxy:         cfg.ScrapyProxy,
-		ConfigPath:    scrappyCfg,
 		EmailOnly:     true,
 	}
 
@@ -146,7 +123,9 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		}
 
 		// 2. Extract and filter emails
-		emails := j.FlatEmails()
+		// Prefer MX-verified emails (scrappy verifies via DNS MX lookup),
+		// then fall back to unverified ones.
+		emails := j.PreferredEmails()
 		if len(emails) == 0 {
 			skipped++
 			skippedReasons["no_email"]++
