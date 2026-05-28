@@ -62,7 +62,11 @@ func main() {
 	fmt.Println()
 	fmt.Print("  Continue? [y/N]: ")
 	reader := bufio.NewReader(os.Stdin)
-	response, _ := reader.ReadString('\n')
+	response, err := reader.ReadString('\n')
+	if err != nil {
+		fmt.Println("  Failed to read input, cancelling.")
+		return
+	}
 	response = strings.TrimSpace(strings.ToLower(response))
 	if response != "y" && response != "yes" {
 		fmt.Println("  Cancelled.")

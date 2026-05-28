@@ -37,8 +37,8 @@ func main() {
 			continue
 		}
 
+		defer resp.Body.Close()
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 65536))
-		resp.Body.Close()
 
 		var result struct {
 			Ok     bool `json:"ok"`

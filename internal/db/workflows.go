@@ -81,7 +81,7 @@ func (p *Pool) InsertJobFull(ctx context.Context, j *FullJobRecord) (int64, bool
 		 ON CONFLICT (url) DO UPDATE SET
 		   fetched_at = NOW(),
 		   skills = COALESCE($23, jobs.skills),
-		   domain = COALESCE($26, jobs.domain),
+		   domain = COALESCE($25, jobs.domain),
 		   status = CASE WHEN jobs.status = 'new' THEN $27 ELSE jobs.status END
 		 RETURNING id`,
 		j.JobID, j.Title, j.Company, j.CompanyURL, j.JobURL, j.JobURLDirect,
