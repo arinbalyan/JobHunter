@@ -174,12 +174,13 @@ func (s *Server) handleClick(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate the redirect target: only https:// is allowed.
-	// This prevents the tracking server from being used as an open redirect.
+	// Validate the redirect target: only http/https allowed.
+	// This prevents the tracking server from being used as an open redirect
+	// to javascript:, data:, file:, or other dangerous schemes.
 	parsed, err := url.Parse(decodedURL)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" {
+	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" {
 		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": "invalid redirect target — only https:// URLs allowed"})
+		json.NewEncoder(w).Encode(map[string]string{"error": "invalid redirect target"})
 		return
 	}
 
