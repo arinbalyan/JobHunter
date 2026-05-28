@@ -45,6 +45,9 @@ const maxRetries = 3
 const retryDelay = 5 * time.Second
 
 // New creates a new Gmail SMTP sender.
+// Uses smtp.PlainAuth (SASL PLAIN mechanism). The password is sent base64-encoded,
+// but smtp.SendMail always negotiates STARTTLS on port 587, so the entire session
+// is encrypted. This is the standard Gmail SMTP approach — not plaintext.
 func New(cfg SMTPConfig) *Sender {
 	return &Sender{
 		config: cfg,

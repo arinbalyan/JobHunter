@@ -21,6 +21,10 @@ type Database interface {
 	Close()
 }
 
+// maxConcurrentTracking is the maximum number of concurrent tracking DB writes.
+// Beyond this, DB writes are processed synchronously to limit goroutine growth.
+const maxConcurrentTracking = 100
+
 // Server is a full-featured HTTP server for email tracking with telemetry.
 type Server struct {
 	server    *http.Server
@@ -34,6 +38,8 @@ type Server struct {
 	trackErrors atomic.Int64
 	clickErrors atomic.Int64
 	totalBytes  atomic.Int64
+
+	sem chan struct{} // bounds concurrent goroutines spawned by track/click
 }
 
 // New creates a new tracking server.
@@ -42,6 +48,7 @@ func New(db Database, port int) *Server {
 		db:        db,
 		port:      port,
 		startTime: time.Now(),
+		sem:       make(chan struct{}, maxConcurrentTracking),
 	}
 }
 
@@ -86,16 +93,31 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 	trackingID := r.URL.Query().Get("id")
 	if trackingID != "" {
-		go func(id string) {
+		// Try to acquire semaphore; if full, process synchronously.
+		// This limits goroutine growth under burst traffic.
+		select {
+		case s.sem <- struct{}{}:
+			go func(id string) {
+				defer func() { <-s.sem }()
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.db.MarkOpened(ctx, id); err != nil {
+					log.Printf("[tracker] open failed for %s: %v", id, err)
+					s.trackErrors.Add(1)
+					return
+				}
+				s.trackHits.Add(1)
+			}(trackingID)
+		default:
+			// Semaphore full — process synchronously to avoid unbounded goroutines
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			if err := s.db.MarkOpened(ctx, id); err != nil {
-				log.Printf("[tracker] open failed for %s: %v", id, err)
+			if err := s.db.MarkOpened(ctx, trackingID); err != nil {
+				log.Printf("[tracker] open failed for %s: %v", trackingID, err)
 				s.trackErrors.Add(1)
-				return
 			}
 			s.trackHits.Add(1)
-		}(trackingID)
+		}
 	}
 
 	w.Header().Set("Content-Type", "image/gif")
@@ -112,16 +134,31 @@ func (s *Server) handleClick(w http.ResponseWriter, r *http.Request) {
 	targetURL := r.URL.Query().Get("url")
 
 	if trackingID != "" {
-		go func(id string) {
+		// Bounded semaphore to prevent goroutine explosion
+		select {
+		case s.sem <- struct{}{}:
+			go func(id string) {
+				defer func() { <-s.sem }()
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				if err := s.db.MarkClicked(ctx, id); err != nil {
+					log.Printf("[tracker] click failed for %s: %v", id, err)
+					s.clickErrors.Add(1)
+					return
+				}
+				s.clickHits.Add(1)
+			}(trackingID)
+		default:
+			// Semaphore full — process synchronously
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
-			if err := s.db.MarkClicked(ctx, id); err != nil {
-				log.Printf("[tracker] click failed for %s: %v", id, err)
+			if err := s.db.MarkClicked(ctx, trackingID); err != nil {
+				log.Printf("[tracker] click failed for %s: %v", trackingID, err)
 				s.clickErrors.Add(1)
 				return
 			}
 			s.clickHits.Add(1)
-		}(trackingID)
+		}
 	}
 
 	if targetURL == "" {

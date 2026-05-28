@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/arinbalyan/jobhunter/internal/logging"
 )
@@ -26,6 +27,12 @@ const (
 	// maxFailoverAttempts is the number of additional providers to try after
 	// the initial provider fails (total max = maxFailoverAttempts + 1 providers).
 	maxFailoverAttempts = 2
+
+	// maxConsecutiveFailures before a provider is marked unhealthy.
+	maxConsecutiveFailures = 3
+
+	// cooldownDuration: an unhealthy provider is re-tested after this interval.
+	cooldownDuration = 30 * time.Second
 )
 
 // TaskComplexity classifies the complexity of an LLM request.
@@ -39,16 +46,18 @@ const (
 
 // ProviderStatus tracks the health and usage of a provider.
 type ProviderStatus struct {
-	Name       string       // Human-readable provider name (e.g. "openrouter")
-	Kind       ProviderKind
-	BaseURL    string
-	APIKey     string
-	Model      string
-	Healthy    bool
-	LastUsed   int64
-	TokenCount int64
-	FailCount  int64
-	mu         sync.RWMutex
+	Name               string       // Human-readable provider name (e.g. "openrouter")
+	Kind               ProviderKind
+	BaseURL            string
+	APIKey             string
+	Model              string
+	Healthy            bool
+	LastUsed           int64
+	TokenCount         int64
+	FailCount          int64
+	ConsecutiveFailures int64      // incremented on each failure, reset on success
+	LastFailureTime     int64      // unix timestamp of last failure (0 if never failed)
+	mu                 sync.RWMutex
 }
 
 // Router manages multiple LLM providers with round-robin and failover.
@@ -165,20 +174,42 @@ func (r *Router) Complete(ctx context.Context, task TaskComplexity, req *Complet
 
 		resp, err := r.callProvider(ctx, provider, &cappedReq)
 		if err == nil {
-			// Success — track token usage and return
+			// Success — track token usage, reset failure count, and return
 			r.totalTokens.Add(int64(resp.TokenUsage))
 			provider.mu.Lock()
 			provider.TokenCount += int64(resp.TokenUsage)
-			provider.mu.Unlock()
+			provider.ConsecutiveFailures = 0
+			if !provider.Healthy {
+				provider.Healthy = true
+				providerName := provider.Name
+				provider.mu.Unlock()
+				if r.logger != nil {
+					r.logger.Info("provider %s recovered and marked healthy", providerName)
+				}
+			} else {
+				provider.mu.Unlock()
+			}
 			return resp, nil
 		}
 
 		lastErr = err
 
-		// Increment fail count
+		// Increment fail count and track consecutives for health management
 		provider.mu.Lock()
 		provider.FailCount++
-		provider.mu.Unlock()
+		provider.ConsecutiveFailures++
+		provider.LastFailureTime = time.Now().Unix()
+		if provider.ConsecutiveFailures >= maxConsecutiveFailures {
+			provider.Healthy = false
+			providerName := provider.Name
+			provider.mu.Unlock()
+			if r.logger != nil {
+				r.logger.Warn("provider %s marked unhealthy after %d consecutive failures (cooling down for %.0fs)",
+					providerName, maxConsecutiveFailures, cooldownDuration.Seconds())
+			}
+		} else {
+			provider.mu.Unlock()
+		}
 
 		if r.logger != nil {
 			r.logger.Warn("provider %s failed: %v — trying next provider", provider.Name, err)
@@ -190,14 +221,25 @@ func (r *Router) Complete(ctx context.Context, task TaskComplexity, req *Complet
 
 // selectProvider picks the best provider for the given task complexity.
 // Uses weighted selection: fast providers for simple, capable for complex.
+// Auto-recovers providers whose cooldown has expired.
 func (r *Router) selectProvider(task TaskComplexity) *ProviderStatus {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	// Filter to healthy providers only
+	now := time.Now().Unix()
+
+	// Filter to healthy providers only, and auto-recover those past cooldown
 	var candidates []*ProviderStatus
 	for _, p := range r.providers {
 		if p.Healthy {
+			candidates = append(candidates, p)
+		} else if p.LastFailureTime > 0 && now-p.LastFailureTime > int64(cooldownDuration.Seconds()) {
+			// Cooldown expired — recover this provider
+			p.Healthy = true
+			p.ConsecutiveFailures = 0
+			if r.logger != nil {
+				r.logger.Info("provider %s auto-recovered (cooldown expired)", p.Name)
+			}
 			candidates = append(candidates, p)
 		}
 	}
