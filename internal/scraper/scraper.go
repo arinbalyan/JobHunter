@@ -2,64 +2,63 @@ package scraper
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/arinbalyan/scrappy/pkg/scrappy"
 )
 
-// Config matches scrappy's CLI flags (now includes HoursOld and compensation).
+// Config matches scrappy's CLI flags and library ScraperInput.
 type Config struct {
 	SearchTerms   []string
 	Locations     []string
 	Sites         []string
 	ResultsWanted int
-	HoursOld      int      // new: --hours-old filter
+	HoursOld      int
+	SinceDate     string   // new: YYYY-MM-DD or RFC3339
 	RemoteOnly    bool
 	JobType       string
 	MemoryCapMB   int
 	Proxy         string
 	EmailOnly     bool
 	MinScore      int
-	BinaryPath    string
-	ConfigPath    string
+	BinaryPath    string // kept for backward compat, library ignores it
+	ConfigPath    string // kept for backward compat, library ignores it
 }
 
 // Compensation holds salary data from scrappy's JSON output.
-type Compensation struct {
-	Interval string   `json:"interval,omitempty"`
-	MinAmount *float64 `json:"min_amount,omitempty"`
-	MaxAmount *float64 `json:"max_amount,omitempty"`
-	Currency string   `json:"currency,omitempty"`
-}
+type Compensation = scrappy.Compensation
 
 // EmailEntry mirrors scrappy's email struct.
-type EmailEntry struct {
-	Addr     string `json:"addr"`
-	Verified bool   `json:"verified"`
-	Source   string `json:"source"`
-}
+type EmailEntry = scrappy.Email
 
-// JobResult mirrors scrappy's JSON output exactly, including the new compensation field.
+// JobResult mirrors scrappy's public JobPost type exactly.
 type JobResult struct {
-	ID           string       `json:"id,omitempty"`
-	Title        string       `json:"title"`
-	CompanyName  string       `json:"company_name,omitempty"`
-	CompanyURL   string       `json:"company_url,omitempty"`
-	JobURL       string       `json:"job_url"`
-	Location     string       `json:"location,omitempty"`
-	IsRemote     bool         `json:"is_remote,omitempty"`
-	Description  string       `json:"description,omitempty"`
-	JobType      string       `json:"job_type,omitempty"`
-	DatePosted   *time.Time   `json:"date_posted,omitempty"`
-	Site         string       `json:"site"`
-	Seniority    string       `json:"seniority,omitempty"`
-	Department   string       `json:"department,omitempty"`
-	Compensation *Compensation `json:"compensation,omitempty"`
-	Skills       []string     `json:"skills,omitempty"`
-	Emails       []EmailEntry `json:"emails,omitempty"`
-	QualityScore int          `json:"quality_score,omitempty"`
+	ID                 string             `json:"id,omitempty"`
+	Title              string             `json:"title"`
+	CompanyName        string             `json:"company_name,omitempty"`
+	CompanyURL         string             `json:"company_url,omitempty"`
+	JobURL             string             `json:"job_url"`
+	JobURLDirect       string             `json:"job_url_direct,omitempty"`
+	Location           string             `json:"location,omitempty"`
+	IsRemote           bool               `json:"is_remote,omitempty"`
+	Description        string             `json:"description,omitempty"`
+	JobType            string             `json:"job_type,omitempty"`
+	DatePosted         *time.Time         `json:"date_posted,omitempty"`
+	Site               string             `json:"site"`
+	FetchedAt          *time.Time         `json:"fetched_at,omitempty"`
+	Seniority          string             `json:"seniority,omitempty"`
+	Department         string             `json:"department,omitempty"`
+	Compensation       *Compensation      `json:"compensation"`
+	Skills             []string           `json:"skills"`
+	Emails             []EmailEntry       `json:"emails,omitempty"`
+	QualityScore       int                `json:"quality_score,omitempty"`
+	Domain             string             `json:"domain,omitempty"`
+	Industry           string             `json:"industry,omitempty"`
+	CompanyDescription string             `json:"company_description,omitempty"`
+	ApplyMethod        string             `json:"apply_method,omitempty"`
+	ExperienceRange    string             `json:"experience_range,omitempty"`
 }
 
 func (j *JobResult) FlatEmails() []string {
@@ -104,102 +103,112 @@ func (j *JobResult) SkillsJoined() string {
 	return strings.Join(j.Skills, ", ")
 }
 
+// Scraper wraps the scrappy Go library.
 type Scraper struct {
-	config Config
+	engine  *scrappy.Engine
+	config  Config
 }
 
 func New(cfg Config) *Scraper {
-	if cfg.BinaryPath == "" {
-		cfg.BinaryPath = "scrappy"
+	return &Scraper{
+		engine: scrappy.NewEngine(),
+		config: cfg,
 	}
-	return &Scraper{config: cfg}
 }
 
+// Scrape uses the scrappy Go library to scrape jobs.
 func (s *Scraper) Scrape(ctx context.Context) ([]JobResult, error) {
-	args := s.buildArgs()
-	cmd := exec.CommandContext(ctx, s.config.BinaryPath, args...)
-	if s.config.Proxy != "" {
-		cmd.Env = append(cmd.Environ(), "HTTP_PROXY="+s.config.Proxy, "HTTPS_PROXY="+s.config.Proxy)
-	}
-	output, err := cmd.Output()
+	input := s.buildInput()
+	jobs, err := s.engine.ScrapeJobs(ctx, input)
 	if err != nil {
-		if exitErr, ok := err.(*exec.ExitError); ok {
-			return nil, fmt.Errorf("scrappy failed (exit %d): %s", exitErr.ExitCode(), string(exitErr.Stderr))
-		}
-		return nil, fmt.Errorf("scrappy exec: %w", err)
+		return nil, fmt.Errorf("scrappy: %w", err)
 	}
-	var jobs []JobResult
-	if err := json.Unmarshal(output, &jobs); err != nil {
-		return nil, fmt.Errorf("parse scrappy output: %w", err)
-	}
-	return jobs, nil
+	return jobPostsToResults(jobs), nil
 }
 
-func (s *Scraper) buildArgs() []string {
-	var args []string
-
-	// Config path first
-	if s.config.ConfigPath != "" {
-		args = append(args, "--config", s.config.ConfigPath)
+func (s *Scraper) buildInput() scrappy.ScraperInput {
+	input := scrappy.ScraperInput{
+		Sites:        toSites(s.config.Sites),
+		SearchTerms:  s.config.SearchTerms,
+		Locations:    s.config.Locations,
+		ResultsWanted: s.config.ResultsWanted,
+		HoursOld:     s.config.HoursOld,
+		SinceDate:    s.config.SinceDate,
+		RemoteOnly:   s.config.RemoteOnly,
+		JobType:      scrappy.JobType(s.config.JobType),
+		EmailsOnly:   s.config.EmailOnly,
+		MinScore:     s.config.MinScore,
+		Proxy:        s.config.Proxy,
+		MemoryCapMB:  s.config.MemoryCapMB,
 	}
-
-	// Search terms
-	if len(s.config.SearchTerms) > 0 {
-		args = append(args, "--search", strings.Join(s.config.SearchTerms, ","))
+	if len(s.config.SearchTerms) == 1 {
+		input.SearchTerm = s.config.SearchTerms[0]
 	}
-
-	// Locations
-	if len(s.config.Locations) > 0 {
-		args = append(args, "--location", strings.Join(s.config.Locations, ","))
+	if len(s.config.Locations) == 1 {
+		input.Location = s.config.Locations[0]
 	}
+	return input
+}
 
-	// Sites
-	if len(s.config.Sites) > 0 {
-		args = append(args, "--sites", strings.Join(s.config.Sites, ","))
+func toSites(names []string) []scrappy.Site {
+	sites := make([]scrappy.Site, len(names))
+	for i, n := range names {
+		sites[i] = scrappy.Site(n)
 	}
+	return sites
+}
 
-	// Results wanted
-	if s.config.ResultsWanted > 0 {
-		args = append(args, "--results-wanted", fmt.Sprintf("%d", s.config.ResultsWanted))
+func jobPostsToResults(jobs []scrappy.JobPost) []JobResult {
+	out := make([]JobResult, len(jobs))
+	for i, j := range jobs {
+		loc := ""
+		if j.Location.City != "" || j.Location.State != "" || j.Location.Country != "" {
+			parts := []string{}
+			if j.Location.City != "" {
+				parts = append(parts, j.Location.City)
+			}
+			if j.Location.State != "" {
+				parts = append(parts, j.Location.State)
+			}
+			if j.Location.Country != "" {
+				parts = append(parts, j.Location.Country)
+			}
+			loc = strings.Join(parts, ", ")
+		}
+		out[i] = JobResult{
+			ID:                 j.ID,
+			Title:              j.Title,
+			CompanyName:        j.CompanyName,
+			CompanyURL:         j.CompanyURL,
+			JobURL:             j.JobURL,
+			JobURLDirect:       j.JobURLDirect,
+			Location:           loc,
+			IsRemote:           j.IsRemote,
+			Description:        j.Description,
+			JobType:            j.JobType,
+			DatePosted:         j.DatePosted,
+			Site:               string(j.Site),
+			FetchedAt:          j.FetchedAt,
+			Seniority:          j.Seniority,
+			Department:         j.Department,
+			Compensation:       (*Compensation)(j.Compensation),
+			Skills:             j.Skills,
+			Emails:             emailsToEntries(j.Emails),
+			QualityScore:       j.QualityScore,
+			Domain:             j.Domain,
+			Industry:           j.Industry,
+			CompanyDescription: j.CompanyDescription,
+			ApplyMethod:        j.ApplyMethod,
+			ExperienceRange:    j.ExperienceRange,
+		}
 	}
+	return out
+}
 
-	// Hours old filter (new in scrappy)
-	if s.config.HoursOld > 0 {
-		args = append(args, "--hours-old", fmt.Sprintf("%d", s.config.HoursOld))
+func emailsToEntries(emails []scrappy.Email) []EmailEntry {
+	out := make([]EmailEntry, len(emails))
+	for i, e := range emails {
+		out[i] = EmailEntry(e)
 	}
-
-	// Remote filter
-	if s.config.RemoteOnly {
-		args = append(args, "--remote-only")
-	}
-
-	// Job type
-	if s.config.JobType != "" {
-		args = append(args, "--job-type", s.config.JobType)
-	}
-
-	// Email filter
-	if s.config.EmailOnly {
-		args = append(args, "--email")
-	}
-
-	// Min score
-	if s.config.MinScore > 0 {
-		args = append(args, "--min-score", fmt.Sprintf("%d", s.config.MinScore))
-	}
-
-	// Memory cap
-	if s.config.MemoryCapMB > 0 {
-		args = append(args, "--memory-cap", fmt.Sprintf("%dMB", s.config.MemoryCapMB))
-	}
-
-	// Proxy
-	if s.config.Proxy != "" {
-		args = append(args, "--proxy", s.config.Proxy)
-	}
-
-	// Non-interactive mode
-	args = append(args, "--non-interactive")
-
-	return args
+	return out
 }
