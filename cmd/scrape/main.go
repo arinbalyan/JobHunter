@@ -103,6 +103,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		Sites:         cfg.JobSites,
 		ResultsWanted: cfg.JobResultsPerSite,
 		HoursOld:      cfg.JobHoursOld,
+		SinceDate:     cfg.JobSinceDate,
 		RemoteOnly:    cfg.JobRemoteOnly,
 		JobType:       cfg.JobType,
 		MemoryCapMB:   cfg.ScrapyMemoryCapMB,

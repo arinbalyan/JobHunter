@@ -43,6 +43,7 @@ type SearchConfig struct {
 	JobType        string       `yaml:"job_type"`
 	ResultsPerSite int          `yaml:"results_per_site"`
 	HoursOld       int          `yaml:"hours_old"`
+	SinceDate      string       `yaml:"since_date"`
 	Onsite         OnsiteConfig `yaml:"onsite"`
 }
 
@@ -55,6 +56,7 @@ type OnsiteConfig struct {
 	JobType         string   `yaml:"job_type"`
 	ResultsPerSite  int      `yaml:"results_per_site"`
 	HoursOld        int      `yaml:"hours_old"`
+	SinceDate       string   `yaml:"since_date"`
 	MaxEmailsPerDay int      `yaml:"max_emails_per_day"`
 }
 
@@ -88,11 +90,11 @@ var knownKeys = map[string]bool{
 	"user.codolio": true, "user.resume_drive_link": true,
 	"search": true, "search.terms": true, "search.locations": true,
 	"search.sites": true, "search.remote_only": true, "search.job_type": true,
-	"search.results_per_site": true, "search.hours_old": true,
+	"search.results_per_site": true, "search.hours_old": true, "search.since_date": true,
 	"search.onsite": true, "search.onsite.enabled": true, "search.onsite.terms": true,
 	"search.onsite.locations": true, "search.onsite.sites": true,
 	"search.onsite.remote_only": true, "search.onsite.job_type": true,
-	"search.onsite.results_per_site": true, "search.onsite.hours_old": true,
+	"search.onsite.results_per_site": true, "search.onsite.hours_old": true, "search.onsite.since_date": true,
 	"search.onsite.max_emails_per_day": true,
 	"reject_titles": true, "email_filters": true,
 	"dedup": true, "dedup.email_cooldown_days": true,
@@ -220,6 +222,9 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	}
 	if yc.Search.HoursOld > 0 {
 		cfg.JobHoursOld = yc.Search.HoursOld
+	}
+	if yc.Search.SinceDate != "" {
+		cfg.JobSinceDate = yc.Search.SinceDate
 	}
 	if yc.Email.MaxPerRun > 0 {
 		cfg.MaxEmailsPerRun = yc.Email.MaxPerRun

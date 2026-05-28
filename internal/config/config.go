@@ -70,6 +70,7 @@ type Config struct {
 	JobSites        []string
 	JobResultsPerSite int
 	JobHoursOld       int
+	JobSinceDate      string
 	JobRemoteOnly     bool
 	JobType           string
 
@@ -204,6 +205,7 @@ func Load() (*Config, error) {
 
 		JobResultsPerSite: getEnvInt("JOB_RESULTS_PER_SITE", 25),
 		JobHoursOld:        getEnvInt("JOB_HOURS_OLD", 72),
+		JobSinceDate:       getEnv("JOB_SINCE_DATE", ""),
 		JobRemoteOnly:      getEnvBool("JOB_REMOTE_ONLY", true),
 		JobType:            getEnv("JOB_TYPE", "fulltime"),
 

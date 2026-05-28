@@ -36,19 +36,38 @@ search:
     - "bangalore"
     - "mumbai"
 
-  # Job boards to scrape (or "all" for all 55+ boards)
+  # Job boards to scrape ("all" for all 100+ boards, or list specific ones)
+  # scrappy supports 100+ boards — see github.com/arinbalyan/scrappy
   sites:
     - "linkedin"
     - "indeed"
     - "greenhouse"
     - "builtin"
+    - "google"
+    - "workday"
     - "glassdoor"
+    - "wellfound"
+    - "ziprecruiter"
+    - "linkedin"
+    - "simplyhired"
+    - "monster"
+    - "dice"
+    - "startupjobs"
+    - "himalayas"
+    - "remoteok"
+    - "weworkremotely"
+    - "hiringcafe"
+    - "themuse"
+    - "reed"
+    - "stackoverflow"
 
   # Filters
   remote_only: true
   job_type: "fulltime"              # fulltime | parttime | contract | internship
   results_per_site: 25
-  hours_old: 72                     # Only jobs posted within this window
+  hours_old: 72                     # Only jobs posted within this window (relative)
+  since_date: ""                    # Absolute date filter (YYYY-MM-DD or RFC3339)
+                                   # If set, the stricter of hours_old vs since_date wins
 
   # ── ONSITE Workflow (India-based) ─────────────────────
   onsite:
