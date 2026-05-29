@@ -298,13 +298,6 @@ func summarizeReasons(reasons map[string]int) string {
 	return strings.Join(parts, ", ")
 }
 
-func getEnv(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
-
 func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scraped, pending, skipped, sent, failed int, dur time.Duration, errMsg string) {
 	if pool == nil {
 		return

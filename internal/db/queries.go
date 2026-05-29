@@ -145,85 +145,6 @@ func (p *Pool) MarkReplied(ctx context.Context, messageID string) error {
 	return nil
 }
 
-// GetRecentEmails returns emails sent in the last N hours.
-func (p *Pool) GetRecentEmails(ctx context.Context, hours int) ([]EmailRecord, error) {
-	rows, err := p.Query(ctx,
-		`SELECT id, recipient_email, subject, tracking_id, message_id, status, opened, clicked, replied, bounced, sent_at
-		 FROM emails
-		 WHERE sent_at > $1
-		 ORDER BY sent_at DESC`,
-		time.Now().Add(-time.Duration(hours)*time.Hour),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query recent emails: %w", err)
-	}
-	defer rows.Close()
-
-	var emails []EmailRecord
-	for rows.Next() {
-		var e EmailRecord
-		err := rows.Scan(
-			&e.ID, &e.RecipientEmail, &e.Subject, &e.TrackingID, &e.MessageID,
-			&e.Status, &e.Opened, &e.Clicked, &e.Replied, &e.Bounced, &e.SentAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("scan email: %w", err)
-		}
-		emails = append(emails, e)
-	}
-	return emails, rows.Err()
-}
-
-// InsertJob inserts a scraped job, skipping duplicates by URL.
-func (p *Pool) InsertJob(ctx context.Context, j *JobRecord) (int64, bool, error) {
-	var id int64
-	err := p.QueryRow(ctx,
-		`INSERT INTO jobs
-			(job_id, title, company, location, is_remote, description, url, source,
-			 date_posted, fetched_at, seniority, emails)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-		 ON CONFLICT (url) DO NOTHING
-		 RETURNING id`,
-		j.JobID, j.Title, j.Company, j.Location, j.IsRemote, j.Description,
-		j.URL, j.Source, j.DatePosted, j.FetchedAt, j.Seniority, j.Emails,
-	).Scan(&id)
-	if err != nil {
-		// If the URL already exists, it's a duplicate — return 0, false
-		return 0, false, nil
-	}
-	return id, true, nil
-}
-
-// GetRecentJobs returns all jobs fetched in the last N hours.
-func (p *Pool) GetRecentJobs(ctx context.Context, hours int) ([]JobRecord, error) {
-	rows, err := p.Query(ctx,
-		`SELECT id, job_id, title, company, location, is_remote, description, url,
-		        source, date_posted, fetched_at, seniority
-		 FROM jobs
-		 WHERE fetched_at > $1
-		 ORDER BY fetched_at DESC`,
-		time.Now().Add(-time.Duration(hours)*time.Hour),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query recent jobs: %w", err)
-	}
-	defer rows.Close()
-
-	var jobs []JobRecord
-	for rows.Next() {
-		var j JobRecord
-		err := rows.Scan(
-			&j.ID, &j.JobID, &j.Title, &j.Company, &j.Location, &j.IsRemote,
-			&j.Description, &j.URL, &j.Source, &j.DatePosted, &j.FetchedAt, &j.Seniority,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("scan job: %w", err)
-		}
-		jobs = append(jobs, j)
-	}
-	return jobs, rows.Err()
-}
-
 // GetSentEmailsCount returns how many emails were sent to a given address.
 func (p *Pool) GetSentEmailsCount(ctx context.Context, email string, since time.Duration) (int, error) {
 	var count int
@@ -248,40 +169,6 @@ func (p *Pool) GetTodaySentCount(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("today sent count: %w", err)
 	}
 	return count, nil
-}
-
-// GetPendingEmails returns emails with status 'pending' (carry-over from prev runs).
-func (p *Pool) GetPendingEmails(ctx context.Context) ([]EmailRecord, error) {
-	rows, err := p.Query(ctx,
-		`SELECT id, recipient_email, subject, body_preview, tracking_id, message_id, status, sent_at
-		 FROM emails WHERE status = 'pending'
-		 ORDER BY sent_at ASC`,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("query pending: %w", err)
-	}
-	defer rows.Close()
-
-	var emails []EmailRecord
-	for rows.Next() {
-		var e EmailRecord
-		err := rows.Scan(&e.ID, &e.RecipientEmail, &e.Subject, &e.BodyPreview,
-			&e.TrackingID, &e.MessageID, &e.Status, &e.SentAt)
-		if err != nil {
-			return nil, fmt.Errorf("scan: %w", err)
-		}
-		emails = append(emails, e)
-	}
-	return emails, rows.Err()
-}
-
-// MarkEmailProcessed updates an email's status from 'pending' to 'sent'.
-func (p *Pool) MarkEmailProcessed(ctx context.Context, id int64) error {
-	_, err := p.Exec(ctx,
-		`UPDATE emails SET status = 'sent', sent_at = NOW() WHERE id = $1 AND status = 'pending'`,
-		id,
-	)
-	return err
 }
 
 // MarkEmailSentByTrackingID updates an email record to 'sent' with message_id, looked up by tracking_id.
