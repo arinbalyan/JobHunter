@@ -34,6 +34,7 @@ type Server struct {
 	startTime time.Time
 	mux       *http.ServeMux
 	logger    *logging.Logger
+	ctx       context.Context // set during Start(), used by goroutines for cancellation
 
 	trackHits   atomic.Int64
 	clickHits   atomic.Int64
@@ -81,6 +82,7 @@ func (s *Server) Start(ctx context.Context) error {
 		IdleTimeout:  30 * time.Second,
 	}
 
+	s.ctx = ctx
 	s.logger.Info("listening on :%d", s.port)
 
 	go func() {
@@ -105,7 +107,7 @@ func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 		case s.sem <- struct{}{}:
 			go func(id string) {
 				defer func() { <-s.sem }()
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 				defer cancel()
 				if err := s.db.MarkOpened(ctx, id); err != nil {
 					s.logger.Warn("open failed for %s: %v", id, err)
@@ -116,7 +118,7 @@ func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 			}(trackingID)
 		default:
 			// Semaphore full — process synchronously to avoid unbounded goroutines
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 			defer cancel()
 			if err := s.db.MarkOpened(ctx, trackingID); err != nil {
 				s.logger.Warn("open failed for %s: %v", trackingID, err)
@@ -145,7 +147,7 @@ func (s *Server) handleClick(w http.ResponseWriter, r *http.Request) {
 		case s.sem <- struct{}{}:
 			go func(id string) {
 				defer func() { <-s.sem }()
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 				defer cancel()
 				if err := s.db.MarkClicked(ctx, id); err != nil {
 					s.logger.Warn("click failed for %s: %v", id, err)
@@ -156,7 +158,7 @@ func (s *Server) handleClick(w http.ResponseWriter, r *http.Request) {
 			}(trackingID)
 		default:
 			// Semaphore full — process synchronously
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second)
 			defer cancel()
 			if err := s.db.MarkClicked(ctx, trackingID); err != nil {
 				s.logger.Warn("click failed for %s: %v", trackingID, err)
