@@ -51,7 +51,11 @@ func main() {
 				} `json:"message"`
 			} `json:"result"`
 		}
-		json.Unmarshal(body, &result)
+		if err := json.Unmarshal(body, &result); err != nil {
+			log.Printf("JSON parse error: %v", err)
+			time.Sleep(2 * time.Second)
+			continue
+		}
 
 		if !result.Ok {
 			time.Sleep(2 * time.Second)
