@@ -177,5 +177,8 @@ func (p *Pool) MarkEmailSentByTrackingID(ctx context.Context, trackingID, messag
 		`UPDATE emails SET status = 'sent', sent_at = NOW(), message_id = $2 WHERE tracking_id = $1`,
 		trackingID, messageID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("mark email sent by tracking id: %w", err)
+	}
+	return nil
 }
