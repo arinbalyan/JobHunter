@@ -156,7 +156,10 @@ func (p *Pool) UpdateJobStatus(ctx context.Context, jobID int64, status, skipRea
 		 WHERE id = $4`,
 		status, skipReason, recipientEmail, jobID,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("update job status: %w", err)
+	}
+	return nil
 }
 
 // DeleteOldSkippedJobs deletes skipped jobs older than N days.
@@ -215,7 +218,10 @@ func (p *Pool) UpdateQueueStatus(ctx context.Context, id int64, status, errorMsg
 		 WHERE id = $3`,
 		status, errorMsg, id,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("update queue status: %w", err)
+	}
+	return nil
 }
 
 // MarkStalePendingQueue marks items pending > N days as skipped.
@@ -339,7 +345,10 @@ func (p *Pool) RecordRunLog(ctx context.Context, workflow, status string,
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
 		workflow, status, scraped, pending, skipped, sent, failed, durationMs, errMsg,
 	)
-	return err
+	if err != nil {
+		return fmt.Errorf("record run log: %w", err)
+	}
+	return nil
 }
 
 // isUniqueViolation checks if the error is a PostgreSQL unique constraint violation (code 23505).
