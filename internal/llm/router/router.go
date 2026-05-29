@@ -46,18 +46,19 @@ const (
 
 // ProviderStatus tracks the health and usage of a provider.
 type ProviderStatus struct {
-	Name               string       // Human-readable provider name (e.g. "openrouter")
-	Kind               ProviderKind
-	BaseURL            string
-	APIKey             string
-	Model              string
-	Healthy            bool
-	LastUsed           int64
-	TokenCount         int64
-	FailCount          int64
-	ConsecutiveFailures int64      // incremented on each failure, reset on success
-	LastFailureTime     int64      // unix timestamp of last failure (0 if never failed)
-	mu                 sync.RWMutex
+	Name                string       // Human-readable provider name (e.g. "openrouter")
+	Kind                ProviderKind
+	BaseURL             string
+	APIKey              string
+	Model               string
+	Weight              int          // from llm.yaml; higher = selected more often
+	Healthy             bool
+	LastUsed            int64
+	TokenCount          int64
+	FailCount           int64
+	ConsecutiveFailures int64       // incremented on each failure, reset on success
+	LastFailureTime     int64       // unix timestamp of last failure (0 if never failed)
+	mu                  sync.RWMutex
 }
 
 // Router manages multiple LLM providers with round-robin and failover.
@@ -89,6 +90,7 @@ func New(providers []ProviderConfig, maxTokensPerRun int64, logger *logging.Logg
 			BaseURL: p.BaseURL,
 			APIKey:  p.APIKey,
 			Model:   p.Model,
+			Weight:  p.Weight,
 			Healthy: true,
 		}
 	}
@@ -275,16 +277,14 @@ func (r *Router) selectProvider(task TaskComplexity) *ProviderStatus {
 		}
 	}
 
-	// Weighted round-robin: providers with higher weight are picked more often
-	// We double the index for higher weight models
+	// Weighted round-robin: providers with higher weight are picked more often.
 	var weighted []*ProviderStatus
 	for _, p := range candidates {
-		weight := 1
-		// Extract weight from provider's model (heuristic)
-		if p.Kind == ProviderOpenRouter || p.Kind == ProviderGroq {
-			weight = 3
+		w := p.Weight
+		if w <= 0 {
+			w = 1
 		}
-		for i := 0; i < weight; i++ {
+		for i := 0; i < w; i++ {
 			weighted = append(weighted, p)
 		}
 	}
