@@ -160,9 +160,36 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 			continue
 		}
 
-		// 4. Mark as pending
-		insertJob(ctx, dbPool, &j, "pending", "", primaryEmail, &pending)
+		// 4. Mark as pending and queue for sending
+		jobID, err := insertJob(ctx, dbPool, &j, "pending", "", primaryEmail, &pending)
+		if err != nil {
+			log.Printf("queue job %s: insert failed: %v", j.ID, err)
+			continue
+		}
 		pending++
+
+		// Enqueue the job for the send workflow.
+		skillsJSON := "[]"
+		if len(j.Skills) > 0 {
+			b, _ := json.Marshal(j.Skills)
+			skillsJSON = string(b)
+		}
+		if _, err := dbPool.InsertQueueItem(ctx, jobID, &db.QueueItemRecord{
+			RecipientEmail:  primaryEmail,
+			Company:         j.CompanyName,
+			JobTitle:        j.Title,
+			JobURL:          j.JobURL,
+			JobLocation:     j.Location,
+			IsRemote:        j.IsRemote,
+			JobType:         j.JobType,
+			JobDescription:  j.Description,
+			Seniority:       j.Seniority,
+			CompanyIndustry: j.Industry,
+			Skills:          skillsJSON,
+		}); err != nil {
+			log.Printf("queue job %s: enqueue failed: %v", j.ID, err)
+		}
+
 		de.MarkSent(ctx, &db.EmailRecord{
 			RecipientEmail: primaryEmail,
 			Subject:        j.Title,
@@ -191,7 +218,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 	return 0
 }
 
-func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status, skipReason, recipientEmail string, inserted *int) {
+func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status, skipReason, recipientEmail string, inserted *int) (int64, error) {
 	emails := j.FlatEmails()
 	emailsJSON := "[]"
 	if len(emails) > 0 {
@@ -217,7 +244,7 @@ func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status,
 		skillsJSON = string(b)
 	}
 
-	_, isNew, _ := pool.InsertJobFull(ctx, &db.FullJobRecord{
+	jobID, isNew, err := pool.InsertJobFull(ctx, &db.FullJobRecord{
 		JobID:              j.ID,
 		Title:              j.Title,
 		Company:            j.CompanyName,
@@ -246,9 +273,14 @@ func insertJob(ctx context.Context, pool *db.Pool, j *scraper.JobResult, status,
 		SkipReason:         skipReason,
 		RecipientEmail:     recipientEmail,
 	})
+	if err != nil {
+		log.Printf("insert job %s: %v", j.ID, err)
+		return 0, err
+	}
 	if isNew {
 		*inserted++
 	}
+	return jobID, nil
 }
 
 func truncate(s string, max int) string {

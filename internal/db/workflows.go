@@ -2,8 +2,11 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // FullJobRecord matches the extended jobs schema.
@@ -69,7 +72,7 @@ func (p *Pool) InsertJobFull(ctx context.Context, j *FullJobRecord) (int64, bool
 	var id int64
 	err := p.QueryRow(ctx,
 		`INSERT INTO jobs
-			(job_id, title, company, company_url, job_url, job_url_direct,
+			(job_id, title, company, company_url, url, job_url_direct,
 			 location, is_remote, description, job_type, date_posted, source,
 			 seniority, department, company_industry,
 			 salary_min, salary_max, salary_currency, salary_interval,
@@ -94,9 +97,56 @@ func (p *Pool) InsertJobFull(ctx context.Context, j *FullJobRecord) (int64, bool
 	).Scan(&id)
 	if err != nil {
 		// If unique constraint violation — job exists, return existing ID
-		return 0, false, nil
+		if isUniqueViolation(err) {
+			return 0, false, nil
+		}
+		return 0, false, fmt.Errorf("insert job: %w", err)
 	}
 	return id, true, nil
+}
+
+// InsertQueueItem enqueues a pending job for the send workflow.
+func (p *Pool) InsertQueueItem(ctx context.Context, jobID int64, item *QueueItemRecord) (int64, error) {
+	var id int64
+	err := p.QueryRow(ctx,
+		`INSERT INTO email_queue
+			(job_id, recipient_email, company, job_title, job_url,
+			 job_location, is_remote, job_type, job_description,
+			 salary_min, salary_max, salary_currency,
+			 seniority, company_industry, skills, status)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+		         $10, $11, $12, $13, $14, $15, 'pending')
+		 RETURNING id`,
+		jobID, item.RecipientEmail, item.Company, item.JobTitle, item.JobURL,
+		item.JobLocation, item.IsRemote, item.JobType, item.JobDescription,
+		item.SalaryMin, item.SalaryMax, item.SalaryCurrency,
+		item.Seniority, item.CompanyIndustry, item.Skills,
+	).Scan(&id)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("insert queue item: %w", err)
+	}
+	return id, nil
+}
+
+// QueueItemRecord holds the data needed to enqueue a job for sending.
+type QueueItemRecord struct {
+	RecipientEmail  string
+	Company         string
+	JobTitle        string
+	JobURL          string
+	JobLocation     string
+	IsRemote        bool
+	JobType         string
+	JobDescription  string
+	SalaryMin       *float64
+	SalaryMax       *float64
+	SalaryCurrency  string
+	Seniority       string
+	CompanyIndustry string
+	Skills          string
 }
 
 // UpdateJobStatus updates a job's status.
@@ -290,4 +340,13 @@ func (p *Pool) RecordRunLog(ctx context.Context, workflow, status string,
 		workflow, status, scraped, pending, skipped, sent, failed, durationMs, errMsg,
 	)
 	return err
+}
+
+// isUniqueViolation checks if the error is a PostgreSQL unique constraint violation (code 23505).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == "23505"
+	}
+	return false
 }
