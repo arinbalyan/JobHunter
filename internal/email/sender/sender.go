@@ -35,10 +35,12 @@ type EmailMessage struct {
 
 // Sender handles sending emails via Gmail SMTP with retry + optional resume.
 type Sender struct {
-	config    SMTPConfig
-	auth      smtp.Auth
-	host      string
-	port      string
+	config     SMTPConfig
+	auth       smtp.Auth
+	host       string
+	port       string
+	resumeData []byte // cached resume PDF content
+	resumePath string // cached resume file path
 }
 
 const maxRetries = 3
@@ -49,12 +51,14 @@ const retryDelay = 5 * time.Second
 // but smtp.SendMail always negotiates STARTTLS on port 587, so the entire session
 // is encrypted. This is the standard Gmail SMTP approach — not plaintext.
 func New(cfg SMTPConfig) *Sender {
-	return &Sender{
+	s := &Sender{
 		config: cfg,
 		auth:   smtp.PlainAuth("", cfg.User, cfg.Password, "smtp.gmail.com"),
 		host:   "smtp.gmail.com",
 		port:   "587",
 	}
+	s.loadResume()
+	return s
 }
 
 // Send sends an email with retry logic and optional resume attachment.
@@ -109,9 +113,7 @@ func sanitizeHeader(s string) string {
 
 // buildEmail constructs the raw MIME email with optional PDF attachment.
 func (s *Sender) buildEmail(msg *EmailMessage) ([]byte, error) {
-	// Check if we have a resume to attach
-	resumePath := s.findResume()
-	hasResume := resumePath != ""
+	hasResume := len(s.resumeData) > 0
 
 	var buf bytes.Buffer
 
@@ -171,29 +173,40 @@ func (s *Sender) buildEmail(msg *EmailMessage) ([]byte, error) {
 	// Attach resume PDF if found
 	if hasResume {
 		buf.WriteString(fmt.Sprintf("--%s\r\n", boundary))
-		buf.WriteString(fmt.Sprintf(`Content-Type: application/pdf; name="%s"`+"\r\n", filepath.Base(resumePath)))
+		buf.WriteString(fmt.Sprintf(`Content-Type: application/pdf; name="%s"`+"\r\n", filepath.Base(s.resumePath)))
 		buf.WriteString("Content-Transfer-Encoding: base64\r\n")
-		buf.WriteString(fmt.Sprintf(`Content-Disposition: attachment; filename="%s"`+"\r\n\r\n", filepath.Base(resumePath)))
+		buf.WriteString(fmt.Sprintf(`Content-Disposition: attachment; filename="%s"`+"\r\n\r\n", filepath.Base(s.resumePath)))
 
-		data, err := os.ReadFile(resumePath)
-		if err == nil {
-			// Use stdlib base64 with RFC 2045 line wrapping (76 chars per line)
-			encoded := base64.StdEncoding.EncodeToString(data)
-			for len(encoded) > 0 {
-				chunk := encoded
-				if len(chunk) > 76 {
-					chunk = chunk[:76]
-				}
-				buf.WriteString(chunk)
-				buf.WriteString("\r\n")
-				encoded = encoded[len(chunk):]
+		// Use stdlib base64 with RFC 2045 line wrapping (76 chars per line)
+		encoded := base64.StdEncoding.EncodeToString(s.resumeData)
+		for len(encoded) > 0 {
+			chunk := encoded
+			if len(chunk) > 76 {
+				chunk = chunk[:76]
 			}
+			buf.WriteString(chunk)
+			buf.WriteString("\r\n")
+			encoded = encoded[len(chunk):]
 		}
 
 		buf.WriteString(closeBoundary + "\r\n")
 	}
 
 	return buf.Bytes(), nil
+}
+
+// loadResume preloads the resume PDF into memory so it's only read from disk once.
+func (s *Sender) loadResume() {
+	path := s.findResume()
+	if path == "" {
+		return
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	s.resumeData = data
+	s.resumePath = path
 }
 
 // findResume looks for a PDF in .agent-data/ or the configured path.
