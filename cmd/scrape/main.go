@@ -148,7 +148,8 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 
 		primaryEmail := validEmails[0]
 
-		// 3. Dedup check
+		// 3. Dedup check (SELECT pre-check). The actual atomic gate
+		// is ReserveEmail inside MarkSent — no TOCTOU race.
 		canSend, reason := de.CanSend(ctx, primaryEmail)
 		if !canSend {
 			skippedReasons["dedup"]++

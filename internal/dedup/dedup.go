@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/arinbalyan/jobhunter/internal/db"
@@ -14,7 +13,6 @@ import (
 type Deduplicator struct {
 	DB                *db.Pool
 	EmailCooldownDays int
-	mu                sync.RWMutex
 }
 
 // New creates a deduplicator.
@@ -25,39 +23,32 @@ func New(pool *db.Pool, emailCooldownDays int) *Deduplicator {
 	}
 }
 
-// CanSend checks if we can send to this recipient.
-// Returns (allowed, reason). reason is empty if allowed.
+// CanSend checks if we can send to this recipient (SELECT-only pre-check).
+// This is NOT the final gate — ReserveEmail's atomic INSERT is.
+// Returns (allowed, reason).
 func (d *Deduplicator) CanSend(ctx context.Context, recipientEmail string) (bool, string) {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
 	if d.DB == nil {
 		return true, ""
 	}
-
-	// Check email cooldown
 	cooldown := time.Duration(d.EmailCooldownDays) * 24 * time.Hour
 	count, err := d.DB.GetSentEmailsCount(ctx, recipientEmail, cooldown)
 	if err != nil {
-		return true, "" // On error, allow send
+		return true, "" // On error, allow send (fail open)
 	}
 	if count > 0 {
 		return false, fmt.Sprintf("already sent to %s within %d days", recipientEmail, d.EmailCooldownDays)
 	}
-
 	return true, ""
 }
 
-// MarkSent records that an email was sent to this recipient.
+// MarkSent atomically checks the dedup cooldown and reserves a slot.
+// Uses ReserveEmail which is a single atomic SQL statement — no TOCTOU race.
+// If the recipient is within cooldown, the INSERT is silently skipped.
 func (d *Deduplicator) MarkSent(ctx context.Context, record *db.EmailRecord) error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	if d.DB == nil {
 		return nil
 	}
-
-	_, err := d.DB.InsertEmail(ctx, record)
+	_, err := d.DB.ReserveEmail(ctx, record, d.EmailCooldownDays)
 	return err
 }
 

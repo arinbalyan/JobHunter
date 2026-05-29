@@ -64,6 +64,35 @@ func (p *Pool) InsertEmail(ctx context.Context, e *EmailRecord) (int64, error) {
 	return id, nil
 }
 
+// ReserveEmail atomically checks the dedup cooldown and inserts a reservation.
+// Returns true if the email was reserved, false if blocked by cooldown.
+// This is a single atomic SQL statement — no TOCTOU race possible.
+func (p *Pool) ReserveEmail(ctx context.Context, e *EmailRecord, cooldownDays int) (bool, error) {
+	var reserved bool
+	err := p.QueryRow(ctx,
+		`WITH reserved AS (
+			INSERT INTO emails
+				(job_id, recipient_email, subject, body_preview, sent_at, status,
+				 template_used, tracking_id, message_id)
+			SELECT $1, $2, $3, $4, NOW(), $6, $7, $8, $9
+			WHERE NOT EXISTS (
+				SELECT 1 FROM emails
+				WHERE recipient_email = $2
+				AND sent_at > NOW() - $10::INTERVAL
+			)
+			RETURNING id
+		)
+		SELECT EXISTS (SELECT 1 FROM reserved)`,
+		e.JobID, e.RecipientEmail, e.Subject, e.BodyPreview,
+		e.Status, e.TemplateUsed, e.TrackingID, e.MessageID,
+		fmt.Sprintf("%d days", cooldownDays),
+	).Scan(&reserved)
+	if err != nil {
+		return false, fmt.Errorf("reserve email: %w", err)
+	}
+	return reserved, nil
+}
+
 // MarkOpened marks an email as opened by tracking ID.
 func (p *Pool) MarkOpened(ctx context.Context, trackingID string) error {
 	_, err := p.Exec(ctx,
