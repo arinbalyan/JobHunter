@@ -100,6 +100,13 @@ func (s *Sender) Send(ctx context.Context, msg *EmailMessage) error {
 	return fmt.Errorf("after %d attempts: %w", maxRetries, lastErr)
 }
 
+// sanitizeHeader strips CR and LF from header values to prevent header injection.
+func sanitizeHeader(s string) string {
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, "\n", "")
+	return s
+}
+
 // buildEmail constructs the raw MIME email with optional PDF attachment.
 func (s *Sender) buildEmail(msg *EmailMessage) ([]byte, error) {
 	// Check if we have a resume to attach
@@ -126,9 +133,9 @@ func (s *Sender) buildEmail(msg *EmailMessage) ([]byte, error) {
 	}
 
 	headers := map[string]string{
-		"From":         from,
-		"To":           msg.To,
-		"Subject":      msg.Subject,
+		"From":         sanitizeHeader(from),
+		"To":           sanitizeHeader(msg.To),
+		"Subject":      sanitizeHeader(msg.Subject),
 		"MIME-Version": "1.0",
 		"Content-Type": contentType,
 		"Message-ID":   msg.MessageID,

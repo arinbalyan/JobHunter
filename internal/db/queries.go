@@ -254,3 +254,12 @@ func (p *Pool) MarkEmailProcessed(ctx context.Context, id int64) error {
 	)
 	return err
 }
+
+// MarkEmailSentByTrackingID updates an email record to 'sent' with message_id, looked up by tracking_id.
+func (p *Pool) MarkEmailSentByTrackingID(ctx context.Context, trackingID, messageID string) error {
+	_, err := p.Exec(ctx,
+		`UPDATE emails SET status = 'sent', sent_at = NOW(), message_id = $2 WHERE tracking_id = $1`,
+		trackingID, messageID,
+	)
+	return err
+}

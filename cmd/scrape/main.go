@@ -116,7 +116,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 	for _, j := range jobs {
 		// 1. Title rejection
 		if yamlCfg.RejectTitle(j.Title) {
-			skipped++
 			skippedReasons["title_rejected"]++
 			insertJob(ctx, dbPool, &j, "skipped", "title_rejected", "", &skipped)
 			continue
@@ -127,7 +126,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		// then fall back to unverified ones.
 		emails := j.PreferredEmails()
 		if len(emails) == 0 {
-			skipped++
 			skippedReasons["no_email"]++
 			insertJob(ctx, dbPool, &j, "skipped", "no_email", "", &skipped)
 			continue
@@ -143,7 +141,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 			}
 		}
 		if len(validEmails) == 0 {
-			skipped++
 			skippedReasons["no_valid_email"]++
 			insertJob(ctx, dbPool, &j, "skipped", "no_valid_email", "", &skipped)
 			continue
@@ -154,7 +151,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		// 3. Dedup check
 		canSend, reason := de.CanSend(ctx, primaryEmail)
 		if !canSend {
-			skipped++
 			skippedReasons["dedup"]++
 			insertJob(ctx, dbPool, &j, "skipped", reason, primaryEmail, &skipped)
 			continue
@@ -166,7 +162,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 			log.Printf("queue job %s: insert failed: %v", j.ID, err)
 			continue
 		}
-		pending++
 
 		// Enqueue the job for the send workflow.
 		skillsJSON := "[]"
@@ -191,6 +186,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		}
 
 		de.MarkSent(ctx, &db.EmailRecord{
+			JobID:          &jobID,
 			RecipientEmail: primaryEmail,
 			Subject:        j.Title,
 			BodyPreview:    truncate(j.Description, 200),

@@ -210,6 +210,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool) int {
 			logger.Info("sent successfully")
 			dbPool.UpdateQueueStatus(ctx, item.ID, "sent", "")
 			dbPool.UpdateJobStatus(ctx, item.JobID, "sent", "", item.RecipientEmail)
+			dbPool.MarkEmailSentByTrackingID(ctx, trackingID, messageID)
 			sent++
 		}
 
