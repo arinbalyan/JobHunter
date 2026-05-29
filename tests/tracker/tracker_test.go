@@ -46,7 +46,7 @@ func (m *mockDB) Close() {}
 
 func TestNew(t *testing.T) {
 	db := newMockDB()
-	s := tracker.New(db, 8080)
+	s := tracker.New(db, 8080, nil)
 	if s == nil {
 		t.Fatal("New() returned nil")
 	}
@@ -54,7 +54,7 @@ func TestNew(t *testing.T) {
 
 func TestHandleTrack_Success(t *testing.T) {
 	db := newMockDB()
-	tracker.New(db, 0)
+	tracker.New(db, 0, nil)
 
 	// Create a test server using the tracker's handlers
 	mux := http.NewServeMux()
@@ -103,7 +103,7 @@ func TestHandleTrack_Success(t *testing.T) {
 // Test the real server's handlers directly via the exported methods
 func TestServer_HandleTrack_Direct(t *testing.T) {
 	db := newMockDB()
-	s := tracker.New(db, 0)
+	s := tracker.New(db, 0, nil)
 
 	// Start the server to register routes
 	ctx, cancel := context.WithCancel(context.Background())
@@ -129,7 +129,7 @@ func TestServer_HandleTrack_Direct(t *testing.T) {
 
 func TestTrackHandler_Direct(t *testing.T) {
 	db := newMockDB()
-	s := tracker.New(db, 0)
+	s := tracker.New(db, 0, nil)
 
 	// We can't call unexported methods directly from a different package
 	// So this test validates that the struct can be created without panic
@@ -406,7 +406,7 @@ func TestHandleRoot(t *testing.T) {
 
 func TestServer_Lifecycle(t *testing.T) {
 	db := newMockDB()
-	s := tracker.New(db, 0)
+	s := tracker.New(db, 0, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 

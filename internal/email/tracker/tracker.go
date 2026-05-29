@@ -5,13 +5,14 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"runtime"
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/arinbalyan/jobhunter/internal/logging"
 )
 
 // Database defines the minimal interface the tracker needs.
@@ -32,6 +33,7 @@ type Server struct {
 	port      int
 	startTime time.Time
 	mux       *http.ServeMux
+	logger    *logging.Logger
 
 	trackHits   atomic.Int64
 	clickHits   atomic.Int64
@@ -43,12 +45,16 @@ type Server struct {
 }
 
 // New creates a new tracking server.
-func New(db Database, port int) *Server {
+func New(db Database, port int, logger *logging.Logger) *Server {
+	if logger == nil {
+		logger = logging.New("info", nil)
+	}
 	return &Server{
 		db:        db,
 		port:      port,
 		startTime: time.Now(),
 		sem:       make(chan struct{}, maxConcurrentTracking),
+		logger:    logger,
 	}
 }
 
@@ -69,13 +75,13 @@ func (s *Server) Start(ctx context.Context) error {
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),
-		Handler:     loggingMiddleware(s.mux),
+		Handler:     s.loggingMiddleware(),
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 5 * time.Second,
 		IdleTimeout:  30 * time.Second,
 	}
 
-	log.Printf("[tracker] listening on :%d", s.port)
+	s.logger.Info("listening on :%d", s.port)
 
 	go func() {
 		<-ctx.Done()
@@ -102,7 +108,7 @@ func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				if err := s.db.MarkOpened(ctx, id); err != nil {
-					log.Printf("[tracker] open failed for %s: %v", id, err)
+					s.logger.Warn("open failed for %s: %v", id, err)
 					s.trackErrors.Add(1)
 					return
 				}
@@ -113,7 +119,7 @@ func (s *Server) handleTrack(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := s.db.MarkOpened(ctx, trackingID); err != nil {
-				log.Printf("[tracker] open failed for %s: %v", trackingID, err)
+				s.logger.Warn("open failed for %s: %v", trackingID, err)
 				s.trackErrors.Add(1)
 			}
 			s.trackHits.Add(1)
@@ -142,7 +148,7 @@ func (s *Server) handleClick(w http.ResponseWriter, r *http.Request) {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
 				if err := s.db.MarkClicked(ctx, id); err != nil {
-					log.Printf("[tracker] click failed for %s: %v", id, err)
+					s.logger.Warn("click failed for %s: %v", id, err)
 					s.clickErrors.Add(1)
 					return
 				}
@@ -153,7 +159,7 @@ func (s *Server) handleClick(w http.ResponseWriter, r *http.Request) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			if err := s.db.MarkClicked(ctx, trackingID); err != nil {
-				log.Printf("[tracker] click failed for %s: %v", trackingID, err)
+				s.logger.Warn("click failed for %s: %v", trackingID, err)
 				s.clickErrors.Add(1)
 				return
 			}
@@ -260,11 +266,11 @@ Go: %s
 `, s.startTime.UTC().Format(time.RFC3339), runtime.Version())
 }
 
-func loggingMiddleware(next http.Handler) http.Handler {
+func (s *Server) loggingMiddleware() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		next.ServeHTTP(w, r)
-		log.Printf("[tracker] %s %s %s (from %s)", r.Method, r.URL.Path, time.Since(start), extractIP(r))
+		s.mux.ServeHTTP(w, r)
+		s.logger.Info("%s %s %s (from %s)", r.Method, r.URL.Path, time.Since(start), extractIP(r))
 	})
 }
 

@@ -13,6 +13,7 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/config"
 	"github.com/arinbalyan/jobhunter/internal/db"
 	"github.com/arinbalyan/jobhunter/internal/email/tracker"
+	"github.com/arinbalyan/jobhunter/internal/logging"
 )
 
 func main() {
@@ -22,17 +23,7 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Database connection for tracking
-	dbPool, err := db.Connect(context.Background(), cfg.DatabaseURL)
-	if err != nil {
-		log.Fatalf("Database connection failed: %v", err)
-	}
-	defer dbPool.Close()
-
-	// Create tracking server
-	server := tracker.New(dbPool, cfg.TrackingServerPort)
-
-	// Context with cancellation
+	// Create cancellable context for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -41,12 +32,25 @@ func main() {
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigCh
-		log.Println("shutting down tracker...")
 		cancel()
 	}()
 
-	log.Printf("starting tracking server on :%d", cfg.TrackingServerPort)
+	// Database connection with cancellable context
+	dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Database connection failed: %v", err)
+	}
+	defer dbPool.Close()
+
+	// Structured logger
+	logger := logging.New(cfg.LogLevel, os.Stdout)
+
+	// Create tracking server
+	server := tracker.New(dbPool, cfg.TrackingServerPort, logger)
+
+	logger.Info("starting tracking server on :%d", cfg.TrackingServerPort)
 	if err := server.Start(ctx); err != nil {
-		log.Fatalf("tracking server failed: %v", err)
+		logger.Error("tracking server failed: %v", err)
+		os.Exit(1)
 	}
 }
