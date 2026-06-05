@@ -175,10 +175,6 @@ email:
   retry_attempts: 3
   retry_delay_seconds: 5
 
-  # Word count limits for generated emails
-  min_words: 120
-  max_words: 300
-
 # ─── LLM Configuration ─────────────────────────────────
 llm:
   # Complex model for email generation and reasoning

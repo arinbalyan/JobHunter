@@ -30,6 +30,13 @@ func main() {
 		debug.SetMemoryLimit(80 * 1024 * 1024)
 	}
 
+	emailOnly := true
+	for _, arg := range os.Args[1:] {
+		if arg == "--email=false" || arg == "--email=0" || arg == "--email=no" {
+			emailOnly = false
+		}
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
@@ -43,10 +50,10 @@ func main() {
 	}
 
 	logger := logging.New(cfg.LogLevel, os.Stdout)
-	os.Exit(run(cfg, yamlCfg, logger))
+	os.Exit(run(cfg, yamlCfg, logger, emailOnly))
 }
 
-func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger) int {
+func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger, emailOnly bool) int {
 	startTime := time.Now()
 
 	logger.Info("Scrape workflow starting...")
@@ -86,7 +93,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger)
 		JobType:       cfg.JobType,
 		MemoryCapMB:   cfg.ScrapyMemoryCapMB,
 		Proxy:         cfg.ScrapyProxy,
-		EmailOnly:     true,
+		EmailOnly:     emailOnly,
 	}
 
 	scr := scraper.New(scrCfg)
