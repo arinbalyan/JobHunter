@@ -14,6 +14,7 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/config"
 	"github.com/arinbalyan/jobhunter/internal/db"
 	"github.com/arinbalyan/jobhunter/internal/email/sender"
+	"github.com/arinbalyan/jobhunter/internal/llm/fallback"
 	"github.com/arinbalyan/jobhunter/internal/llm/prompt"
 	"github.com/arinbalyan/jobhunter/internal/llm/providers"
 	"github.com/arinbalyan/jobhunter/internal/llm/router"
@@ -239,18 +240,34 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool) int {
 }
 
 func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, userPrompt string, item db.QueueItem, contactName string, cfg *config.Config, logger *logging.Logger) (string, string) {
-	subject := fmt.Sprintf("Interested in %s role at %s", item.JobTitle, item.Company)
-	body := fmt.Sprintf(
-		"Hi %s team,\n\nI came across your %s opening and wanted to reach out. "+
-			"My background aligns well with what you're looking for. "+
-			"I'd love to connect and discuss how I can contribute.\n\nBest,\n%s",
-		item.Company, item.JobTitle, contactName,
-	)
-
-	if llmRouter == nil || sysPrompt == "" || userPrompt == "" {
-		return subject, body
+	// Build fallback data
+	fbData := &fallback.TemplateData{
+		JobTitle:         item.JobTitle,
+		Company:          item.Company,
+		JobDescription:   item.JobDescription,
+		Seniority:        item.Seniority,
+		Location:         item.JobLocation,
+		JobType:          item.JobType,
+		Salary:           formatSalary(item.SalaryMin, item.SalaryMax, item.SalaryCurrency),
+		Skills:           item.Skills,
+		Industry:         item.CompanyIndustry,
+		ContactName:      contactName,
+		ContactPhone:     cfg.ContactPhone,
+		ContactPortfolio: cfg.ContactPortfolio,
+		ContactGithub:    cfg.ContactGithub,
+		ContactLinkedin:  cfg.ContactLinkedin,
+		ExperienceMatch:  item.ExperienceMatch,
 	}
 
+	// Generate fallback subject + body
+	fallbackSubject, fallbackBody := fallback.Generate(fbData)
+
+	// If no LLM available, return template-based fallback
+	if llmRouter == nil || sysPrompt == "" || userPrompt == "" {
+		return fallbackSubject, fallbackBody
+	}
+
+	// Try LLM generation
 	resp, err := llmRouter.Complete(ctx, router.TaskComplex, &router.CompletionRequest{
 		SystemPrompt: sysPrompt,
 		UserPrompt:   userPrompt,
@@ -258,13 +275,13 @@ func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, use
 		Temperature:  0.7,
 	})
 	if err != nil {
-		logger.Warn("LLM generation failed: %v — using fallback template", err)
-		return subject, body
+		logger.Warn("LLM generation failed: %v — using template-based fallback", err)
+		return fallbackSubject, fallbackBody
 	}
 
 	// Parse SUBJECT: prefix
 	content := resp.Content
-	subj := subject
+	subj := fallbackSubject
 	if strings.HasPrefix(strings.ToUpper(content), "SUBJECT:") {
 		parts := strings.SplitN(content, "\n", 2)
 		subj = strings.TrimSpace(strings.TrimPrefix(parts[0], "SUBJECT:"))
@@ -274,10 +291,18 @@ func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, use
 		}
 	}
 
-	// Append contact footer (no resume mention)
-	body = strings.TrimSpace(content)
-	body += fmt.Sprintf("\n\n%s\nPhone: %s\nPortfolio: %s\nGitHub: %s",
-		contactName, cfg.ContactPhone, cfg.ContactPortfolio, cfg.ContactGithub)
+	// Append contact footer
+	body := strings.TrimSpace(content)
+	body += fmt.Sprintf("\n\n%s", contactName)
+	if cfg.ContactPhone != "" {
+		body += "\nPhone: " + cfg.ContactPhone
+	}
+	if cfg.ContactPortfolio != "" {
+		body += "\nPortfolio: " + cfg.ContactPortfolio
+	}
+	if cfg.ContactGithub != "" {
+		body += "\nGitHub: " + cfg.ContactGithub
+	}
 	if cfg.ContactLinkedin != "" {
 		body += "\nLinkedIn: " + cfg.ContactLinkedin
 	}

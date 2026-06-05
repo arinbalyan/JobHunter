@@ -1,0 +1,12 @@
+Hi {{.Company}} team,
+
+I'm reaching out regarding your {{.JobTitle}} position. After reviewing the role, I believe my background in {{.Skills}} and experience in {{.Industry}} make me a strong candidate.
+
+Key qualifications I'd bring:
+- Solid experience in {{.Skills}} with a focus on delivering practical solutions
+- Background in {{.Industry}} that aligns well with your requirements
+- Based in {{.Location}} and ready for {{.JobType}} engagement
+
+I'd love the opportunity to discuss how my experience could contribute to your team's success. Please let me know if you're available for a conversation.
+
+Best,

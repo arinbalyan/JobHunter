@@ -1,0 +1,12 @@
+Hi {{.Company}} team,
+
+I'm writing about your {{.JobTitle}} role. While I may not check every box in the job description, I bring a strong foundation in {{.Skills}} and a proven ability to ramp quickly on new technologies.
+
+Some highlights that align with this role:
+- Strong background in {{.Industry}} with hands-on experience in {{.Skills}}
+- Located in {{.Location}} and ready for {{.JobType}} work
+- Eager to apply my problem-solving skills to the challenges your team faces
+
+I'm confident I can grow into this role and deliver value from day one. I'd welcome the chance to discuss how my background could benefit your team.
+
+Best,

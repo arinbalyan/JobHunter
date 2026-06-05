@@ -1,0 +1,12 @@
+Hi {{.Company}} team,
+
+I came across your {{.JobTitle}} opening and it caught my attention. With my background in {{.Skills}} and extensive experience in {{.Industry}}, I believe I could bring meaningful contributions to your team.
+
+What I'd bring to this role:
+- Deep expertise in {{.Skills}}, honed across multiple projects and teams
+- Proven track record in {{.Industry}} delivering results at scale
+- Located in {{.Location}} and available for {{.JobType}} opportunities
+
+I'm excited about the problems your team is solving and would love to explore how my experience aligns with your needs. Would you be open to a brief conversation?
+
+Best,
