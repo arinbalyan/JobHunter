@@ -1,9 +1,10 @@
 name: Follow-up Reminder
 on:
   schedule:
-    # Queue follow-ups at 9:00 AM IST = 3:30 UTC
-    # After emails are sent (8 AM IST), queue follow-ups for old ones
-    - cron: '30 3 * * *'
+    # DISABLED: Follow-up workflow needs review before re-enabling
+    # See README TODO: Re-enable follow-up workflow
+    # Original schedule: 9:00 AM IST = 3:30 UTC
+    # - cron: '30 3 * * *'
   workflow_dispatch:
 
 jobs:
@@ -22,10 +23,6 @@ jobs:
         run: go run ./cmd/followup/
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
-          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
-          CONTACT_NAME: ${{ secrets.CONTACT_NAME }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           LOG_LEVEL: info

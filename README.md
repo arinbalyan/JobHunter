@@ -147,17 +147,27 @@ docker compose logs -f tracker
 
 ## GitHub Actions
 
-The project runs fully from GitHub Actions -- no server needed. Five workflows automate the pipeline:
+The project runs fully from GitHub Actions — no server needed. Six workflows automate the pipeline:
 
-- **Scrape Jobs** (4x daily) -- builds scrappy from source, scrapes boards, filters into queue
-- **Send Emails** (daily) -- generates LLM emails and sends pending queue items
-- **Follow-up** (daily) -- queues follow-ups for sent+no-reply emails
-- **Cleanup** (weekly) -- removes old skipped/stale jobs
-- **Deploy Tracker** (on push) -- deploys tracking server to Vercel/Railway
+| Workflow | Schedule | Status |
+|----------|----------|--------|
+| 🕷️ **Scrape Jobs** | 4× daily (6/12/18/24 IST) | ✅ Active |
+| 📨 **Send Emails** | Daily 8 AM IST | ✅ Active |
+| 🔄 **Follow-up** | — | ⏸️ Disabled — needs review |
+| 📬 **Bounce Scan** | Daily 10 AM IST | ✅ Active |
+| 🧹 **Cleanup** | Weekly Sun 10 PM IST | ✅ Active |
+| 🚀 **Deploy Tracker** | On push to `main` | ✅ Active |
 
 ## Project Status
 
 **Phase: Early Development.** Active development on `dev` branch. `main` still contains old Python V2 code. Not yet ready for production or merge to main.
+
+## TODO
+
+- [ ] **Re-enable follow-up workflow** — `.github/workflows/followup.yml` has its cron schedule disabled. The follow-up logic (domain-deduped follow-ups for sent+no-reply emails) is implemented but needs review and testing before re-enabling. Uncomment the `cron` line in the workflow file to re-enable.
+- [ ] **Re-enable LLM email generation** — Currently running in `--fallback-only` mode with Go template-based emails. Uncomment LLM sections and remove the `--fallback-only` flag from `send-emails.yml` to use multi-provider LLM routing.
+- [ ] **ATS scraper seeds** — ATS scrapers (workday, greenhouse, ashby, etc.) need `SCRAPPY_{PROVIDER}_SEEDS` environment variables with company slugs. Add to GitHub Secrets + `.env` once configured.
+- [ ] **Resume PDF path** — Verify `.agent-data/ArinBalyan.pdf` is accessible in CI. The resume attachment is sent with every email when configured.
 
 ## License
 
