@@ -118,7 +118,7 @@ search:
   # Filters
   remote_only: true
   job_type: "fulltime"              # fulltime | parttime | contract | internship
-  results_per_site: 25
+  results_per_site: 0               # 0 = no limit — scrape all available jobs
   hours_old: 0                       # 0 = no time filter (allow jobs of any age)
   since_date: ""                    # Absolute date filter (YYYY-MM-DD or RFC3339)
                                    # If set, the stricter of hours_old vs since_date wins
@@ -142,7 +142,7 @@ search:
       - "internshala"
     remote_only: false
     job_type: "fulltime"
-    results_per_site: 25
+    results_per_site: 0               # 0 = no limit
     hours_old: 72
     max_emails_per_day: 250
 
