@@ -53,7 +53,12 @@ func main() {
 			{"Replied", "replied"},
 		} {
 			var count int
-			dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE status=$1", s.status).Scan(&count)
+			query := "SELECT COUNT(*) FROM emails WHERE status=$1"
+			if s.name == "Total sent" {
+				// Include both sent and bounced statuses (bounced were sent too)
+				query = "SELECT COUNT(*) FROM emails WHERE status IN ('sent','bounced')"
+			}
+			dbPool.QueryRow(ctx, query, s.status).Scan(&count)
 			statuses = append(statuses, statusCount{s.name, count})
 		}
 

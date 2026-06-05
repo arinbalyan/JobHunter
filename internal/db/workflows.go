@@ -211,6 +211,33 @@ func (p *Pool) GetPendingQueue(ctx context.Context, limit int) ([]QueueItem, err
 	return items, rows.Err()
 }
 
+// GetQueueByRecipient looks up the most recent queue item for a recipient email.
+func (p *Pool) GetQueueByRecipient(ctx context.Context, recipientEmail string) (*QueueItem, error) {
+	var item QueueItem
+	err := p.QueryRow(ctx,
+		`SELECT id, job_id, recipient_email, company, job_title, job_url,
+		        job_location, is_remote, job_type, job_description,
+		        salary_min, salary_max, salary_currency, seniority,
+		        company_industry, experience_match, skills, status, created_at
+		 FROM email_queue
+		 WHERE recipient_email = $1
+		 ORDER BY created_at DESC
+		 LIMIT 1`,
+		recipientEmail,
+	).Scan(
+		&item.ID, &item.JobID, &item.RecipientEmail, &item.Company,
+		&item.JobTitle, &item.JobURL, &item.JobLocation, &item.IsRemote,
+		&item.JobType, &item.JobDescription,
+		&item.SalaryMin, &item.SalaryMax, &item.SalaryCurrency,
+		&item.Seniority, &item.CompanyIndustry, &item.ExperienceMatch, &item.Skills,
+		&item.Status, &item.CreatedAt,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get queue by recipient: %w", err)
+	}
+	return &item, nil
+}
+
 // UpdateQueueStatus updates a queue item's status.
 func (p *Pool) UpdateQueueStatus(ctx context.Context, id int64, status, errorMsg string) error {
 	_, err := p.Exec(ctx,
