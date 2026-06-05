@@ -29,9 +29,12 @@ jobs:
         run: go run ./cmd/scrape/
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SCRAPPY_INDEED_API_KEY: ${{ secrets.SCRAPPY_INDEED_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           MAX_RUNTIME_MINUTES: 330
           SCRAPY_MEMORY_CAP_MB: 100
           LOG_LEVEL: info
