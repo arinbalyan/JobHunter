@@ -233,7 +233,7 @@ dedup:
 # ─── Email Sending ─────────────────────────────────────
 email:
   max_per_run: 10
-  delay_seconds: 30
+  delay_seconds: 15
   daily_limit: 500                # Gmail's hard cap
   retry_attempts: 3
   retry_delay_seconds: 5
