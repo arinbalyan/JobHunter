@@ -1,0 +1,43 @@
+services:
+  # ─────────────────────────────────────────────────────
+  # PostgreSQL (NeonDB-compatible for local dev)
+  # ─────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: jobhunter-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: jobhunter
+      POSTGRES_PASSWORD: jobhunter_dev
+      POSTGRES_DB: jobhunter
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jobhunter"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ─────────────────────────────────────────────────────
+  # Email Tracking Server
+  # ─────────────────────────────────────────────────────
+  tracker:
+    build:
+      context: .
+      dockerfile: Dockerfile.tracker
+    container_name: jobhunter-tracker
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_URL: postgres://jobhunter:jobhunter_dev@postgres:5432/jobhunter?sslmode=disable
+      TRACKING_SERVER_PORT: "8080"
+      GOMEMLIMIT: "50MiB"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -1,0 +1,66 @@
+# ────────────────────────────────────────────────────
+# Vercel — files excluded from deployment
+# ────────────────────────────────────────────────────
+# Only the tracker server runs on Vercel. Everything
+# else (scrape, send, followup, cleanup) runs via
+# GitHub Actions. Keep the deployment small.
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Environment & secrets
+.env
+.env.local
+.env.*.local
+*.env.local
+
+# Agent config — not needed for tracking server
+.agent-data/CONTEXT.md
+.agent-data/RULES.md
+AGENTS.md
+PLAN.md
+
+# CI/CD workflows — not deployed to Vercel
+.github/
+
+# Docs
+docs/
+README.md
+LICENSE
+CONTRIBUTING.md
+
+# Container config
+Dockerfile
+Dockerfile.tracker
+docker-compose.yml
+
+# Build artifacts
+bin/
+dist/
+build/
+tmp/
+*.exe
+*.test
+*.out
+
+# Tests — not needed at runtime
+tests/
+
+# Local dev
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Go
+vendor/
+go.work
+go.work.sum
+
+# Node (not used but just in case)
+node_modules/

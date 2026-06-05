@@ -1,0 +1,9 @@
+Hi there,
+
+I'm an AI Engineer with hands-on experience building production AI systems, from RAG pipelines and LangGraph agents to full-stack AI-powered platforms.
+
+I'm looking for an AI Engineering role where I can bring my experience to bear on meaningful problems. I've built and shipped AI features that serve thousands of daily users, and I'm excited to do the same for your team.
+
+Would you be open to a brief conversation?
+
+Best,

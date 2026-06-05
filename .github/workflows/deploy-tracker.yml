@@ -1,0 +1,40 @@
+name: Deploy Tracking Server
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cmd/tracker/**'
+      - 'internal/email/tracker/**'
+      - 'vercel.json'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Vercel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        run: |
+          vercel deploy \
+            --token ${{ secrets.VERCEL_TOKEN }} \
+            --prod \
+            --build-env DATABASE_URL=${{ secrets.DATABASE_URL }} \
+            --build-env TRACKING_SERVER_PORT=8080 \
+            --env DATABASE_URL=${{ secrets.DATABASE_URL }} \
+            --env TRACKING_SERVER_PORT=8080 \
+            --confirm
+
+      - name: Get deployment URL
+        run: |
+          echo "Deployed to Vercel"
+          echo "Set TRACKING_SERVER_URL to: https://jobhunter-tracker.vercel.app"

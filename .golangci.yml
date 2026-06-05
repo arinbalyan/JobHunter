@@ -1,0 +1,29 @@
+# ────────────────────────────────────────────────────
+# JobHunter — golangci-lint configuration
+# ────────────────────────────────────────────────────
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+
+  disable:
+    - exhaustruct
+    - exhaustivestruct
+
+  presets:
+    - bugs
+    - unused
+
+run:
+  issues-exit-code: 1
+  tests: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

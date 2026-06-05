@@ -1,0 +1,37 @@
+{
+  "builds": [
+    {
+      "src": "api/tracker.go",
+      "use": "@vercel/go",
+      "config": {
+        "includeFiles": []
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/track(.*)",
+      "dest": "api/tracker.go"
+    },
+    {
+      "src": "/click(.*)",
+      "dest": "api/tracker.go"
+    },
+    {
+      "src": "/health",
+      "dest": "api/tracker.go"
+    },
+    {
+      "src": "/stats",
+      "dest": "api/tracker.go"
+    },
+    {
+      "src": "/version",
+      "dest": "api/tracker.go"
+    },
+    {
+      "src": "/",
+      "dest": "api/tracker.go"
+    }
+  ]
+}

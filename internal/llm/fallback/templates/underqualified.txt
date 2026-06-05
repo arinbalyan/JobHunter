@@ -1,0 +1,9 @@
+Hi there,
+
+I'm an AI Engineer based in India with a strong foundation in building AI systems and a proven ability to ramp quickly on new challenges.
+
+While my professional experience is early-stage, I've already built production-ready RAG pipelines, LangGraph agents, and AI automation systems. I'm looking for a role where I can grow and contribute meaningfully to real-world AI products.
+
+I'd welcome the chance to discuss how my skills could benefit your team.
+
+Best,

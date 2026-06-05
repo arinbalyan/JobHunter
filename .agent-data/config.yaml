@@ -1,0 +1,258 @@
+# ─────────────────────────────────────────────────────────
+# JobHunter Configuration
+# ─────────────────────────────────────────────────────────
+# This file contains ALL dynamic/user-configurable settings.
+# Secrets (API keys, passwords) go in .env or GitHub Secrets.
+#
+# Location: .agent-data/config.yaml
+#─────────────────────────────────────────────────────────
+
+# ─── User Profile ──────────────────────────────────────
+user:
+  name: "Arin Balyan"
+  current_role: "AI/ML Engineer"
+  years_experience: 1
+  email: "arinbalyan.work@gmail.com"
+  phone: ""
+  portfolio: "https://arinbalyan.vercel.app"
+  github: "https://github.com/arinbalyan"
+  linkedin: "https://linkedin.com/in/arinbalyan"
+  codolio: "https://codolio.com/profile/arinbalyan"
+  resume_drive_link: "https://drive.google.com/file/d/1v2mlzd0V0JAEv4upcZR5_W9nPC7x_AQ8/view"
+
+# ─── Job Search ────────────────────────────────────────
+search:
+  # Terms to search for — matching scrappy's AI/ML focused config
+  terms:
+    - '"AI Engineer" OR "ML Engineer" OR "AI Developer" OR "LLM Engineer"'
+    - '"GTM Engineer" OR "Forward Deployed Engineer" OR "AI Automation Engineer"'
+    - '"AI Agent Engineer" OR "AI Product Engineer" OR "AI/ML Engineer"'
+
+  # Locations to search
+  locations:
+    - "remote"
+    - "bangalore"
+    - "mumbai"
+    - "San Francisco"
+    - "New York"
+    - "London"
+    - "Berlin"
+
+  # Job boards to scrape ("all" for all 100+ boards, or list specific ones)
+  # scrappy supports 100+ boards — see github.com/arinbalyan/scrappy
+  sites:
+    - linkedin
+    - indeed
+    - greenhouse
+    - builtin
+    - google
+    - hiringcafe
+    - remoteok
+    - himalayas
+    - themuse
+    - dice
+    - monster
+    - simplyhired
+    - reed
+    - ycjobs
+    - aijobs
+    - workday
+    - glassdoor
+    - wellfound
+    - ziprecruiter
+    - startupjobs
+    - weworkremotely
+    - remotive
+    - workingnomads
+    - jobspresso
+    - hackernews
+    - echojobs
+    - findwork
+    - careerbuilder
+    - careerjet
+    - adzuna
+    - jobstreet
+    - internshala
+    - hasjob
+    - jobicy
+    - crunchboard
+    - hugginfacejobs
+    - devopsjobs
+    - arbeitnow
+    - gunio
+    - 4dayweek
+    - berlinstartupjobs
+    - canadajobbank
+    - coroflot
+    - freelancercom
+    - getonboard
+    - icrunchdata
+    - jobsinjapan
+    - joinrise
+    - nofluffjobs
+    - railsjobs
+    - stepstone
+    - upwork
+    - ukvisajobs
+    - usajobs
+    - wordpressjobs
+    - mycareersfuture
+    - jobindex
+    - djinni
+    - snagajob
+    - eurojobs
+    - cryptojobslist
+    - cryptocurrencyjobs
+    - dribbble
+
+  # ATS scrapers need SCRAPPY_{PROVIDER}_SEEDS env var with company slugs
+  # Uncomment and configure seeds to use these:
+  # - ats-workday
+  # - ats-greenhouse
+  # - ats-ashby
+  # - ats-lever
+  # - ats-bamboohr
+  # - ats-smartrecruiters
+  # - ats-rippling
+
+  # Filters
+  remote_only: true
+  job_type: "fulltime"              # fulltime | parttime | contract | internship
+  results_per_site: 25
+  hours_old: 0                       # 0 = no time filter (allow jobs of any age)
+  since_date: ""                    # Absolute date filter (YYYY-MM-DD or RFC3339)
+                                   # If set, the stricter of hours_old vs since_date wins
+
+  # ── ONSITE Workflow (India-based) ─────────────────────
+  onsite:
+    enabled: false
+    terms:
+      - "software engineer"
+      - "backend developer"
+    locations:
+      - "bangalore"
+      - "mumbai"
+      - "hyderabad"
+      - "pune"
+      - "delhi"
+    sites:
+      - "linkedin"
+      - "indeed"
+      - "naukri"
+      - "internshala"
+    remote_only: false
+    job_type: "fulltime"
+    results_per_site: 25
+    hours_old: 72
+    max_emails_per_day: 250
+
+# ─── Title Rejection Patterns ──────────────────────────
+# Jobs with titles containing these substrings are auto-rejected.
+# Case-insensitive. Add patterns specific to your needs.
+reject_titles:
+  - "teacher"
+  - "professor"
+  - "instructor"
+  - "tutor"
+  - "nurse"
+  - "nursing"
+  - "medical assistant"
+  - "healthcare"
+  - "cashier"
+  - "retail associate"
+  - "sales associate"
+  - "customer service"
+  - "call center"
+  - "receptionist"
+  - "driver"
+  - "delivery driver"
+  - "truck driver"
+  - "security guard"
+  - "cleaning"
+  - "janitor"
+  - "marketing coordinator"
+  - "social media manager"
+  - "hr manager"
+  - "hr coordinator"
+  - "recruiter"
+  - "talent acquisition"
+  - "accountant"
+  - "auditor"
+  - "chef"
+  - "cook"
+  - "restaurant"
+  - "warehouse"
+  - "electrician"
+  - "plumber"
+  - "mechanic"
+  - "intern"            # Unless you want internships
+
+# ─── Email Filter Patterns ─────────────────────────────
+# Emails matching these patterns are rejected.
+email_filters:
+  - "starts_with:accommodation@"
+  - "starts_with:accommodations@"
+  - "starts_with:no-reply@"
+  - "starts_with:noreply@"
+  - "starts_with:do-not-reply@"
+  - "starts_with:donotreply@"
+  - "contains:accessibility"
+  - "contains:accommodation"
+  - "contains:accomodation"     # Common typo
+  - "contains:no-reply"
+  - "contains:noreply"
+  - "contains:do-not-reply"
+  - "contains:donotreply"
+  - "contains:brillied.in"
+  - "contains:mediajenie.com"
+  # Suspicious TLDs
+  - "tld:.tk"
+  - "tld:.ml"
+  - "tld:.ga"
+  - "tld:.cf"
+  - "tld:.gq"
+  - "tld:.xyz"
+  - "tld:.top"
+  - "tld:.work"
+  - "tld:.ru"
+  - "tld:.cn"
+  - "tld:.ua"
+  - "tld:.kz"
+
+# ─── Deduplication ─────────────────────────────────────
+dedup:
+  # Don't send to the same email within this many days
+  email_cooldown_days: 90
+
+  # Don't send to the same domain within this many hours
+  domain_cooldown_hours: 24
+
+  # Don't send to the same company within this many hours
+  company_cooldown_hours: 24
+
+# ─── Email Sending ─────────────────────────────────────
+email:
+  max_per_run: 10
+  delay_seconds: 15
+  daily_limit: 500                # Gmail's hard cap
+  retry_attempts: 3
+  retry_delay_seconds: 5
+
+# ─── LLM Configuration ─────────────────────────────────
+llm:
+  # Complex model for email generation and reasoning
+  complex_model: "google/gemma-4-26b-a4b-it:free"
+
+  # Simple model for classification and scoring
+  simple_model: "google/gemma-4-9b-it"
+
+  # Token budgets
+  max_tokens_per_run: 100000
+  max_tokens_per_request: 2048
+
+  # Temperature for generation
+  temperature: 0.7
+
+# ─── Timelimit ─────────────────────────────────────────
+# Gracefully stop processing before GitHub's 6h timeout
+max_runtime_minutes: 330           # Graceful shutdown before GitHub's 6h limit

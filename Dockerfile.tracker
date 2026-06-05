@@ -1,0 +1,21 @@
+# ─────────────────────────────────────────────────────
+# JobHunter Tracking Server — Docker image
+# ─────────────────────────────────────────────────────
+# Multi-stage build: compile Go binary, then run in scratch.
+FROM golang:1.26-alpine AS builder
+
+WORKDIR /build
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -o tracker ./cmd/tracker/
+
+# ─────────────────────────────────────────────────────
+FROM alpine:3.20
+
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /build/tracker /usr/local/bin/tracker
+
+EXPOSE 8080
+ENTRYPOINT ["tracker"]

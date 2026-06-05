@@ -1,0 +1,53 @@
+name: Send Emails
+on:
+  schedule:
+    # Send at 8:00 AM IST = 2:30 UTC
+    # After morning scrape (6 AM IST) has completed
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    name: Send Pending Emails
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Send pending emails (fallback templates, no LLM)
+        run: go run ./cmd/send/ --fallback-only
+        env:
+          # Database
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+          # Email SMTP
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
+
+          # Telegram
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+          # Contact info (for email footer)
+          CONTACT_NAME: ${{ secrets.CONTACT_NAME }}
+          CONTACT_EMAIL: ${{ secrets.CONTACT_EMAIL }}
+          CONTACT_PHONE: ${{ secrets.CONTACT_PHONE }}
+          CONTACT_PORTFOLIO: ${{ secrets.CONTACT_PORTFOLIO }}
+          CONTACT_GITHUB: ${{ secrets.CONTACT_GITHUB }}
+          CONTACT_LINKEDIN: ${{ secrets.CONTACT_LINKEDIN }}
+          CONTACT_CODOLIO: ${{ secrets.CONTACT_CODOLIO }}
+          RESUME_DRIVE_LINK: ${{ secrets.RESUME_DRIVE_LINK }}
+
+          # Limits
+          MAX_EMAILS_PER_RUN: ${{ vars.MAX_EMAILS_PER_RUN || '10' }}
+          EMAIL_DELAY_SECONDS: ${{ vars.EMAIL_DELAY_SECONDS || '15' }}
+          DAILY_EMAIL_LIMIT: ${{ vars.DAILY_EMAIL_LIMIT || '500' }}
+
+          # Runtime
+          MAX_RUNTIME_MINUTES: 330
+          LOG_LEVEL: info
