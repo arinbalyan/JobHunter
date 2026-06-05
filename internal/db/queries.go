@@ -240,3 +240,92 @@ func (p *Pool) GetEmailsByRecipient(ctx context.Context, email string) ([]*Email
 	}
 	return result, rows.Err()
 }
+
+// ─── Time-Windowed Email Stats ────────────────────────
+
+// TimeWindowStats holds engagement stats for a specific time window.
+type TimeWindowStats struct {
+	Sent    int `json:"sent"`
+	Opened  int `json:"opened"`
+	Clicked int `json:"clicked"`
+	Bounced int `json:"bounced"`
+	Replied int `json:"replied"`
+}
+
+// AllTimeWindowStats holds email stats across all time windows.
+type AllTimeWindowStats struct {
+	Today       TimeWindowStats `json:"today"`
+	Week        TimeWindowStats `json:"week"`        // Last 7 days
+	Month       TimeWindowStats `json:"month"`       // Last 30 days
+	Quarter     TimeWindowStats `json:"quarter"`     // Last 90 days
+	Year        TimeWindowStats `json:"year"`        // Last 365 days
+	AllTime     TimeWindowStats `json:"all_time"`
+}
+
+// GetTimeWindowStats queries email stats across all time windows in a single call.
+func (p *Pool) GetTimeWindowStats(ctx context.Context) (*AllTimeWindowStats, error) {
+	type window struct {
+		name   string
+		window string // SQL interval
+		field  *TimeWindowStats
+	}
+	stats := &AllTimeWindowStats{}
+	windows := []window{
+		{"today", "CURRENT_DATE", &stats.Today},
+		{"week", "NOW() - INTERVAL '7 days'", &stats.Week},
+		{"month", "NOW() - INTERVAL '30 days'", &stats.Month},
+		{"quarter", "NOW() - INTERVAL '90 days'", &stats.Quarter},
+		{"year", "NOW() - INTERVAL '365 days'", &stats.Year},
+	}
+
+	for _, w := range windows {
+		row := p.QueryRow(ctx,
+			`SELECT
+				COUNT(*) AS sent,
+				COUNT(*) FILTER (WHERE opened) AS opened,
+				COUNT(*) FILTER (WHERE clicked) AS clicked,
+				COUNT(*) FILTER (WHERE bounced) AS bounced,
+				COUNT(*) FILTER (WHERE replied) AS replied
+			 FROM emails WHERE sent_at > `+w.window)
+		if err := row.Scan(&w.field.Sent, &w.field.Opened, &w.field.Clicked,
+			&w.field.Bounced, &w.field.Replied); err != nil {
+			return nil, fmt.Errorf("stats %s: %w", w.name, err)
+		}
+	}
+
+	// All-time
+	row := p.QueryRow(ctx,
+		`SELECT
+			COUNT(*) AS sent,
+			COUNT(*) FILTER (WHERE opened) AS opened,
+			COUNT(*) FILTER (WHERE clicked) AS clicked,
+			COUNT(*) FILTER (WHERE bounced) AS bounced,
+			COUNT(*) FILTER (WHERE replied) AS replied
+		 FROM emails`)
+	if err := row.Scan(&stats.AllTime.Sent, &stats.AllTime.Opened, &stats.AllTime.Clicked,
+		&stats.AllTime.Bounced, &stats.AllTime.Replied); err != nil {
+		return nil, fmt.Errorf("stats all_time: %w", err)
+	}
+
+	return stats, nil
+}
+
+// FormatStatsBlock formats time-window stats as an HTML block for Telegram.
+func (s *AllTimeWindowStats) FormatStatsBlock(title string) string {
+	return fmt.Sprintf(
+		"<b>%s</b>\n"+
+			"    Today:   %d sent · %d opened · %d clicked · %d bounced · %d replied\n"+
+			"    Week:    %d sent · %d opened · %d clicked · %d bounced · %d replied\n"+
+			"    Month:   %d sent · %d opened · %d clicked · %d bounced · %d replied\n"+
+			"    Quarter: %d sent · %d opened · %d clicked · %d bounced · %d replied\n"+
+			"    Year:    %d sent · %d opened · %d clicked · %d bounced · %d replied\n"+
+			"    All-Time: %d sent · %d opened · %d clicked · %d bounced · %d replied",
+		title,
+		s.Today.Sent, s.Today.Opened, s.Today.Clicked, s.Today.Bounced, s.Today.Replied,
+		s.Week.Sent, s.Week.Opened, s.Week.Clicked, s.Week.Bounced, s.Week.Replied,
+		s.Month.Sent, s.Month.Opened, s.Month.Clicked, s.Month.Bounced, s.Month.Replied,
+		s.Quarter.Sent, s.Quarter.Opened, s.Quarter.Clicked, s.Quarter.Bounced, s.Quarter.Replied,
+		s.Year.Sent, s.Year.Opened, s.Year.Clicked, s.Year.Bounced, s.Year.Replied,
+		s.AllTime.Sent, s.AllTime.Opened, s.AllTime.Clicked, s.AllTime.Bounced, s.AllTime.Replied,
+	)
+}

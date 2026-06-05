@@ -264,26 +264,23 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 	recordRun(ctx, dbPool, "send", "completed", 0, 0, 0, sent, failed, duration, "")
 
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
-		// Get today's stats
-		var todaySent int
 		var queueRemaining int
-		var totalOpened int
-		var totalSent int
-		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE sent_at > CURRENT_DATE").Scan(&todaySent)
 		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM email_queue WHERE status='pending'").Scan(&queueRemaining)
-		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE opened=true AND sent_at > CURRENT_DATE").Scan(&totalOpened)
-		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE status='sent'").Scan(&totalSent)
+
+		stats, _ := dbPool.GetTimeWindowStats(ctx)
+		statsBlock := ""
+		if stats != nil {
+			statsBlock = "\n" + stats.FormatStatsBlock("📊 Email Stats")
+		}
 
 		msg := fmt.Sprintf(
 			"<b>📨 Send Complete</b>\n\n"+
 				"Sent: %d\n"+
 				"Failed: %d\n"+
 				"Queue remaining: %d\n"+
-				"Duration: %.0fs\n\n"+
-				"<i>Today: %d sent / %d opened</i>\n"+
-				"<i>All-time sent: %d</i>",
+				"Duration: %.0fs%s",
 			sent, failed, queueRemaining, duration.Seconds(),
-			todaySent, totalOpened, totalSent,
+			statsBlock,
 		)
 		_ = telegram.SendMessage(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}

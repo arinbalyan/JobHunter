@@ -216,6 +216,13 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 		var queueTotal int
 		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM email_queue WHERE status='pending'").Scan(&queueTotal)
 
+		// Get time-windowed stats
+		stats, _ := dbPool.GetTimeWindowStats(ctx)
+		statsBlock := ""
+		if stats != nil {
+			statsBlock = "\n" + stats.FormatStatsBlock("📊 Email Stats")
+		}
+
 		msg := fmt.Sprintf(
 			"<b>🕷️ Scrape Complete</b>\n\n"+
 				"Scraped: %d\n"+
@@ -223,7 +230,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 				"Sites: %d/%d\n"+
 				"Queue total: %d\n"+
 				"Duration: %.0fs\n\n"+
-				"<i>%s</i>",
+				"<i>%s</i>%s",
 			len(jobs), pending, skipped,
 			func() int {
 				unique := make(map[string]bool)
@@ -235,6 +242,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 			queueTotal,
 			duration.Seconds(),
 			summarizeReasons(skippedReasons),
+			statsBlock,
 		)
 		_ = telegram.SendMessage(ctx, tgToken, tgChat, msg)
 	}

@@ -77,19 +77,19 @@ func main() {
 
 	// Telegram notification
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
-		var totalEmails int
-		var totalBounced int
-		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails").Scan(&totalEmails)
-		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE bounced=true").Scan(&totalBounced)
+		stats, _ := dbPool.GetTimeWindowStats(ctx)
+		statsBlock := ""
+		if stats != nil {
+			statsBlock = "\n" + stats.FormatStatsBlock("📊 Email Stats")
+		}
 
 		msg := fmt.Sprintf(
 			"<b>🧹 Cleanup Complete</b>\n\n"+
 				"Deleted skipped: %d\n"+
 				"Stale skipped: %d\n"+
-				"Duration: %.0fs\n\n"+
-				"<i>DB stats: %d emails total / %d bounced</i>",
+				"Duration: %.0fs%s",
 			deleted, stalePendings, duration.Seconds(),
-			totalEmails, totalBounced,
+			statsBlock,
 		)
 		_ = telegram.SendMessage(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}

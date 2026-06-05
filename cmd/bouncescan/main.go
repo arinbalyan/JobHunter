@@ -313,43 +313,20 @@ func main() {
 
 	// ── Telegram report ──
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
-		var sentToday, bouncedToday int
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE sent_at > CURRENT_DATE").Scan(&sentToday)
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE bounced=true AND bounced_at > CURRENT_DATE").Scan(&bouncedToday)
-
-		var totalSent, totalBouncedAll, totalOpened, totalClicked, totalReplied int
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE status='sent'").Scan(&totalSent)
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE bounced=true").Scan(&totalBouncedAll)
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE opened=true").Scan(&totalOpened)
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE clicked=true").Scan(&totalClicked)
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE replied=true").Scan(&totalReplied)
+		stats, _ := dbPool.GetTimeWindowStats(ctx)
+		statsBlock := ""
+		if stats != nil {
+			statsBlock = "\n" + stats.FormatStatsBlock("📊 Email Stats")
+		}
 
 		msg := fmt.Sprintf(
 			"<b>📬 Bounce Scan Complete</b>\n\n"+
-				"── This Scan ──\n"+
 				"Bounces found: %d\n"+
 				"Newly marked: %d\n"+
 				"Replies detected: %d\n"+
-				"Duration: %.0fs\n\n"+
-				"── All-Time Stats ──\n"+
-				"Total sent: %d\n"+
-				"Opened: %d\n"+
-				"Clicked: %d\n"+
-				"Bounced: %d\n"+
-				"Replied: %d\n"+
-				"Deliverability: %.1f%%\n\n"+
-				"── Today ──\n"+
-				"Sent: %d\n"+
-				"Bounced: %d",
+				"Duration: %.0fs%s",
 			totalBounces, newBounces, matchedReplies, duration.Seconds(),
-			totalSent, totalOpened, totalClicked, totalBouncedAll, totalReplied,
-			func() float64 {
-				if totalSent > 0 {
-					return float64(totalSent-totalBouncedAll) / float64(totalSent) * 100
-				}
-				return 0
-			}(),
-			sentToday, bouncedToday,
+			statsBlock,
 		)
 		_ = telegram.SendMessage(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}
