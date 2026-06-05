@@ -1,12 +1,9 @@
-Hi {{.Company}} team,
+Hi there,
 
-I came across your {{.JobTitle}} opening and it caught my attention. With my background, I believe I could bring meaningful contributions to your team.
+I'm an AI Engineer with hands-on experience building production AI systems, from RAG pipelines and LangGraph agents to full-stack AI-powered platforms.
 
-What I'd bring to this role:
-- Deep expertise in {{.Skills}}
-- Proven track record in {{.Industry}}
-- Located in {{.Location}} and available for {{.JobType}} opportunities
+I'm looking for an AI Engineering role where I can bring my experience to bear on meaningful problems. I've built and shipped AI features that serve thousands of daily users, and I'm excited to do the same for your team.
 
-I'm excited about the problems your team is solving and would love to explore how my experience aligns with your needs. Would you be open to a brief conversation?
+Would you be open to a brief conversation?
 
 Best,

@@ -192,6 +192,14 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			3000,
 		)
 
+		// Override recipient with test email if TEST_EMAIL is set
+		testEmail := os.Getenv("TEST_EMAIL")
+		recipientEmail := item.RecipientEmail
+		if testEmail != "" {
+			recipientEmail = testEmail
+			logger.Debug("TEST_EMAIL set: sending to %s instead of %s", testEmail, item.RecipientEmail)
+		}
+
 		// Generate email via LLM or fallback
 		subject, body := generateEmail(ctx, llmRouter, sysPrompt, userPrompt, item, cfg.ContactName, cfg, logger)
 
@@ -200,7 +208,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 		htmlBody = sender.InjectTrackingPixel(htmlBody, cfg.TrackingServerURL, trackingID)
 
 		msg := &sender.EmailMessage{
-			To:         item.RecipientEmail,
+			To:         recipientEmail,
 			Subject:    subject,
 			HTMLBody:   htmlBody,
 			PlainBody:  body,
@@ -208,7 +216,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			MessageID:  messageID,
 		}
 
-		logger.Info("sending (%d/%d): %s at %s -> %s", i+1, len(queueItems), item.JobTitle, item.Company, item.RecipientEmail)
+		logger.Info("sending (%d/%d): %s at %s -> %s", i+1, len(queueItems), item.JobTitle, item.Company, recipientEmail)
 
 		if dryRun {
 			logger.Info("[DRY-RUN] would send: subject=%s, body=%d chars", msg.Subject, len(msg.PlainBody))

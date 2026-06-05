@@ -35,9 +35,11 @@ type TemplateData struct {
 	ExperienceMatch  string // "underqualified", "overqualified", "qualified"
 }
 
-// SubjectLine returns a reasonable subject line regardless of template.
+// SubjectLine returns a static subject line for fallback mode.
+// Always presents as AI Engineer regardless of the actual job title,
+// since fallback templates are written for AI/ML roles.
 func (d *TemplateData) SubjectLine() string {
-	return fmt.Sprintf("Interested in %s role at %s", d.JobTitle, d.Company)
+	return "AI Engineer exploring opportunities"
 }
 
 // Templates are loaded lazily on first use.
@@ -144,14 +146,13 @@ func matchToTemplate(match string) string {
 
 // hardcodedFallback is used when templates fail to load or execute.
 func hardcodedFallback(d *TemplateData) string {
-	background := d.UserBackground
-	if background == "" {
-		background = "My background aligns well with what you're looking for. I'd love to connect and discuss how I can contribute."
-	}
 	return fmt.Sprintf(
-		"Hi %s team,\n\n"+
-			"I'm reaching out regarding your %s position. %s\n\n"+
-			"Best,%s",
-		d.Company, d.JobTitle, background, contactBlock(d),
+		"Hi there,\n\n"+
+			"I'm an AI Engineer with experience building production AI systems, "+
+			"including RAG pipelines, LangChain/LangGraph agents, and AI automation workflows. "+
+			"I'm currently looking for full-time AI Engineering roles where I can build and deploy "+
+			"AI systems end-to-end.\n\n"+
+			"Happy to share more or jump on a quick call if there's a fit. Thanks for your time.\n\n"+
+			"Best,%s", contactBlock(d),
 	)
 }

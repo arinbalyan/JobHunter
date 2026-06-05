@@ -55,3 +55,4 @@ vendor/
 go.work
 go.work.sum
 send
+.vercel

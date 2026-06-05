@@ -1,7 +1,7 @@
 {
   "builds": [
     {
-      "src": "cmd/tracker/main.go",
+      "src": "api/tracker.go",
       "use": "@vercel/go",
       "config": {
         "includeFiles": []
@@ -11,27 +11,27 @@
   "routes": [
     {
       "src": "/track(.*)",
-      "dest": "cmd/tracker/main.go"
+      "dest": "api/tracker.go"
     },
     {
       "src": "/click(.*)",
-      "dest": "cmd/tracker/main.go"
+      "dest": "api/tracker.go"
     },
     {
       "src": "/health",
-      "dest": "cmd/tracker/main.go"
+      "dest": "api/tracker.go"
     },
     {
       "src": "/stats",
-      "dest": "cmd/tracker/main.go"
+      "dest": "api/tracker.go"
     },
     {
       "src": "/version",
-      "dest": "cmd/tracker/main.go"
+      "dest": "api/tracker.go"
     },
     {
       "src": "/",
-      "dest": "cmd/tracker/main.go"
+      "dest": "api/tracker.go"
     }
   ]
 }

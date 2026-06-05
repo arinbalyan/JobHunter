@@ -64,8 +64,8 @@ var transparentGIF = func() []byte {
 	return data
 }()
 
-// Start begins listening on the configured port.
-func (s *Server) Start(ctx context.Context) error {
+// SetupRoutes configures the request mux. Used by both local Start() and Vercel Handler().
+func (s *Server) SetupRoutes() {
 	s.mux = http.NewServeMux()
 	s.mux.HandleFunc("/track", s.handleTrack)
 	s.mux.HandleFunc("/click", s.handleClick)
@@ -73,6 +73,17 @@ func (s *Server) Start(ctx context.Context) error {
 	s.mux.HandleFunc("/stats", s.handleStats)
 	s.mux.HandleFunc("/version", s.handleVersion)
 	s.mux.HandleFunc("/", s.handleRoot)
+}
+
+// ServeHTTP routes a single HTTP request through the logging middleware.
+// Used by Vercel's serverless Handler().
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.loggingMiddleware().ServeHTTP(w, r)
+}
+
+// Start begins listening on the configured port.
+func (s *Server) Start(ctx context.Context) error {
+	s.SetupRoutes()
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", s.port),

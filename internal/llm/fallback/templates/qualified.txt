@@ -1,8 +1,8 @@
-Hi {{.Company}} team,
+Hi there,
 
-I wanted to reach out regarding your {{.JobTitle}} opening.
+I'm an AI Engineer based in India, currently building production AI systems with a focus on LLM pipelines, agentic workflows, and backend services.
 
-I'm a {{.CurrentRole}} with experience in {{.Skills}}, currently looking for {{.JobType}} roles. My background in {{.Industry}} aligns well with what your team is building, and I'd love the opportunity to contribute.
+I'm actively looking for full-time AI Engineering roles where I can design and deploy AI systems end-to-end. I have experience building production-grade RAG systems, LangGraph agents, and AI automation pipelines.
 
 Happy to share more or jump on a quick call if there's a fit. Thanks for your time.
 

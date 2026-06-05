@@ -1,12 +1,9 @@
-Hi {{.Company}} team,
+Hi there,
 
-I wanted to reach out regarding your {{.JobTitle}} position. While I may not check every box in the description, I bring a strong foundation that I believe would make me effective in this role quickly.
+I'm an AI Engineer based in India with a strong foundation in building AI systems and a proven ability to ramp quickly on new challenges.
 
-Some highlights relevant to this role:
-- Hands-on experience with {{.Skills}}
-- Background in {{.Industry}}
-- Based in {{.Location}} and available for {{.JobType}} work
+While my professional experience is early-stage, I've already built production-ready RAG pipelines, LangGraph agents, and AI automation systems. I'm looking for a role where I can grow and contribute meaningfully to real-world AI products.
 
-I'm eager to apply my problem-solving skills to the challenges your team is tackling and grow into this role. I'd welcome the chance to discuss how I can contribute.
+I'd welcome the chance to discuss how my skills could benefit your team.
 
 Best,
