@@ -19,13 +19,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          repository: arinbalyan/scrappy
-          path: scrappy
-
-      - uses: actions/checkout@v4
-        with:
-          path: jobhunter
 
       - uses: actions/setup-go@v5
         with:
@@ -33,7 +26,6 @@ jobs:
           cache: true
 
       - name: Run scrape
-        working-directory: jobhunter
         run: go run ./cmd/scrape/
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
