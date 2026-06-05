@@ -1,13 +1,14 @@
 name: Bounce Scan
 on:
   schedule:
-    # Scan for bounces every Sunday at 11:00 AM IST = 5:30 UTC
-    - cron: '30 5 * * 0'
+    # Check for bounces daily at 10:00 AM IST = 4:30 UTC
+    # Runs ~2 hours after the send workflow so bounces have arrived
+    - cron: '30 4 * * *'
   workflow_dispatch:
 
 jobs:
   bouncescan:
-    name: Scan Gmail Bounce Notifications
+    name: Scan Gmail for Bounces & Replies
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,4 +26,5 @@ jobs:
           IMAP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          BOUNCE_SCAN_DAYS: 2
           LOG_LEVEL: info

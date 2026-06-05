@@ -72,6 +72,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Scan window — default 48 hours for daily runs
+	scanDays := 2
+	if d := os.Getenv("BOUNCE_SCAN_DAYS"); d != "" {
+		if parsed, err := fmt.Sscanf(d, "%d", &scanDays); err != nil || parsed != 1 {
+			scanDays = 2
+		}
+	}
+	sinceDate := time.Now().AddDate(0, 0, -scanDays).UTC().Format("02-Jan-2006")
+	logger.Info("scanning bounces since %s (%d days)", sinceDate, scanDays)
+
 	// ── IMAP Connection ──
 	addr := net.JoinHostPort(cfg.IMAPHost, fmt.Sprintf("%d", cfg.IMAPPort))
 	conn, err := tls.Dial("tcp", addr, &tls.Config{ServerName: cfg.IMAPHost})
@@ -95,11 +105,10 @@ func main() {
 	// Select INBOX
 	imapCommand(conn, reader, "a002 SELECT INBOX")
 
-	// Search for mailer-daemon bounces (look back 90 days)
-	sinceDate := time.Now().AddDate(0, 0, -90).UTC().Format("02-Jan-2006")
+	// Search for mailer-daemon bounces
 	resp = imapCommand(conn, reader, fmt.Sprintf(`a003 SEARCH FROM "mailer-daemon" SINCE %s`, sinceDate))
 	bounceIDs := parseSearchIDs(resp)
-	logger.Info("found %d mailer-daemon bounces in inbox (since %s)", len(bounceIDs), sinceDate)
+	logger.Info("found %d mailer-daemon bounces (since %s)", len(bounceIDs), sinceDate)
 
 	// Also check "MAILER-DAEMON" (some systems use uppercase)
 	resp = imapCommand(conn, reader, fmt.Sprintf(`a004 SEARCH FROM "MAILER-DAEMON" SINCE %s`, sinceDate))
@@ -161,8 +170,14 @@ func main() {
 			continue
 		}
 
+		// Also update the email_queue item to reflect the bounce
+		if email.JobID != nil && *email.JobID > 0 {
+			errMsg := fmt.Sprintf("bounced: %s", bounceType)
+			_ = dbPool.UpdateQueueStatusByJobID(ctx, *email.JobID, "bounced", errMsg)
+		}
+
 		newBounces++
-		logger.Info("marked bounced: %s — %s (%s)", bouncedEmail, bounceType, bounceDate)
+		logger.Info("marked bounced: %s → %s — %s (date: %s, queue updated)", bouncedEmail, email.RecipientEmail, bounceType, bounceDate)
 	}
 
 	// Search for replies (Re: subject lines)

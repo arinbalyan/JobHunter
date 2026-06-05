@@ -224,6 +224,19 @@ func (p *Pool) UpdateQueueStatus(ctx context.Context, id int64, status, errorMsg
 	return nil
 }
 
+// UpdateQueueStatusByJobID updates all queue items for a given job to a status.
+func (p *Pool) UpdateQueueStatusByJobID(ctx context.Context, jobID int64, status, errorMsg string) error {
+	_, err := p.Exec(ctx,
+		`UPDATE email_queue SET status = $1, error_message = $2, updated_at = NOW()
+		 WHERE job_id = $3 AND status = 'sent'`,
+		status, errorMsg, jobID,
+	)
+	if err != nil {
+		return fmt.Errorf("update queue status by job id: %w", err)
+	}
+	return nil
+}
+
 // MarkStalePendingQueue marks items pending > N days as skipped.
 func (p *Pool) MarkStalePendingQueue(ctx context.Context, days int) (int, error) {
 	tag, err := p.Exec(ctx,
