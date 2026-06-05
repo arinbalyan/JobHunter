@@ -30,9 +30,13 @@ func main() {
 	}
 
 	dryRun := false
+	fallbackOnly := false
 	for _, arg := range os.Args[1:] {
 		if arg == "--dry-run" || arg == "-n" {
 			dryRun = true
+		}
+		if arg == "--fallback-only" || arg == "-f" {
+			fallbackOnly = true
 		}
 	}
 
@@ -49,10 +53,10 @@ func main() {
 	}
 
 	logger := logging.New(cfg.LogLevel, os.Stdout)
-	os.Exit(run(cfg, logger, dryRun))
+	os.Exit(run(cfg, logger, dryRun, fallbackOnly))
 }
 
-func run(cfg *config.Config, logger *logging.Logger, dryRun bool) int {
+func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly bool) int {
 	startTime := time.Now()
 
 	logger.Info("Send workflow starting...")
@@ -118,20 +122,24 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool) int {
 
 	// ── Init LLM router from llm.yaml ──
 	var llmRouter *router.Router
-	activeProvs := activeProviders
-	if len(activeProvs) > 0 {
-		routerCfgs := make([]router.ProviderConfig, len(activeProvs))
-		for i, p := range activeProvs {
-			routerCfgs[i] = router.ProviderConfig{
-				Kind:    router.ProviderKind(p.Kind),
-				APIKey:  p.APIKey,
-				BaseURL: p.BaseURL,
-				Model:   p.Model,
-				Weight:  p.Weight,
+	if !fallbackOnly {
+		activeProvs := activeProviders
+		if len(activeProvs) > 0 {
+			routerCfgs := make([]router.ProviderConfig, len(activeProvs))
+			for i, p := range activeProvs {
+				routerCfgs[i] = router.ProviderConfig{
+					Kind:    router.ProviderKind(p.Kind),
+					APIKey:  p.APIKey,
+					BaseURL: p.BaseURL,
+					Model:   p.Model,
+					Weight:  p.Weight,
+				}
 			}
+			llmRouter = router.New(routerCfgs, cfg.MaxTokensPerRun, logger)
+			logger.Info("LLM router initialized with %d providers", len(activeProvs))
 		}
-		llmRouter = router.New(routerCfgs, cfg.MaxTokensPerRun, logger)
-		logger.Info("LLM router initialized with %d providers", len(activeProvs))
+	} else {
+		logger.Info("--fallback-only: skipping LLM initialization, using template-based emails")
 	}
 
 	// ── Init email sender with resume attachment support ──

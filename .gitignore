@@ -54,3 +54,4 @@ Thumbs.db
 vendor/
 go.work
 go.work.sum
+send

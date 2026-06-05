@@ -18,8 +18,8 @@ jobs:
           go-version: '1.26'
           cache: true
 
-      - name: Send pending emails
-        run: go run ./cmd/send/
+      - name: Send pending emails (fallback templates, no LLM)
+        run: go run ./cmd/send/ --fallback-only
         env:
           # Database
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
@@ -28,21 +28,6 @@ jobs:
           GMAIL_USER: ${{ secrets.GMAIL_USER }}
           GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
           EMAIL_FROM_NAME: ${{ secrets.EMAIL_FROM_NAME }}
-
-          # LLM Providers (all for round-robin)
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
-          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
-          HYPERBOLIC_API_KEY: ${{ secrets.HYPERBOLIC_API_KEY }}
-          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
-          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
-
-          # Tracking
-          TRACKING_SERVER_URL: ${{ secrets.TRACKING_SERVER_URL }}
 
           # Telegram
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

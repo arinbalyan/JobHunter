@@ -32,29 +32,11 @@ jobs:
           go-version: '1.26'
           cache: true
 
-      - name: Build scrappy
-        working-directory: scrappy
-        run: go build -o ../scrappy-bin ./cmd/scrappy/
-
       - name: Run scrape
         working-directory: jobhunter
         run: go run ./cmd/scrape/
         env:
-          PATH: ${{ github.workspace }}:${{ env.PATH }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          GMAIL_USER: ${{ secrets.GMAIL_USER }}
-          GMAIL_APP_PASS: ${{ secrets.GMAIL_APP_PASS }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
-          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
-          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
-          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
-          HYPERBOLIC_API_KEY: ${{ secrets.HYPERBOLIC_API_KEY }}
-          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
-          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
-          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
-          SCRAPPY_CONFIG: ${{ github.workspace }}/scrappy/config.yaml
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SCRAPY_MEMORY_CAP_MB: 100
