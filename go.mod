@@ -3,7 +3,7 @@ module github.com/arinbalyan/jobhunter
 go 1.26.3
 
 require (
-	github.com/arinbalyan/scrappy v0.0.0-20260528173051-15e47e30c83c
+	github.com/arinbalyan/scrappy v0.1.16
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2

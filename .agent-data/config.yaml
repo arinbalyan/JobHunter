@@ -22,43 +22,98 @@ user:
 
 # ─── Job Search ────────────────────────────────────────
 search:
-  # Terms to search for
+  # Terms to search for — matching scrappy's AI/ML focused config
   terms:
-    - "golang developer"
-    - "backend engineer"
-    - "software engineer"
-    - "full stack developer"
-    - "devops engineer"
+    - '"AI Engineer" OR "ML Engineer" OR "AI Developer" OR "LLM Engineer"'
+    - '"GTM Engineer" OR "Forward Deployed Engineer" OR "AI Automation Engineer"'
+    - '"AI Agent Engineer" OR "AI Product Engineer" OR "AI/ML Engineer"'
 
   # Locations to search
   locations:
     - "remote"
     - "bangalore"
     - "mumbai"
+    - "San Francisco"
+    - "New York"
+    - "London"
+    - "Berlin"
 
   # Job boards to scrape ("all" for all 100+ boards, or list specific ones)
   # scrappy supports 100+ boards — see github.com/arinbalyan/scrappy
   sites:
-    - "linkedin"
-    - "indeed"
-    - "greenhouse"
-    - "builtin"
-    - "google"
-    - "workday"
-    - "glassdoor"
-    - "wellfound"
-    - "ziprecruiter"
-    - "simplyhired"
-    - "monster"
-    - "dice"
-    - "startupjobs"
-    - "himalayas"
-    - "remoteok"
-    - "weworkremotely"
-    - "hiringcafe"
-    - "themuse"
-    - "reed"
-    - "stackoverflow"
+    - linkedin
+    - indeed
+    - greenhouse
+    - builtin
+    - google
+    - hiringcafe
+    - remoteok
+    - himalayas
+    - themuse
+    - dice
+    - monster
+    - simplyhired
+    - reed
+    - ycjobs
+    - aijobs
+    - workday
+    - glassdoor
+    - wellfound
+    - ziprecruiter
+    - startupjobs
+    - weworkremotely
+    - remotive
+    - workingnomads
+    - jobspresso
+    - hackernews
+    - echojobs
+    - findwork
+    - careerbuilder
+    - careerjet
+    - adzuna
+    - jobstreet
+    - internshala
+    - hasjob
+    - jobicy
+    - crunchboard
+    - hugginfacejobs
+    - devopsjobs
+    - arbeitnow
+    - gunio
+    - 4dayweek
+    - berlinstartupjobs
+    - canadajobbank
+    - coroflot
+    - freelancercom
+    - getonboard
+    - icrunchdata
+    - jobsinjapan
+    - joinrise
+    - nofluffjobs
+    - railsjobs
+    - stepstone
+    - upwork
+    - ukvisajobs
+    - usajobs
+    - wordpressjobs
+    - mycareersfuture
+    - jobindex
+    - djinni
+    - snagajob
+    - eurojobs
+    - cryptojobslist
+    - cryptocurrencyjobs
+    - dribbble
+
+  # ATS scrapers need SCRAPPY_{PROVIDER}_SEEDS env var with company slugs
+  # Uncomment and configure seeds to use these:
+  # - ats-workday
+  # - ats-greenhouse
+  # - ats-ashby
+  # - ats-lever
+  # - ats-bamboohr
+  # - ats-smartrecruiters
+  # - ats-rippling
 
   # Filters
   remote_only: true
