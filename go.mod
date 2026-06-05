@@ -3,11 +3,12 @@ module github.com/arinbalyan/jobhunter
 go 1.26.3
 
 require (
-	github.com/arinbalyan/scrappy v0.0.0-00010101000000-000000000000
+	github.com/arinbalyan/scrappy v0.0.0-20260528173051-15e47e30c83c
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.7.2
 	github.com/joho/godotenv v1.5.1
+	github.com/testcontainers/testcontainers-go v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
@@ -56,7 +57,6 @@ require (
 	github.com/shirou/gopsutil/v4 v4.26.3 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/stretchr/testify v1.11.1 // indirect
-	github.com/testcontainers/testcontainers-go v0.42.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.16 // indirect
 	github.com/tklauser/numcpus v0.11.0 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
@@ -72,5 +72,3 @@ require (
 	golang.org/x/sys v0.42.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
 )
-
-replace github.com/arinbalyan/scrappy => ../scrappy
