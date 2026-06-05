@@ -216,6 +216,23 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			MessageID:  messageID,
 		}
 
+		// Insert tracking record BEFORE sending so MarkEmailSentByTrackingID has a row to update
+		var jobID *int64
+		if item.JobID > 0 {
+			jobID = &item.JobID
+		}
+		if _, err := dbPool.InsertEmail(ctx, &db.EmailRecord{
+			JobID:          jobID,
+			RecipientEmail: recipientEmail,
+			Subject:        subject,
+			BodyPreview:    truncate(body, 200),
+			Status:         "sending",
+			TrackingID:     trackingID,
+			MessageID:      messageID,
+		}); err != nil {
+			logger.Error("failed to insert tracking record: %v", err)
+		}
+
 		logger.Info("sending (%d/%d): %s at %s -> %s", i+1, len(queueItems), item.JobTitle, item.Company, recipientEmail)
 
 		if dryRun {
@@ -432,5 +449,13 @@ func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scra
 		return
 	}
 	_ = pool.RecordRunLog(ctx, workflow, status, scraped, pending, skipped, sent, failed, int(dur.Milliseconds()), errMsg)
+}
+
+func truncate(s string, max int) string {
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	return string(runes[:max]) + "..."
 }
 
