@@ -135,9 +135,19 @@ func main() {
 	_ = dbPool.RecordRunLog(ctx, "followup", "completed", 0, followups, skipped, 0, 0, int(duration.Milliseconds()), "")
 
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
+		var totalSent int
+		var totalOpened int
+		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE status='sent'").Scan(&totalSent)
+		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM emails WHERE opened=true").Scan(&totalOpened)
+
 		msg := fmt.Sprintf(
-			"<b>Follow-up Complete</b>\nQueued: %d\nSkipped: %d\nDuration: %.0fs",
+			"<b>🔄 Follow-up Complete</b>\n\n"+
+				"Queued: %d\n"+
+				"Skipped: %d\n"+
+				"Duration: %.0fs\n\n"+
+				"<i>All-time: %d sent / %d opened</i>",
 			followups, skipped, duration.Seconds(),
+			totalSent, totalOpened,
 		)
 		_ = telegram.SendMessage(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}

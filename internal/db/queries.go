@@ -182,3 +182,61 @@ func (p *Pool) MarkEmailSentByTrackingID(ctx context.Context, trackingID, messag
 	}
 	return nil
 }
+
+// GetEmailByRecipient looks up the most recent email sent to a given address.
+func (p *Pool) GetEmailByRecipient(ctx context.Context, email string) (*EmailRecord, error) {
+	var e EmailRecord
+	var jobID *int64
+	err := p.QueryRow(ctx,
+		`SELECT id, job_id, recipient_email, subject, body_preview, sent_at,
+		        status, template_used, tracking_id, message_id,
+		        opened, opened_at, clicked, clicked_at,
+		        replied, replied_at, bounced, bounced_at, bounce_type
+		 FROM emails
+		 WHERE recipient_email = $1
+		 ORDER BY sent_at DESC
+		 LIMIT 1`, email,
+	).Scan(&e.ID, &jobID, &e.RecipientEmail, &e.Subject, &e.BodyPreview,
+		&e.SentAt, &e.Status, &e.TemplateUsed, &e.TrackingID, &e.MessageID,
+		&e.Opened, &e.OpenedAt, &e.Clicked, &e.ClickedAt,
+		&e.Replied, &e.RepliedAt, &e.Bounced, &e.BouncedAt, &e.BounceType,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get email by recipient: %w", err)
+	}
+	e.JobID = jobID
+	return &e, nil
+}
+
+// GetEmailsByRecipient returns all emails sent to a given address, ordered newest first.
+func (p *Pool) GetEmailsByRecipient(ctx context.Context, email string) ([]*EmailRecord, error) {
+	rows, err := p.Query(ctx,
+		`SELECT id, job_id, recipient_email, subject, body_preview, sent_at,
+		        status, template_used, tracking_id, message_id,
+		        opened, opened_at, clicked, clicked_at,
+		        replied, replied_at, bounced, bounced_at, bounce_type
+		 FROM emails
+		 WHERE recipient_email = $1
+		 ORDER BY sent_at DESC`, email,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query emails by recipient: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*EmailRecord
+	for rows.Next() {
+		var e EmailRecord
+		var jobID *int64
+		if err := rows.Scan(&e.ID, &jobID, &e.RecipientEmail, &e.Subject, &e.BodyPreview,
+			&e.SentAt, &e.Status, &e.TemplateUsed, &e.TrackingID, &e.MessageID,
+			&e.Opened, &e.OpenedAt, &e.Clicked, &e.ClickedAt,
+			&e.Replied, &e.RepliedAt, &e.Bounced, &e.BouncedAt, &e.BounceType,
+		); err != nil {
+			return nil, fmt.Errorf("scan email: %w", err)
+		}
+		e.JobID = jobID
+		result = append(result, &e)
+	}
+	return result, rows.Err()
+}

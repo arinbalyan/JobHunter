@@ -212,9 +212,29 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 	tgToken := cfg.TelegramBotToken
 	tgChat := cfg.TelegramChatID
 	if tgToken != "" && tgChat != "" {
+		// Get total queue count
+		var queueTotal int
+		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM email_queue WHERE status='pending'").Scan(&queueTotal)
+
 		msg := fmt.Sprintf(
-			"<b>Scrape Complete</b>\nScraped: %d\nPending: %d\nSkipped: %d\nDuration: %.0fs\n%s",
-			len(jobs), pending, skipped, duration.Seconds(), summarizeReasons(skippedReasons),
+			"<b>🕷️ Scrape Complete</b>\n\n"+
+				"Scraped: %d\n"+
+				"Pending: %d | Skipped: %d\n"+
+				"Sites: %d/%d\n"+
+				"Queue total: %d\n"+
+				"Duration: %.0fs\n\n"+
+				"<i>%s</i>",
+			len(jobs), pending, skipped,
+			func() int {
+				unique := make(map[string]bool)
+				for _, j := range jobs {
+					unique[j.Site] = true
+				}
+				return len(unique)
+			}(), len(cfg.JobSites),
+			queueTotal,
+			duration.Seconds(),
+			summarizeReasons(skippedReasons),
 		)
 		_ = telegram.SendMessage(ctx, tgToken, tgChat, msg)
 	}
