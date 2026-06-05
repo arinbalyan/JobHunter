@@ -32,5 +32,6 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           SCRAPPY_INDEED_API_KEY: ${{ secrets.SCRAPPY_INDEED_API_KEY }}
+          MAX_RUNTIME_MINUTES: 330
           SCRAPY_MEMORY_CAP_MB: 100
           LOG_LEVEL: info

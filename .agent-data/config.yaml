@@ -255,4 +255,4 @@ llm:
 
 # ─── Timelimit ─────────────────────────────────────────
 # Gracefully stop processing before GitHub's 6h timeout
-max_runtime_minutes: 350
+max_runtime_minutes: 330           # Graceful shutdown before GitHub's 6h limit

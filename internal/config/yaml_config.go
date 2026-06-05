@@ -226,6 +226,9 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.Search.HoursOld > 0 {
 		cfg.JobHoursOld = yc.Search.HoursOld
 	}
+	if yc.MaxRuntime > 0 {
+		cfg.MaxRuntimeMinutes = yc.MaxRuntime
+	}
 	if yc.Search.SinceDate != "" {
 		cfg.JobSinceDate = yc.Search.SinceDate
 	}

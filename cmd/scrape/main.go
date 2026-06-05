@@ -58,14 +58,22 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 
 	logger.Info("Scrape workflow starting...")
 
-	ctx, cancel := context.WithCancel(context.Background())
+	maxRuntime := time.Duration(cfg.MaxRuntimeMinutes) * time.Minute
+	if maxRuntime <= 0 {
+		maxRuntime = 350 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), maxRuntime)
 	defer cancel()
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigCh
-		logger.Info("shutting down...")
-		cancel()
+		select {
+		case <-sigCh:
+			logger.Info("shutting down (signal)...")
+			cancel()
+		case <-ctx.Done():
+			logger.Info("shutting down (max runtime reached)...")
+		}
 	}()
 
 	// Database

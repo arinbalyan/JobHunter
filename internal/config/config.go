@@ -77,6 +77,7 @@ type Config struct {
 	// User Profile
 	UserCurrentRole     string
 	UserYearsExperience int
+	MaxRuntimeMinutes   int
 
 	// Contact Info
 	ContactName      string
@@ -212,6 +213,7 @@ func Load() (*Config, error) {
 
 		UserYearsExperience: getEnvInt("USER_YEARS_EXPERIENCE", 0),
 		UserCurrentRole:     getEnv("USER_CURRENT_ROLE", "Software Engineer"),
+		MaxRuntimeMinutes:   getEnvInt("MAX_RUNTIME_MINUTES", 350),
 
 		ContactName:      getEnv("CONTACT_NAME", ""),
 		ContactPhone:     getEnv("CONTACT_PHONE", ""),

@@ -49,4 +49,5 @@ jobs:
           DAILY_EMAIL_LIMIT: ${{ vars.DAILY_EMAIL_LIMIT || '500' }}
 
           # Runtime
+          MAX_RUNTIME_MINUTES: 330
           LOG_LEVEL: info

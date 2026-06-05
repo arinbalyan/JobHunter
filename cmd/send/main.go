@@ -70,14 +70,22 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 	activeProviders := llmProviders.GetActiveProviders("complex")
 	logger.Info("loaded %d active LLM providers from llm.yaml", len(activeProviders))
 
-	ctx, cancel := context.WithCancel(context.Background())
+	maxRuntime := time.Duration(cfg.MaxRuntimeMinutes) * time.Minute
+	if maxRuntime <= 0 {
+		maxRuntime = 350 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), maxRuntime)
 	defer cancel()
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigCh
-		logger.Info("shutting down...")
-		cancel()
+		select {
+		case <-sigCh:
+			logger.Info("shutting down (signal)...")
+			cancel()
+		case <-ctx.Done():
+			logger.Info("shutting down (max runtime reached)...")
+		}
 	}()
 
 	dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
