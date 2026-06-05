@@ -151,12 +151,12 @@ The project runs fully from GitHub Actions — no server needed. Six workflows a
 
 | Workflow | Schedule | Status |
 |----------|----------|--------|
-| 🕷️ **Scrape Jobs** | 4× daily (6/12/18/24 IST) | ✅ Active |
-| 📨 **Send Emails** | Daily 8 AM IST | ✅ Active |
-| 🔄 **Follow-up** | — | ⏸️ Disabled — needs review |
-| 📬 **Bounce Scan** | Daily 10 AM IST | ✅ Active |
-| 🧹 **Cleanup** | Weekly Sun 10 PM IST | ✅ Active |
-| 🚀 **Deploy Tracker** | On push to `main` | ✅ Active |
+| Scrape Jobs | 4x daily (6/12/18/24 IST) | Active |
+| Send Emails | Daily 8 AM IST | Active |
+| Follow-up | -- | Disabled -- needs review |
+| Bounce Scan | Daily 10 AM IST | Active |
+| Cleanup | Weekly Sun 10 PM IST | Active |
+| Deploy Tracker | On push to main | Active |
 
 ## Project Status
 
