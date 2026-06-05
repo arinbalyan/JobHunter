@@ -16,21 +16,23 @@ var templateFS embed.FS
 
 // TemplateData holds all fields available to fallback templates.
 type TemplateData struct {
-	JobTitle       string
-	Company        string
-	JobDescription string
-	Seniority      string
-	Location       string
-	JobType        string
-	Salary         string
-	Skills         string
-	Industry       string
-	ContactName    string
-	ContactPhone   string
+	JobTitle         string
+	Company          string
+	JobDescription   string
+	Seniority        string
+	Location         string
+	JobType          string
+	Salary           string
+	Skills           string
+	Industry         string
+	ContactName      string
+	ContactPhone     string
 	ContactPortfolio string
-	ContactGithub  string
-	ContactLinkedin string
-	ExperienceMatch string // "underqualified", "overqualified", "qualified"
+	ContactGithub    string
+	ContactLinkedin  string
+	CurrentRole      string // e.g. "AI/ML Engineer" (from config user.current_role)
+	UserBackground   string // personal narrative (from CONTEXT.md)
+	ExperienceMatch  string // "underqualified", "overqualified", "qualified"
 }
 
 // SubjectLine returns a reasonable subject line regardless of template.
@@ -142,12 +144,14 @@ func matchToTemplate(match string) string {
 
 // hardcodedFallback is used when templates fail to load or execute.
 func hardcodedFallback(d *TemplateData) string {
+	background := d.UserBackground
+	if background == "" {
+		background = "My background aligns well with what you're looking for. I'd love to connect and discuss how I can contribute."
+	}
 	return fmt.Sprintf(
 		"Hi %s team,\n\n"+
-			"I came across your %s opening and wanted to reach out. "+
-			"My background aligns well with what you're looking for. "+
-			"I'd love to connect and discuss how I can contribute.\n\n"+
+			"I'm reaching out regarding your %s position. %s\n\n"+
 			"Best,%s",
-		d.Company, d.JobTitle, contactBlock(d),
+		d.Company, d.JobTitle, background, contactBlock(d),
 	)
 }

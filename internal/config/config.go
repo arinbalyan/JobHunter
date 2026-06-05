@@ -75,6 +75,7 @@ type Config struct {
 	JobType           string
 
 	// User Profile
+	UserCurrentRole     string
 	UserYearsExperience int
 
 	// Contact Info
@@ -210,6 +211,7 @@ func Load() (*Config, error) {
 		JobType:            getEnv("JOB_TYPE", "fulltime"),
 
 		UserYearsExperience: getEnvInt("USER_YEARS_EXPERIENCE", 0),
+		UserCurrentRole:     getEnv("USER_CURRENT_ROLE", "Software Engineer"),
 
 		ContactName:      getEnv("CONTACT_NAME", ""),
 		ContactPhone:     getEnv("CONTACT_PHONE", ""),

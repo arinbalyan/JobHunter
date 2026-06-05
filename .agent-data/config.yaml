@@ -10,7 +10,7 @@
 # ─── User Profile ──────────────────────────────────────
 user:
   name: "Arin Balyan"
-  current_role: "Software Engineer"
+  current_role: "AI/ML Engineer"
   years_experience: 3
   email: "arinbalyan.work@gmail.com"
   phone: "+91 9518108395"
@@ -136,12 +136,20 @@ reject_titles:
 # Emails matching these patterns are rejected.
 email_filters:
   - "starts_with:accommodation@"
+  - "starts_with:accommodations@"
+  - "starts_with:no-reply@"
+  - "starts_with:noreply@"
+  - "starts_with:do-not-reply@"
+  - "starts_with:donotreply@"
   - "contains:accessibility"
   - "contains:accommodation"
   - "contains:accomodation"     # Common typo
   - "contains:no-reply"
   - "contains:noreply"
   - "contains:do-not-reply"
+  - "contains:donotreply"
+  - "contains:brillied.in"
+  - "contains:mediajenie.com"
   # Suspicious TLDs
   - "tld:.tk"
   - "tld:.ml"

@@ -241,6 +241,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool) int {
 
 func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, userPrompt string, item db.QueueItem, contactName string, cfg *config.Config, logger *logging.Logger) (string, string) {
 	// Build fallback data
+	userBg := loadContext()
 	fbData := &fallback.TemplateData{
 		JobTitle:         item.JobTitle,
 		Company:          item.Company,
@@ -256,6 +257,8 @@ func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, use
 		ContactPortfolio: cfg.ContactPortfolio,
 		ContactGithub:    cfg.ContactGithub,
 		ContactLinkedin:  cfg.ContactLinkedin,
+		CurrentRole:      cfg.UserCurrentRole,
+		UserBackground:   userBg,
 		ExperienceMatch:  item.ExperienceMatch,
 	}
 

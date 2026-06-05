@@ -202,6 +202,9 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.User.YearsExperience > 0 {
 		cfg.UserYearsExperience = yc.User.YearsExperience
 	}
+	if yc.User.CurrentRole != "" {
+		cfg.UserCurrentRole = yc.User.CurrentRole
+	}
 	if len(yc.Search.Terms) > 0 {
 		cfg.JobSearchTerms = yc.Search.Terms
 	}
