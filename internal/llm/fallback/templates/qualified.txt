@@ -2,15 +2,8 @@ Hi {{.Company}} team,
 
 I wanted to reach out regarding your {{.JobTitle}} opening.
 
-{{if .UserBackground}}
-{{.UserBackground}}
-{{else}}
 I'm a {{.CurrentRole}} with experience in {{.Skills}}, currently looking for {{.JobType}} roles. My background in {{.Industry}} aligns well with what your team is building, and I'd love the opportunity to contribute.
-{{end}}
 
-{{if .ContactPortfolio}}Portfolio: {{.ContactPortfolio}}
-{{end}}{{if .ContactGithub}}GitHub: {{.ContactGithub}}
-{{end}}
 Happy to share more or jump on a quick call if there's a fit. Thanks for your time.
 
 Best,

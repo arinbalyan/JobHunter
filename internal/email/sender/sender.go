@@ -243,7 +243,12 @@ func isQuotaError(err error) bool {
 }
 
 // InjectTrackingPixel adds a tracking pixel to an HTML email body.
+// If trackingServerURL is empty or points to localhost, the pixel is NOT injected
+// (since it would show as a broken image in the recipient's email client).
 func InjectTrackingPixel(htmlBody string, trackingServerURL, trackingID string) string {
+	if trackingServerURL == "" || strings.Contains(trackingServerURL, "localhost") || strings.Contains(trackingServerURL, "127.0.0.1") {
+		return htmlBody
+	}
 	pixelURL := fmt.Sprintf("%s/track?id=%s", strings.TrimRight(trackingServerURL, "/"), trackingID)
 	pixel := fmt.Sprintf(`<img src="%s" width="1" height="1" alt="" style="display:none;" />`, pixelURL)
 	if strings.Contains(htmlBody, "</body>") {

@@ -2,9 +2,6 @@ Hi {{.Company}} team,
 
 I wanted to reach out regarding your {{.JobTitle}} position. While I may not check every box in the description, I bring a strong foundation that I believe would make me effective in this role quickly.
 
-{{if .UserBackground}}
-{{.UserBackground}}
-{{end}}
 Some highlights relevant to this role:
 - Hands-on experience with {{.Skills}}
 - Background in {{.Industry}}
@@ -12,7 +9,4 @@ Some highlights relevant to this role:
 
 I'm eager to apply my problem-solving skills to the challenges your team is tackling and grow into this role. I'd welcome the chance to discuss how I can contribute.
 
-{{if .ContactPortfolio}}Portfolio: {{.ContactPortfolio}}
-{{end}}{{if .ContactGithub}}GitHub: {{.ContactGithub}}
-{{end}}
 Best,

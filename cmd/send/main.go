@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -194,7 +195,8 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 		// Generate email via LLM or fallback
 		subject, body := generateEmail(ctx, llmRouter, sysPrompt, userPrompt, item, cfg.ContactName, cfg, logger)
 
-		htmlBody := fmt.Sprintf("<html><body><p>%s</p></body></html>", body)
+		// Convert plain text to HTML: double newlines → paragraphs, single → <br>
+		htmlBody := toHTML(body)
 		htmlBody = sender.InjectTrackingPixel(htmlBody, cfg.TrackingServerURL, trackingID)
 
 		msg := &sender.EmailMessage{
@@ -249,7 +251,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 
 func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, userPrompt string, item db.QueueItem, contactName string, cfg *config.Config, logger *logging.Logger) (string, string) {
 	// Build fallback data
-	userBg := loadContext()
+	skillsStr := formatSkills(item.Skills)
 	fbData := &fallback.TemplateData{
 		JobTitle:         item.JobTitle,
 		Company:          item.Company,
@@ -258,7 +260,7 @@ func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, use
 		Location:         item.JobLocation,
 		JobType:          item.JobType,
 		Salary:           formatSalary(item.SalaryMin, item.SalaryMax, item.SalaryCurrency),
-		Skills:           item.Skills,
+		Skills:           skillsStr,
 		Industry:         item.CompanyIndustry,
 		ContactName:      contactName,
 		ContactPhone:     cfg.ContactPhone,
@@ -266,7 +268,6 @@ func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, use
 		ContactGithub:    cfg.ContactGithub,
 		ContactLinkedin:  cfg.ContactLinkedin,
 		CurrentRole:      cfg.UserCurrentRole,
-		UserBackground:   userBg,
 		ExperienceMatch:  item.ExperienceMatch,
 	}
 
@@ -319,6 +320,35 @@ func generateEmail(ctx context.Context, llmRouter *router.Router, sysPrompt, use
 	}
 
 	return subj, body
+}
+
+// toHTML converts plain text with \n line breaks to HTML with <br> and <p> tags.
+func toHTML(text string) string {
+	parts := strings.Split(text, "\n\n")
+	var buf strings.Builder
+	buf.WriteString("<html><body>")
+	for i, p := range parts {
+		if i > 0 {
+			buf.WriteString("</p><p>")
+		} else {
+			buf.WriteString("<p>")
+		}
+		buf.WriteString(strings.ReplaceAll(p, "\n", "<br>"))
+	}
+	buf.WriteString("</p></body></html>")
+	return buf.String()
+}
+
+// formatSkills converts a JSON array string like ["Python","Go"] to "Python, Go".
+func formatSkills(skillsJSON string) string {
+	if skillsJSON == "" || skillsJSON == "[]" {
+		return ""
+	}
+	var skills []string
+	if err := json.Unmarshal([]byte(skillsJSON), &skills); err != nil {
+		return skillsJSON
+	}
+	return strings.Join(skills, ", ")
 }
 
 func loadContext() string {
