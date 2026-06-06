@@ -220,12 +220,8 @@ func (yc *YAMLConfig) MergeIntoConfig(cfg *Config) {
 	if yc.Search.JobType != "" {
 		cfg.JobType = yc.Search.JobType
 	}
-	if yc.Search.ResultsPerSite > 0 {
-		cfg.JobResultsPerSite = yc.Search.ResultsPerSite
-	}
-	if yc.Search.HoursOld > 0 {
-		cfg.JobHoursOld = yc.Search.HoursOld
-	}
+	cfg.JobResultsPerSite = yc.Search.ResultsPerSite  // 0 = no limit
+	cfg.JobHoursOld = yc.Search.HoursOld               // 0 = no time filter
 	if yc.MaxRuntime > 0 {
 		cfg.MaxRuntimeMinutes = yc.MaxRuntime
 	}
