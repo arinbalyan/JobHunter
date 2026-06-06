@@ -22,13 +22,37 @@ user:
 
 # ─── Job Search ────────────────────────────────────────
 search:
-  # Terms to search for — matching scrappy's AI/ML focused config
+  # Terms to search for — 20 AI/ML + engineering related terms
   terms:
-    - '"AI Engineer" OR "ML Engineer" OR "AI Developer" OR "LLM Engineer"'
-    - '"GTM Engineer" OR "Forward Deployed Engineer" OR "AI Automation Engineer"'
-    - '"AI Agent Engineer" OR "AI Product Engineer" OR "AI/ML Engineer"'
+    # AI/ML Core
+    - '"AI Engineer" OR "Artificial Intelligence Engineer"'
+    - '"ML Engineer" OR "Machine Learning Engineer"'
+    - '"LLM Engineer" OR "Large Language Model Engineer"'
+    - '"Deep Learning Engineer"'
+    - '"AI/ML Engineer"'
+    - '"AI Researcher" OR "Applied AI Scientist"'
+    # LangChain / LangGraph / Agent
+    - '"LangChain Developer" OR "LangChain Engineer"'
+    - '"LangGraph Developer"'
+    - '"AI Agent Engineer" OR "AI Agent Developer"'
+    - '"CrewAI Engineer" OR "AutoGen Engineer"'
+    # Python / Backend / Full Stack
+    - '"Python Developer" OR "Python Engineer"'
+    - '"Backend Engineer" OR "Backend Developer" OR "Backend Software Engineer"'
+    - '"Full Stack Developer" OR "Full Stack Engineer"'
+    - '"AI Full Stack Developer" OR "AI Full Stack Engineer"'
+    - '"Python Backend Developer" OR "Python Backend Engineer"'
+    # MLOps / Data / Infra
+    - '"MLOps Engineer" OR "ML Platform Engineer"'
+    - '"Data Scientist" OR "Data Engineer"'
+    - '"NLP Engineer" OR "Natural Language Processing Engineer"'
+    - '"AI Platform Engineer" OR "AI Infrastructure Engineer"'
+    # DevOps / Cloud
+    - '"DevOps Engineer" OR "Cloud Engineer"'
+    # Additional roles
+    - '"GTM Engineer" OR "Forward Deployed Engineer" OR "AI Automation Engineer" OR "AI Product Engineer"'
 
-  # Locations to search
+  # Locations to search — major global tech hubs
   locations:
     - "remote"
     - "bangalore"
@@ -37,6 +61,16 @@ search:
     - "New York"
     - "London"
     - "Berlin"
+    - "Seattle"
+    - "Toronto"
+    - "Singapore"
+    - "Dubai"
+    - "Shanghai"
+    - "Beijing"
+    - "Tokyo"
+    - "Sydney"
+    - "Paris"
+    - "Amsterdam"
 
   # Job boards to scrape ("all" for all 100+ boards, or list specific ones)
   # scrappy supports 100+ boards — see github.com/arinbalyan/scrappy
