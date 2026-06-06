@@ -49,6 +49,10 @@ search:
     - '"AI Platform Engineer" OR "AI Infrastructure Engineer"'
     # DevOps / Cloud
     - '"DevOps Engineer" OR "Cloud Engineer"'
+    # Software Engineering
+    - '"Software Engineer" OR "Software Developer"'
+    - '"SDE" OR "Software Development Engineer"'
+    - '"Web Developer"'
     # Additional roles
     - '"GTM Engineer" OR "Forward Deployed Engineer" OR "AI Automation Engineer" OR "AI Product Engineer"'
 
