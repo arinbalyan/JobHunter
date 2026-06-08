@@ -164,13 +164,9 @@ The project runs fully from GitHub Actions — no server needed. Six workflows a
 
 ## TODO
 
-- [ ] **Re-enable follow-up workflow** — `.github/workflows/followup.yml` has its cron schedule disabled. The follow-up logic (domain-deduped follow-ups for sent+no-reply emails) is implemented but needs review and testing before re-enabling. Uncomment the `cron` line in the workflow file to re-enable.
-- [ ] **Re-enable LLM email generation** — Currently running in `--fallback-only` mode with Go template-based emails. Remove the `--fallback-only` flag from `.github/workflows/send.yml` and add LLM provider keys to GitHub Secrets to use multi-provider LLM routing.
-- [ ] **Test Indeed with API key** — `SCRAPPY_INDEED_API_KEY` is now configured. Run a scrape to verify Indeed returns real results (was returning 0 jobs without the key).
-- [ ] **ATS scraper seeds** — ATS scrapers (workday, greenhouse, ashby, etc.) need `SCRAPPY_{PROVIDER}_SEEDS` environment variables with company slugs. Add to GitHub Secrets + `.env` once configured.
-- [ ] **Resume PDF path** — Verify `.agent-data/ArinBalyan.pdf` is accessible in CI. The resume attachment is sent with every email when configured.
-- [ ] **LinkedIn rate limiting** — If LinkedIn returns 429 errors at high volume, add `--site-rps linkedin:1` to the scrape command or config.
-- [ ] **Bounce detection for scrappy parse errors** — Verify bouncescan catches domain parsing errors like `@jerry.aithe` (should have been `@jerry.ai`). These indicate scrappy email extraction issues.
+- [ ] **Re-enable LLM email generation** — Intentionally deferred: user wants template-only mode during validation. Remove `--fallback-only` flag from `.github/workflows/send.yml` and add LLM provider keys to GitHub Secrets to use multi-provider LLM routing when ready.
+- [ ] **Configure ATS scraper seeds** — Add `SCRAPPY_{PROVIDER}_SEEDS` env vars to `.env` and GitHub Secrets with company slugs for ATS scrapers (workday, greenhouse, ashby, etc.). Also uncomment desired ATS sites in `.agent-data/config.yaml`.
+- [ ] **LinkedIn rate limiting** — If LinkedIn returns 429 errors at high volume, add `--site-rps linkedin:1` to the scrape workflow command or config.
 
 ## License
 
