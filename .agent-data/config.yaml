@@ -143,15 +143,27 @@ search:
     - cryptocurrencyjobs
     - dribbble
 
-  # ATS scrapers need SCRAPPY_{PROVIDER}_SEEDS env var with company slugs
-  # Uncomment and configure seeds to use these:
-  # - ats-workday
-  # - ats-greenhouse
-  # - ats-ashby
-  # - ats-lever
-  # - ats-bamboohr
-  # - ats-smartrecruiters
-  # - ats-rippling
+  # ATS scrapers — company seeds from scrappy's config/company_slugs.yaml
+  # All ATS sites below have pre-configured seeds for hundreds of companies
+  - ats-greenhouse      # Stripe, Airbnb, Lyft, Anthropic, Neuralink, MongoDB, Vercel, etc.
+  - ats-ashby           # Cursor, OpenAI, Palantir, Notion, Linear, Vercel, etc. (300+)
+  - ats-smartrecruiters # Palantir, Uber, Canva, Docusign, New Relic, etc.
+  - ats-bamboohr        # Palantir, OpenAI, Asana, Docker, Canva, etc.
+  - ats-hiringthing     # Amazon, Google, Meta, Apple, Netflix, Microsoft, etc.
+  - ats-jobvite         # LinkedIn, Twitter, Atlassian, Slack, Datadog, etc.
+  - ats-taleo           # Amazon, Target, Walmart, Best Buy, Costco, etc.
+  - ats-successfactors  # SAP, Siemens, BMW, Bosch, Adidas, etc.
+  - ats-mercor          # OpenAI, Anthropic, Scale AI, Anduril, Replit, etc.
+  - ats-pinpoint        # Vercel, Notion, Figma, Canva, GitHub, GitLab, etc.
+  - ats-recruiterflow   # McKinsey, BCG, Bain, Deloitte, Accenture, EY, etc.
+  - ats-oracle          # Oracle, FedEx, Marriott, Nestle, etc.
+  - ats-loxo            # Vercel, Stripe, Anthropic, OpenAI, Supabase, etc.
+  - ats-deel            # OpenAI, Anthropic, Stripe, Vercel, Supabase, etc.
+  - ats-gem             # Datadog, Cloudflare, Figma, Notion, Snowflake, etc.
+  - ats-jazzhr          # Datadog, MongoDB, Checkr, Accenture, EY, etc.
+  - ats-personio        # Delivery Hero, Flixbus, N26, HelloFresh, etc.
+  - ats-bullhorn        # 20+ staffing agencies (Aerotek, Robert Half, etc.)
+  - ats-trakstar        # Automattic/WordPress, Intercom, Drift, etc.
 
   # Filters
   remote_only: true
