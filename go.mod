@@ -6,7 +6,7 @@ require (
 	github.com/arinbalyan/scrappy v0.1.22
 	github.com/golang-migrate/migrate/v4 v4.18.2
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.7.2
+	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/testcontainers/testcontainers-go v0.42.0
 	gopkg.in/yaml.v3 v3.0.1
