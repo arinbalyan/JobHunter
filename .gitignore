@@ -1,58 +1,44 @@
-# ────────────────────────────────────────────────────
-# JobHunter — Environment & Secrets
-# ────────────────────────────────────────────────────
-.env
-.env.local
-*.env.local
 
 # ────────────────────────────────────────────────────
+*~
 # Agent config (user-specific, NOT committed)
-# ────────────────────────────────────────────────────
 .agent-data/CONTEXT.md
 .agent-data/RULES.md
 AGENTS.md
-PLAN.md
-
-# ────────────────────────────────────────────────────
-# Build artifacts
-# ────────────────────────────────────────────────────
 bin/
-dist/
 build/
-tmp/
+# Build artifacts
+dist/
+*.dll
+.DS_Store
+*.dylib
+.env
+*.env.local
+.env.local
 *.exe
 *.exe~
-*.dll
-*.so
-*.dylib
-*.out
-*.test
-*.test.exe
-*.test.out
-*.test.dll
-*.test.so
-*.test.dylib
-
-# ────────────────────────────────────────────────────
-# IDE & editors
-# ────────────────────────────────────────────────────
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# ────────────────────────────────────────────────────
-# OS files
-# ────────────────────────────────────────────────────
-.DS_Store
-Thumbs.db
-
-# ────────────────────────────────────────────────────
 # Go
-# ────────────────────────────────────────────────────
-vendor/
 go.work
 go.work.sum
+.idea/
+# IDE & editors
+# JobHunter — Environment & Secrets
+# OS files
+*.out
+PLAN.md
+scrape
 send
+*.so
+*.swo
+*.swp
+*.test
+*.test.dll
+*.test.dylib
+*.test.exe
+*.test.out
+*.test.so
+Thumbs.db
+tmp/
+vendor/
 .vercel
+.vscode/
