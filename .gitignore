@@ -42,3 +42,4 @@ tmp/
 vendor/
 .vercel
 .vscode/
+pi-session*
