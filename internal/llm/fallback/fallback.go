@@ -116,7 +116,7 @@ func Generate(data *TemplateData) (string, string) {
 
 // contactBlock builds the standard contact footer.
 func contactBlock(d *TemplateData) string {
-	block := fmt.Sprintf("\n\n%s", d.ContactName)
+	block := d.ContactName
 	if d.ContactPhone != "" {
 		block += "\nPhone: " + d.ContactPhone
 	}
@@ -153,6 +153,6 @@ func hardcodedFallback(d *TemplateData) string {
 			"I'm currently looking for full-time AI Engineering roles where I can build and deploy "+
 			"AI systems end-to-end.\n\n"+
 			"Happy to share more or jump on a quick call if there's a fit. Thanks for your time.\n\n"+
-			"Best,%s", contactBlock(d),
+			"Best regards,%s", contactBlock(d),
 	)
 }
