@@ -1,6 +1,6 @@
 Hi there,
 
-I'm an AI Engineer with deep experience building production-grade AI systems — RAG pipelines, LangChain/LangGraph agents, and full-stack AI-powered platforms serving thousands of daily users.
+I'm an AI Engineer with deep experience building production-grade RAG systems, agentic workflows, backend services with FastAPI, and AI automation pipelines at scale — with deep expertise in machine learning, deep learning, and LangChain/LangGraph.
 
 I'm looking for an AI Engineering role — onsite or remote — where I can bring this experience to bear on meaningful problems. Happy to discuss this over a call or right here over email.
 

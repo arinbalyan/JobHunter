@@ -1,6 +1,6 @@
 Hi there,
 
-I'm an AI Engineer based in India, currently building production-grade RAG systems, LangChain/LangGraph agents, and AI automation pipelines at scale.
+I'm an AI Engineer based in India, currently building production-grade RAG systems, agentic workflows, backend services with FastAPI, and AI automation pipelines at scale — with deep expertise in machine learning, deep learning, and LangChain/LangGraph.
 
 I'm actively looking for full-time AI Engineering roles — onsite or remote — where I can design and deploy AI systems end-to-end. I'm happy to discuss this further over a call or right here over email.
 
