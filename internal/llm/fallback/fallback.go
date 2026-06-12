@@ -150,9 +150,9 @@ func hardcodedFallback(d *TemplateData) string {
 		"Hi there,\n\n"+
 			"I'm an AI Engineer with experience building production-grade RAG systems, "+
 			"agentic workflows, backend services with FastAPI, and AI automation pipelines "+
-			"at scale — with deep expertise in machine learning, deep learning, "+
+			"at scale, with deep expertise in machine learning, deep learning, "+
 			"and LangChain/LangGraph. "+
-			"I'm currently looking for full-time AI Engineering roles — onsite or remote. "+
+			"I'm currently looking for full-time AI Engineering roles, onsite or remote. "+
 			"Happy to discuss this over a call or right here over email.\n\n"+
 			"Best regards,%s", contactBlock(d),
 	)
