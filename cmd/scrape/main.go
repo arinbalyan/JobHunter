@@ -64,6 +64,9 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), maxRuntime)
 	defer cancel()
+	// dbCtx outlives the timeout so DB inserts still work after max runtime.
+	dbCtx := context.WithoutCancel(ctx)
+
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -77,7 +80,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 	}()
 
 	// Database
-	dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
+	dbPool, err := db.Connect(dbCtx, cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("database connection failed: %v", err)
 		return 1
@@ -109,7 +112,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 	if err != nil {
 		logger.Error("scrape failed: %v", err)
 		// Record the failed run
-		recordRun(ctx, dbPool, "scrape", "failed", 0, 0, 0, 0, 0, time.Since(startTime), err.Error())
+		recordRun(dbCtx, dbPool, "scrape", "failed", 0, 0, 0, 0, 0, time.Since(startTime), err.Error())
 		return 1
 	}
 
@@ -117,7 +120,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 
 	if len(jobs) == 0 {
 		logger.Info("no jobs found")
-		recordRun(ctx, dbPool, "scrape", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
+		recordRun(dbCtx, dbPool, "scrape", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
 		return 0
 	}
 
@@ -132,7 +135,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 		// 1. Title rejection
 		if yamlCfg.RejectTitle(j.Title) {
 			skippedReasons["title_rejected"]++
-			insertJob(ctx, dbPool, &j, "skipped", "title_rejected", "", &skipped)
+			insertJob(dbCtx, dbPool, &j, "skipped", "title_rejected", "", &skipped)
 			continue
 		}
 
@@ -142,7 +145,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 		emails := j.PreferredEmails()
 		if len(emails) == 0 {
 			skippedReasons["no_email"]++
-			insertJob(ctx, dbPool, &j, "skipped", "no_email", "", &skipped)
+			insertJob(dbCtx, dbPool, &j, "skipped", "no_email", "", &skipped)
 			continue
 		}
 
@@ -157,7 +160,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 		}
 		if len(validEmails) == 0 {
 			skippedReasons["no_valid_email"]++
-			insertJob(ctx, dbPool, &j, "skipped", "no_valid_email", "", &skipped)
+			insertJob(dbCtx, dbPool, &j, "skipped", "no_valid_email", "", &skipped)
 			continue
 		}
 
@@ -165,15 +168,15 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 
 		// 3. Dedup check (SELECT pre-check). The actual atomic gate
 		// is ReserveEmail inside MarkSent — no TOCTOU race.
-		canSend, reason := de.CanSend(ctx, primaryEmail)
+		canSend, reason := de.CanSend(dbCtx, primaryEmail)
 		if !canSend {
 			skippedReasons["dedup"]++
-			insertJob(ctx, dbPool, &j, "skipped", reason, primaryEmail, &skipped)
+			insertJob(dbCtx, dbPool, &j, "skipped", reason, primaryEmail, &skipped)
 			continue
 		}
 
 		// 4. Mark as pending and queue for sending
-		jobID, err := insertJob(ctx, dbPool, &j, "pending", "", primaryEmail, &pending)
+		jobID, err := insertJob(dbCtx, dbPool, &j, "pending", "", primaryEmail, &pending)
 		if err != nil {
 			log.Printf("queue job %s: insert failed: %v", j.ID, err)
 			continue
@@ -185,7 +188,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 			b, _ := json.Marshal(j.Skills)
 			skillsJSON = string(b)
 		}
-		if _, err := dbPool.InsertQueueItem(ctx, jobID, &db.QueueItemRecord{
+		if _, err := dbPool.InsertQueueItem(dbCtx, jobID, &db.QueueItemRecord{
 			RecipientEmail:  primaryEmail,
 			Company:         j.CompanyName,
 			JobTitle:        j.Title,
@@ -201,7 +204,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 			log.Printf("queue job %s: enqueue failed: %v", j.ID, err)
 		}
 
-		de.MarkSent(ctx, &db.EmailRecord{
+		de.MarkSent(dbCtx, &db.EmailRecord{
 			JobID:          &jobID,
 			RecipientEmail: primaryEmail,
 			Subject:        j.Title,
@@ -214,7 +217,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 	duration := time.Since(startTime)
 	logger.Info("results: %d pending, %d skipped (%s)", pending, skipped, summarizeReasons(skippedReasons))
 
-	recordRun(ctx, dbPool, "scrape", "completed", len(jobs), pending, skipped, 0, 0, duration, "")
+	recordRun(dbCtx, dbPool, "scrape", "completed", len(jobs), pending, skipped, 0, 0, duration, "")
 
 	// Check for Telegram
 	tgToken := cfg.TelegramBotToken
@@ -222,10 +225,10 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 	if tgToken != "" && tgChat != "" {
 		// Get total queue count
 		var queueTotal int
-		dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM email_queue WHERE status='pending'").Scan(&queueTotal)
+		dbPool.QueryRow(dbCtx, "SELECT COUNT(*) FROM email_queue WHERE status='pending'").Scan(&queueTotal)
 
 		// Get time-windowed stats
-		stats, _ := dbPool.GetTimeWindowStats(ctx)
+		stats, _ := dbPool.GetTimeWindowStats(dbCtx)
 		statsBlock := ""
 		if stats != nil {
 			statsBlock = "\n" + stats.FormatStatsBlock("📊 Email Stats")
@@ -252,7 +255,7 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 			summarizeReasons(skippedReasons),
 			statsBlock,
 		)
-		_ = telegram.SendMessage(ctx, tgToken, tgChat, msg)
+		_ = telegram.SendMessage(dbCtx, tgToken, tgChat, msg)
 	}
 
 	return 0

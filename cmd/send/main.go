@@ -76,6 +76,8 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), maxRuntime)
 	defer cancel()
+	// dbCtx outlives the timeout so DB operations still work after max runtime.
+	dbCtx := context.WithoutCancel(ctx)
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -88,7 +90,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 		}
 	}()
 
-	dbPool, err := db.Connect(ctx, cfg.DatabaseURL)
+	dbPool, err := db.Connect(dbCtx, cfg.DatabaseURL)
 	if err != nil {
 		logger.Error("database connection failed: %v", err)
 		return 1
@@ -101,10 +103,10 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 	}
 
 	// ── Quota check ──
-	quota := newQuotaTracker(ctx, dbPool, cfg.DailyEmailLimit)
+	quota := newQuotaTracker(dbCtx, dbPool, cfg.DailyEmailLimit)
 	if quota.exhausted() {
 		logger.Warn("daily email quota exhausted (%d/%d)", quota.todayCount, cfg.DailyEmailLimit)
-		recordRun(ctx, dbPool, "send", "quota_exhausted", 0, 0, 0, 0, 0, time.Since(startTime), "daily quota exhausted")
+		recordRun(dbCtx, dbPool, "send", "quota_exhausted", 0, 0, 0, 0, 0, time.Since(startTime), "daily quota exhausted")
 		return 0
 	}
 	logger.Info("email quota: %d/%d used, %d remaining", quota.todayCount, cfg.DailyEmailLimit, quota.remaining())
@@ -115,14 +117,14 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 		maxToSend = cfg.MaxEmailsPerRun
 	}
 
-	queueItems, err := dbPool.GetPendingQueue(ctx, maxToSend)
+	queueItems, err := dbPool.GetPendingQueue(dbCtx, maxToSend)
 	if err != nil {
 		logger.Error("fetch queue: %v", err)
 		return 1
 	}
 	logger.Info("found %d pending emails to send", len(queueItems))
 	if len(queueItems) == 0 {
-		recordRun(ctx, dbPool, "send", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
+		recordRun(dbCtx, dbPool, "send", "completed", 0, 0, 0, 0, 0, time.Since(startTime), "")
 		return 0
 	}
 
@@ -167,7 +169,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 		select {
 		case <-ctx.Done():
 			logger.Info("interrupted after %d sent", sent)
-			recordRun(ctx, dbPool, "send", "interrupted", 0, len(queueItems)-i, 0, sent, failed, time.Since(startTime), "interrupted")
+			recordRun(dbCtx, dbPool, "send", "interrupted", 0, len(queueItems)-i, 0, sent, failed, time.Since(startTime), "interrupted")
 			return 0
 		default:
 		}
@@ -229,7 +231,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 		if item.JobID > 0 {
 			jobID = &item.JobID
 		}
-		if _, err := dbPool.InsertEmail(ctx, &db.EmailRecord{
+		if _, err := dbPool.InsertEmail(dbCtx, &db.EmailRecord{
 			JobID:          jobID,
 			RecipientEmail: recipientEmail,
 			Subject:        subject,
@@ -248,13 +250,13 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			sent++
 		} else if err := emailSender.Send(ctx, msg); err != nil {
 			logger.Error("failed: %v", err)
-			dbPool.UpdateQueueStatus(ctx, item.ID, "failed", err.Error())
+			dbPool.UpdateQueueStatus(dbCtx, item.ID, "failed", err.Error())
 			failed++
 		} else {
 			logger.Info("sent successfully")
-			dbPool.UpdateQueueStatus(ctx, item.ID, "sent", "")
-			dbPool.UpdateJobStatus(ctx, item.JobID, "sent", "", item.RecipientEmail)
-			dbPool.MarkEmailSentByTrackingID(ctx, trackingID, messageID)
+			dbPool.UpdateQueueStatus(dbCtx, item.ID, "sent", "")
+			dbPool.UpdateJobStatus(dbCtx, item.JobID, "sent", "", item.RecipientEmail)
+			dbPool.MarkEmailSentByTrackingID(dbCtx, trackingID, messageID)
 			sent++
 		}
 
@@ -269,11 +271,11 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 
 	duration := time.Since(startTime)
 	logger.Info("send complete: %d sent, %d failed in %.0fs", sent, failed, duration.Seconds())
-	recordRun(ctx, dbPool, "send", "completed", 0, 0, 0, sent, failed, duration, "")
+	recordRun(dbCtx, dbPool, "send", "completed", 0, 0, 0, sent, failed, duration, "")
 
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
 		var queueRemaining int
-		_ = dbPool.QueryRow(ctx, "SELECT COUNT(*) FROM email_queue WHERE status='pending'").Scan(&queueRemaining)
+		_ = dbPool.QueryRow(dbCtx, "SELECT COUNT(*) FROM email_queue WHERE status='pending'").Scan(&queueRemaining)
 
 		stats, _ := dbPool.GetTimeWindowStats(ctx)
 		statsBlock := ""
@@ -290,7 +292,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			sent, failed, queueRemaining, duration.Seconds(),
 			statsBlock,
 		)
-		_ = telegram.SendMessage(ctx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
+		_ = telegram.SendMessage(dbCtx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)
 	}
 
 	return 0
