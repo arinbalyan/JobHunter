@@ -39,7 +39,7 @@ type TemplateData struct {
 // Always presents as AI Engineer regardless of the actual job title,
 // since fallback templates are written for AI/ML roles.
 func (d *TemplateData) SubjectLine() string {
-	return "AI Engineer exploring opportunities"
+	return "Exploring AI Engineering opportunities"
 }
 
 // Templates are loaded lazily on first use.
