@@ -63,6 +63,7 @@ type Config struct {
 	EmailDelaySeconds   int
 	EmailDelay          time.Duration
 	DailyEmailLimit     int
+	FallbackOnly        bool
 
 	// Job Search
 	JobSearchTerms  []string
@@ -303,7 +304,7 @@ func (c *Config) Validate() error {
 	if c.GmailUser == "" || c.GmailAppPass == "" {
 		errs = append(errs, "GMAIL_USER and GMAIL_APP_PASS are required")
 	}
-	if len(c.GetActiveProviders()) == 0 {
+	if len(c.GetActiveProviders()) == 0 && !c.FallbackOnly {
 		errs = append(errs, "at least one LLM provider key is required")
 	}
 	if len(c.JobSearchTerms) == 0 {

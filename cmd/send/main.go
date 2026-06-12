@@ -45,6 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
+	cfg.FallbackOnly = fallbackOnly
 	yamlCfg, err := config.LoadYAML(".agent-data/config.yaml")
 	if err == nil {
 		yamlCfg.MergeIntoConfig(cfg)
