@@ -251,8 +251,10 @@ email_filters:
   - "contains:noreply"
   - "contains:do-not-reply"
   - "contains:donotreply"
-  - "contains:brillied.in"
-  - "contains:mediajenie.com"
+  - "contains:brillied"          # brillied.in, brillied@gmail.com, etc.
+  - "contains:mediajenie"        # mediajenie.com, mediajenie.org, etc.
+  - "contains:mediajeni"         # mediajeni@gmail.com variant
+  - "contains:medijenie"         # medijenie.com, medijenie.org, etc. (typo variant)
   # Suspicious TLDs
   - "tld:.tk"
   - "tld:.ml"
