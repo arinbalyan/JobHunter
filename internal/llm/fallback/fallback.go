@@ -148,11 +148,10 @@ func matchToTemplate(match string) string {
 func hardcodedFallback(d *TemplateData) string {
 	return fmt.Sprintf(
 		"Hi there,\n\n"+
-			"I'm an AI Engineer with experience building production AI systems, "+
-			"including RAG pipelines, LangChain/LangGraph agents, and AI automation workflows. "+
-			"I'm currently looking for full-time AI Engineering roles where I can build and deploy "+
-			"AI systems end-to-end.\n\n"+
-			"Happy to share more or jump on a quick call if there's a fit. Thanks for your time.\n\n"+
+			"I'm an AI Engineer with experience building production-grade RAG systems, "+
+			"LangChain/LangGraph agents, and AI automation pipelines at scale. "+
+			"I'm currently looking for full-time AI Engineering roles — onsite or remote. "+
+			"Happy to discuss this over a call or right here over email.\n\n"+
 			"Best regards,%s", contactBlock(d),
 	)
 }

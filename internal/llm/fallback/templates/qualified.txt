@@ -1,9 +1,7 @@
 Hi there,
 
-I'm an AI Engineer based in India, currently building production AI systems with a focus on LLM pipelines, agentic workflows, and backend services.
+I'm an AI Engineer based in India, currently building production-grade RAG systems, LangChain/LangGraph agents, and AI automation pipelines at scale.
 
-I'm actively looking for full-time AI Engineering roles where I can design and deploy AI systems end-to-end. I have experience building production-grade RAG systems, LangGraph agents, and AI automation pipelines.
-
-Happy to share more or jump on a quick call if there's a fit. Thanks for your time.
+I'm actively looking for full-time AI Engineering roles — onsite or remote — where I can design and deploy AI systems end-to-end. I'm happy to discuss this further over a call or right here over email.
 
 Best regards,
