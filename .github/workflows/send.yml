@@ -44,7 +44,7 @@ jobs:
           RESUME_DRIVE_LINK: ${{ secrets.RESUME_DRIVE_LINK }}
 
           # Limits
-          MAX_EMAILS_PER_RUN: ${{ vars.MAX_EMAILS_PER_RUN || '10' }}
+          MAX_EMAILS_PER_RUN: ${{ vars.MAX_EMAILS_PER_RUN || '500' }}
           EMAIL_DELAY_SECONDS: ${{ vars.EMAIL_DELAY_SECONDS || '15' }}
           DAILY_EMAIL_LIMIT: ${{ vars.DAILY_EMAIL_LIMIT || '500' }}
 
