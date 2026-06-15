@@ -255,6 +255,9 @@ email_filters:
   - "contains:mediajenie"        # mediajenie.com, mediajenie.org, etc.
   - "contains:mediajeni"         # mediajeni@gmail.com variant
   - "contains:medijenie"         # medijenie.com, medijenie.org, etc. (typo variant)
+  - "contains:disability"        # disability@, disability-accommodation@, etc.
+  - "contains:compliance"        # hr_compliance@, eeocompliance@, compliance@
+  - "contains:servicedesk"       # servicedesk@, service-desk@, etc.
   # Suspicious TLDs
   - "tld:.tk"
   - "tld:.ml"
@@ -282,7 +285,7 @@ dedup:
 
 # ─── Email Sending ─────────────────────────────────────
 email:
-  max_per_run: 10
+  max_per_run: 490
   delay_seconds: 15
   daily_limit: 500                # Gmail's hard cap
   retry_attempts: 3
