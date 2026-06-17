@@ -14,6 +14,7 @@ import (
 
 	"github.com/arinbalyan/jobhunter/internal/config"
 	"github.com/arinbalyan/jobhunter/internal/db"
+	"github.com/arinbalyan/jobhunter/internal/dedup"
 	"github.com/arinbalyan/jobhunter/internal/email/sender"
 	"github.com/arinbalyan/jobhunter/internal/llm/fallback"
 	"github.com/arinbalyan/jobhunter/internal/llm/prompt"
@@ -54,11 +55,16 @@ func main() {
 		log.Fatalf("Invalid config: %v", err)
 	}
 
+	cooldownDays := 30
+	if yamlCfg != nil {
+		cooldownDays = yamlCfg.Dedup.EmailCooldownDays
+	}
+
 	logger := logging.New(cfg.LogLevel, os.Stdout)
-	os.Exit(run(cfg, logger, dryRun, fallbackOnly))
+	os.Exit(run(cfg, logger, dryRun, fallbackOnly, cooldownDays))
 }
 
-func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly bool) int {
+func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly bool, cooldownDays int) int {
 	startTime := time.Now()
 
 	logger.Info("Send workflow starting...")
@@ -165,12 +171,13 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 
 	sent := 0
 	failed := 0
+	skipped := 0
 
 	for i, item := range queueItems {
 		select {
 		case <-ctx.Done():
-			logger.Info("interrupted after %d sent", sent)
-			recordRun(dbCtx, dbPool, "send", "interrupted", 0, len(queueItems)-i, 0, sent, failed, time.Since(startTime), "interrupted")
+			logger.Info("interrupted after %d sent, %d skipped", sent, skipped)
+			recordRun(dbCtx, dbPool, "send", "interrupted", 0, len(queueItems)-i, skipped, sent, failed, time.Since(startTime), "interrupted")
 			return 0
 		default:
 		}
@@ -211,6 +218,18 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			logger.Debug("TEST_EMAIL set: sending to %s instead of %s", testEmail, item.RecipientEmail)
 		}
 
+		// Dedup check: skip if already sent within cooldown or previously bounced
+		de := dedup.New(dbPool, cooldownDays)
+		if testEmail == "" {
+			canSend, reason := de.CanSend(dbCtx, recipientEmail)
+			if !canSend {
+				logger.Info("skipping (%d/%d): %s at %s -> %s — %s", i+1, len(queueItems), item.JobTitle, item.Company, recipientEmail, reason)
+				dbPool.UpdateQueueStatus(dbCtx, item.ID, "skipped", reason)
+				skipped++
+				continue
+			}
+		}
+
 		// Generate email via LLM or fallback
 		subject, body := generateEmail(ctx, llmRouter, sysPrompt, userPrompt, item, cfg.ContactName, cfg, logger)
 
@@ -237,6 +256,7 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			RecipientEmail: recipientEmail,
 			Subject:        subject,
 			BodyPreview:    truncate(body, 200),
+			SentAt:         time.Now(),
 			Status:         "sending",
 			TrackingID:     trackingID,
 			MessageID:      messageID,
@@ -271,8 +291,8 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 	}
 
 	duration := time.Since(startTime)
-	logger.Info("send complete: %d sent, %d failed in %.0fs", sent, failed, duration.Seconds())
-	recordRun(dbCtx, dbPool, "send", "completed", 0, 0, 0, sent, failed, duration, "")
+	logger.Info("send complete: %d sent, %d failed, %d skipped in %.0fs", sent, failed, skipped, duration.Seconds())
+	recordRun(dbCtx, dbPool, "send", "completed", 0, 0, skipped, sent, failed, duration, "")
 
 	if cfg.TelegramBotToken != "" && cfg.TelegramChatID != "" {
 		var queueRemaining int
@@ -288,9 +308,10 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 			"<b>📨 Send Complete</b>\n\n"+
 				"Sent: %d\n"+
 				"Failed: %d\n"+
+				"Skipped: %d\n"+
 				"Queue remaining: %d\n"+
 				"Duration: %.0fs%s",
-			sent, failed, queueRemaining, duration.Seconds(),
+			sent, failed, skipped, queueRemaining, duration.Seconds(),
 			statsBlock,
 		)
 		_ = telegram.SendMessage(dbCtx, cfg.TelegramBotToken, cfg.TelegramChatID, msg)

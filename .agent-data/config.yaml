@@ -258,6 +258,7 @@ email_filters:
   - "contains:disability"        # disability@, disability-accommodation@, etc.
   - "contains:compliance"        # hr_compliance@, eeocompliance@, compliance@
   - "contains:servicedesk"       # servicedesk@, service-desk@, etc.
+  - "contains:bop.gov"           # USA prison jobs — invalid addresses
   # Suspicious TLDs
   - "tld:.tk"
   - "tld:.ml"
@@ -275,7 +276,7 @@ email_filters:
 # ─── Deduplication ─────────────────────────────────────
 dedup:
   # Don't send to the same email within this many days
-  email_cooldown_days: 90
+  email_cooldown_days: 30
 
   # Don't send to the same domain within this many hours
   domain_cooldown_hours: 24
