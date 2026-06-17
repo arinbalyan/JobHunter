@@ -145,6 +145,19 @@ func (p *Pool) MarkReplied(ctx context.Context, messageID string) error {
 	return nil
 }
 
+// HasBounced returns true if any email to this address has bounced.
+func (p *Pool) HasBounced(ctx context.Context, email string) (bool, error) {
+	var count int
+	err := p.QueryRow(ctx,
+		`SELECT COUNT(*) FROM emails WHERE recipient_email = $1 AND bounced = true`,
+		email,
+	).Scan(&count)
+	if err != nil {
+		return false, fmt.Errorf("has bounced: %w", err)
+	}
+	return count > 0, nil
+}
+
 // GetSentEmailsCount returns how many emails were sent to a given address.
 func (p *Pool) GetSentEmailsCount(ctx context.Context, email string, since time.Duration) (int, error) {
 	var count int

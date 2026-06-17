@@ -30,6 +30,7 @@ func (d *Deduplicator) CanSend(ctx context.Context, recipientEmail string) (bool
 	if d.DB == nil {
 		return true, ""
 	}
+	// Check cooldown
 	cooldown := time.Duration(d.EmailCooldownDays) * 24 * time.Hour
 	count, err := d.DB.GetSentEmailsCount(ctx, recipientEmail, cooldown)
 	if err != nil {
@@ -37,6 +38,14 @@ func (d *Deduplicator) CanSend(ctx context.Context, recipientEmail string) (bool
 	}
 	if count > 0 {
 		return false, fmt.Sprintf("already sent to %s within %d days", recipientEmail, d.EmailCooldownDays)
+	}
+	// Check bounce history
+	bounced, err := d.DB.HasBounced(ctx, recipientEmail)
+	if err != nil {
+		return true, "" // On error, allow send (fail open)
+	}
+	if bounced {
+		return false, fmt.Sprintf("%s previously bounced — blocked", recipientEmail)
 	}
 	return true, ""
 }
