@@ -10,6 +10,8 @@ github.com/arinbalyan/scrappy v0.1.23 h1:N7fcB9XfiZuW+6oGOsjBG4qZ1rTLhT2fFMNhn7P
 github.com/arinbalyan/scrappy v0.1.23/go.mod h1:2QQggan+YJKtGlFBuzYJAit5lmYS9TP0H1/kYQycZgQ=
 github.com/arinbalyan/scrappy v0.1.28 h1:wLHU1/1f7Thtlo+41DRu2v6BJvWgg6UDsPO6PXiDyEs=
 github.com/arinbalyan/scrappy v0.1.28/go.mod h1:QLUyYmbI6Zux6U6yQUrvjzAIGud4yfvnCHP/aOjnQ28=
+github.com/arinbalyan/scrappy v0.1.29 h1:sCB2nZjHeZ3P0S8GUzSioyCfFjqPoB2rdLqErCpW6Dk=
+github.com/arinbalyan/scrappy v0.1.29/go.mod h1:QLUyYmbI6Zux6U6yQUrvjzAIGud4yfvnCHP/aOjnQ28=
 github.com/cenkalti/backoff/v4 v4.3.0 h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=
 github.com/cenkalti/backoff/v4 v4.3.0/go.mod h1:Y3VNntkOUPxTVeUxJ/G5vcM//AlwfmyYozVcomhLiZE=
 github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=
