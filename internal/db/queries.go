@@ -80,6 +80,10 @@ func (p *Pool) ReserveEmail(ctx context.Context, e *EmailRecord, cooldownDays in
 				WHERE recipient_email = $2
 				AND sent_at > NOW() - $10::INTERVAL
 			)
+			AND NOT EXISTS (
+				SELECT 1 FROM emails
+				WHERE recipient_email = $2 AND bounced = true
+			)
 			RETURNING id
 		)
 		SELECT EXISTS (SELECT 1 FROM reserved)`,

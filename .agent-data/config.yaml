@@ -231,6 +231,8 @@ reject_titles:
   - "restaurant"
   - "warehouse"
   - "electrician"
+  - "lawyer"             # Legal roles
+  - "paralegal"          # Legal roles
   - "plumber"
   - "mechanic"
   - "intern"            # Unless you want internships
@@ -272,6 +274,7 @@ email_filters:
   - "tld:.cn"
   - "tld:.ua"
   - "tld:.kz"
+  - "tld:.to"
 
 # ─── Deduplication ─────────────────────────────────────
 dedup:

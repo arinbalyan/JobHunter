@@ -15,9 +15,10 @@ import (
 	"syscall"
 	"time"
 
+	"net"
+
 	"github.com/arinbalyan/jobhunter/internal/config"
 	"github.com/arinbalyan/jobhunter/internal/db"
-	"github.com/arinbalyan/jobhunter/internal/dedup"
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
 	"github.com/arinbalyan/jobhunter/internal/scraper"
@@ -129,8 +130,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 	skipped := 0
 	skippedReasons := make(map[string]int)
 
-	de := dedup.New(dbPool, yamlCfg.Dedup.EmailCooldownDays)
-
 	for _, j := range jobs {
 		// 1. Title rejection
 		if yamlCfg.RejectTitle(j.Title) {
@@ -140,8 +139,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 		}
 
 		// 2. Extract and filter emails
-		// Prefer MX-verified emails (scrappy verifies via DNS MX lookup),
-		// then fall back to unverified ones.
 		emails := j.PreferredEmails()
 		if len(emails) == 0 {
 			skippedReasons["no_email"]++
@@ -149,7 +146,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 			continue
 		}
 
-		// Filter emails
 		var validEmails []string
 		for _, e := range emails {
 			if !yamlCfg.FilterEmail(e) {
@@ -166,23 +162,42 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 
 		primaryEmail := validEmails[0]
 
-		// 3. Dedup check (SELECT pre-check). The actual atomic gate
-		// is ReserveEmail inside MarkSent — no TOCTOU race.
-		canSend, reason := de.CanSend(dbCtx, primaryEmail)
-		if !canSend {
-			skippedReasons["dedup"]++
-			insertJob(dbCtx, dbPool, &j, "skipped", reason, primaryEmail, &skipped)
+		// 3. MX verify: check domain can receive email
+		if !verifyEmailMX(primaryEmail) {
+			skippedReasons["mx_invalid"]++
+			skipped++
 			continue
 		}
 
-		// 4. Mark as pending and queue for sending
+		// 4. Reserve email (atomic cooldown + bounce check).
+		// If NOT reserved, skip without touching jobs/queue tables.
+		trackingID := uuid.New().String()
+		reserved, err := dbPool.ReserveEmail(dbCtx, &db.EmailRecord{
+			RecipientEmail: primaryEmail,
+			Subject:        j.Title,
+			BodyPreview:    truncate(j.Description, 200),
+			Status:         "pending",
+			TrackingID:     trackingID,
+		}, yamlCfg.Dedup.EmailCooldownDays)
+		if err != nil {
+			log.Printf("reserve email for %s: %v", primaryEmail, err)
+		}
+		if !reserved {
+			skippedReasons["dedup"]++
+			skipped++
+			continue
+		}
+
+		// 5. Reserve succeeded — insert job and queue
 		jobID, err := insertJob(dbCtx, dbPool, &j, "pending", "", primaryEmail, &pending)
 		if err != nil {
 			log.Printf("queue job %s: insert failed: %v", j.ID, err)
 			continue
 		}
 
-		// Enqueue the job for the send workflow.
+		// Link the email record to the job
+		dbPool.Exec(dbCtx, `UPDATE emails SET job_id = $1 WHERE tracking_id = $2`, jobID, trackingID)
+
 		skillsJSON := "[]"
 		if len(j.Skills) > 0 {
 			b, _ := json.Marshal(j.Skills)
@@ -203,15 +218,6 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 		}); err != nil {
 			log.Printf("queue job %s: enqueue failed: %v", j.ID, err)
 		}
-
-		de.MarkSent(dbCtx, &db.EmailRecord{
-			JobID:          &jobID,
-			RecipientEmail: primaryEmail,
-			Subject:        j.Title,
-			BodyPreview:    truncate(j.Description, 200),
-			Status:         "pending",
-			TrackingID:     uuid.New().String(),
-		})
 	}
 
 	duration := time.Since(startTime)
@@ -342,6 +348,19 @@ func summarizeReasons(reasons map[string]int) string {
 		return ""
 	}
 	return strings.Join(parts, ", ")
+}
+
+// verifyEmailMX checks that the email's domain has MX records (can receive mail).
+func verifyEmailMX(email string) bool {
+	_, domain, ok := strings.Cut(email, "@")
+	if !ok || domain == "" {
+		return false
+	}
+	mxs, err := net.LookupMX(domain)
+	if err != nil || len(mxs) == 0 {
+		return false
+	}
+	return true
 }
 
 func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scraped, pending, skipped, sent, failed int, dur time.Duration, errMsg string) {
