@@ -15,14 +15,13 @@ import (
 	"syscall"
 	"time"
 
-	"net"
-
 	"github.com/arinbalyan/jobhunter/internal/config"
 	"github.com/arinbalyan/jobhunter/internal/db"
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
 	"github.com/arinbalyan/jobhunter/internal/scraper"
 	"github.com/arinbalyan/jobhunter/internal/telegram"
+	"github.com/arinbalyan/jobhunter/internal/verify"
 	"github.com/google/uuid"
 )
 
@@ -162,8 +161,8 @@ func run(cfg *config.Config, yamlCfg *config.YAMLConfig, logger *logging.Logger,
 
 		primaryEmail := validEmails[0]
 
-		// 3. MX verify: check domain can receive email
-		if !verifyEmailMX(primaryEmail) {
+		// 3. MX verify: check domain can receive email (RFC 5321)
+		if !verify.Email(primaryEmail) {
 			skippedReasons["mx_invalid"]++
 			skipped++
 			continue
@@ -348,19 +347,6 @@ func summarizeReasons(reasons map[string]int) string {
 		return ""
 	}
 	return strings.Join(parts, ", ")
-}
-
-// verifyEmailMX checks that the email's domain has MX records (can receive mail).
-func verifyEmailMX(email string) bool {
-	_, domain, ok := strings.Cut(email, "@")
-	if !ok || domain == "" {
-		return false
-	}
-	mxs, err := net.LookupMX(domain)
-	if err != nil || len(mxs) == 0 {
-		return false
-	}
-	return true
 }
 
 func recordRun(ctx context.Context, pool *db.Pool, workflow, status string, scraped, pending, skipped, sent, failed int, dur time.Duration, errMsg string) {

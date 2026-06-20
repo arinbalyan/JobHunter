@@ -22,6 +22,7 @@ import (
 	"github.com/arinbalyan/jobhunter/internal/logging"
 	"github.com/arinbalyan/jobhunter/internal/migrations"
 	"github.com/arinbalyan/jobhunter/internal/telegram"
+	"github.com/arinbalyan/jobhunter/internal/verify"
 	"github.com/google/uuid"
 )
 
@@ -209,6 +210,13 @@ func run(cfg *config.Config, logger *logging.Logger, dryRun bool, fallbackOnly b
 		if testEmail != "" {
 			recipientEmail = testEmail
 			logger.Debug("TEST_EMAIL set: sending to %s instead of %s", testEmail, item.RecipientEmail)
+		}
+
+		// MX verify at send time (safety net for items that snuck through)
+		if testEmail == "" && !verify.Email(recipientEmail) {
+			logger.Info("skipping (%d/%d): %s at %s -> %s — mx_invalid", i+1, len(queueItems), item.JobTitle, item.Company, recipientEmail)
+			dbPool.UpdateQueueStatus(dbCtx, item.ID, "skipped", "mx_invalid")
+			continue
 		}
 
 		// Generate email via LLM or fallback
