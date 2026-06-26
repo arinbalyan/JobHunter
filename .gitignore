@@ -3,3 +3,4 @@ config.toml
 target/
 .data/
 *.pdf
+scraper

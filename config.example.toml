@@ -23,7 +23,7 @@ phone = ""
 portfolio = "https://your-portfolio.com"
 github = "https://github.com/you"
 linkedin = "https://linkedin.com/in/you"
-resume_path = ".data/resume.pdf"
+resume_path = ".data/ArinBalyan.pdf"
 
 # ─── Job Search ────────────────────────────────────────
 [search]
@@ -82,23 +82,25 @@ temperature = 0.7
 name = "OpenRouter"
 api_key_env = "OPENROUTER_API_KEY"
 base_url = "https://openrouter.ai/api/v1"
-model_complex = "google/gemma-4-26b-a4b-it:free"
+model_complex = "google/gemma-4-31b-it:free"
 model_simple = "openrouter/free"
 weight = 10
+# June 2026: Gemma 4 31B (free) is best free model on OpenRouter.
 
 [[llm.providers]]
 name = "Groq"
 api_key_env = "GROQ_API_KEY"
 base_url = "https://api.groq.com/openai/v1"
-model_complex = "llama-3.3-70b-versatile"
-model_simple = "llama-3.1-8b-instant"
+model_complex = "openai/gpt-oss-120b"
+model_simple = "openai/gpt-oss-20b"
 weight = 5
+# June 2026: llama-3.3-70b and llama-3.1-8b deprecated June 17.
 
 [[llm.providers]]
 name = "Together"
 api_key_env = "TOGETHER_API_KEY"
 base_url = "https://api.together.xyz/v1"
-model_complex = "meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo"
+model_complex = "google/gemma-4-9b-it"
 model_simple = "google/gemma-4-9b-it"
 weight = 4
 
@@ -106,25 +108,18 @@ weight = 4
 name = "DeepInfra"
 api_key_env = "DEEPINFRA_API_KEY"
 base_url = "https://api.deepinfra.com/v1/openai"
-model_complex = "meta-llama/Meta-Llama-3.3-70B-Instruct"
-model_simple = "meta-llama/Meta-Llama-3.3-70B-Instruct"
+model_complex = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+model_simple = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
 weight = 4
-
-[[llm.providers]]
-name = "Fireworks"
-api_key_env = "FIREWORKS_API_KEY"
-base_url = "https://api.fireworks.ai/inference/v1"
-model_complex = "accounts/fireworks/models/llama-v3p3-70b-instruct"
-model_simple = "accounts/fireworks/models/llama-v3p3-70b-instruct"
-weight = 3
 
 [[llm.providers]]
 name = "Hyperbolic"
 api_key_env = "HYPERBOLIC_API_KEY"
 base_url = "https://api.hyperbolic.xyz/v1"
-model_complex = "meta-llama/Meta-Llama-3.3-70B-Instruct"
-model_simple = "meta-llama/Meta-Llama-3.3-70B-Instruct"
+model_complex = "qwen3-coder-480b-a35b-instruct:free"
+model_simple = "deepseek-r1-0528:free"
 weight = 3
+# June 2026: Qwen3-Coder-480B and DeepSeek-R1-0528 free.
 
 [[llm.providers]]
 name = "SambaNova"
@@ -138,9 +133,10 @@ weight = 3
 name = "Cerebras"
 api_key_env = "CEREBRAS_API_KEY"
 base_url = "https://api.cerebras.ai/v1"
-model_complex = "google/gemma-4-9b-it"
-model_simple = "google/gemma-4-9b-it"
+model_complex = "zai-glm-4.7"
+model_simple = "gpt-oss-120b"
 weight = 2
+# June 2026: Free tier. zai-glm-4.7 and gpt-oss-120b.
 
 [[llm.providers]]
 name = "ZAI"
