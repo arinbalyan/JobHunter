@@ -36,6 +36,10 @@ struct ScraperInput {
     results_wanted: i32,
     verify_email: bool,
     description_format: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    site_search: Option<std::collections::HashMap<String, Vec<String>>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    site_location: Option<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Debug, Deserialize, Clone, Serialize)]
@@ -71,38 +75,42 @@ fn is_title_rejected(title: &str, patterns: &[String]) -> bool {
     patterns.iter().any(|p| lower.contains(&p.to_lowercase()))
 }
 
-const BLOCKED_EMAIL_PREFIXES: &[&str] = &[
-    "no-reply", "noreply", "do-not-reply", "donotreply",
-    "accommodation@", "accommodations@",
-];
-
-const BLOCKED_EMAIL_CONTAINS: &[&str] = &[
-    "no-reply", "noreply", "do-not-reply", "donotreply",
-    "accessibility", "accommodation", "accomodation",
-    "brillied", "mediajenie", "mediajeni", "medijenie",
-    "disability", "compliance", "servicedesk",
-    "bop.gov",
-];
-
-const BLOCKED_TLDS: &[&str] = &[
-    ".test", ".example", ".invalid", ".local", ".localhost",
-    ".tk", ".ml", ".ga", ".cf", ".gq",
-    ".xyz", ".top", ".work", ".ru", ".cn", ".ua", ".kz", ".to",
-];
-
-fn is_email_filtered(addr: &str) -> bool {
+fn is_email_filtered(addr: &str, cfg: &crate::config::ScrapeConfig) -> bool {
     let lower = addr.to_lowercase();
-    BLOCKED_EMAIL_PREFIXES.iter().any(|p| lower.starts_with(p))
-        || BLOCKED_EMAIL_CONTAINS.iter().any(|p| lower.contains(p))
-        || BLOCKED_TLDS.iter().any(|t| lower.ends_with(t))
+    let prefixes = cfg.blocked_email_prefixes.as_deref().unwrap_or(&[]);
+    let contains = cfg.blocked_email_contains.as_deref().unwrap_or(&[]);
+    let tlds = cfg.blocked_tlds.as_deref().unwrap_or(&[]);
+    prefixes.iter().any(|p| lower.starts_with(&p.to_lowercase()))
+        || contains.iter().any(|p| lower.contains(&p.to_lowercase()))
+        || tlds.iter().any(|t| lower.ends_with(&t.to_lowercase()))
 }
 
-fn filter_emails(emails: &[Email]) -> Vec<Email> {
-    emails.iter().filter(|e| !is_email_filtered(&e.addr)).cloned().collect()
+fn filter_emails(emails: &[Email], cfg: &crate::config::ScrapeConfig) -> Vec<Email> {
+    emails.iter().filter(|e| !is_email_filtered(&e.addr, cfg)).cloned().collect()
 }
 
-fn has_valid_email(emails: &[Email]) -> bool {
-    emails.iter().any(|e| !is_email_filtered(&e.addr))
+fn has_valid_email(emails: &[Email], cfg: &crate::config::ScrapeConfig) -> bool {
+    emails.iter().any(|e| !is_email_filtered(&e.addr, cfg))
+}
+
+/// Build per-site search/location maps from optional config section.
+fn build_site_config(sites: &Option<std::collections::HashMap<String, crate::config::SiteConfig>>)
+    -> (Option<std::collections::HashMap<String, Vec<String>>>, Option<std::collections::HashMap<String, String>>)
+{
+    let sites = match sites { Some(s) => s, None => return (None, None) };
+    let mut search = std::collections::HashMap::new();
+    let mut location = std::collections::HashMap::new();
+    for (name, cfg) in sites {
+        if !cfg.search_terms.is_empty() {
+            search.insert(name.clone(), cfg.search_terms.clone());
+        }
+        if let Some(ref loc) = cfg.location {
+            location.insert(name.clone(), loc.clone());
+        }
+    }
+    let s = if search.is_empty() { None } else { Some(search) };
+    let l = if location.is_empty() { None } else { Some(location) };
+    (s, l)
 }
 
 // ── Scrape execution ───────────────────────────────────────
@@ -140,6 +148,8 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     let max_runtime_secs = scrape_cfg.max_runtime_minutes.unwrap_or(490) * 60;
     let results_wanted = scrape_cfg.results_wanted.unwrap_or(0);
 
+    let (site_search, site_location) = build_site_config(&config.sites);
+
     let input = BridgeInput {
         scraper_input: ScraperInput {
             search_terms: preset.terms.clone(),
@@ -149,6 +159,8 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
             results_wanted,
             verify_email: true,
             description_format: "markdown".to_string(),
+            site_search,
+            site_location,
         },
         timeout_seconds: max_runtime_secs,
     };
@@ -189,15 +201,16 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     let mut filtered_email = 0;
 
     for job in &jobs {
-        if is_title_rejected(&job.title, &scrape_cfg.reject_titles) {
+        let reject_pats = scrape_cfg.reject_titles.as_deref().unwrap_or(&[]);
+        if is_title_rejected(&job.title, reject_pats) {
             filtered_title += 1;
             continue;
         }
-        if !has_valid_email(&job.emails) {
+        if !has_valid_email(&job.emails, scrape_cfg) {
             filtered_email += 1;
             continue;
         }
-        let clean_emails = filter_emails(&job.emails);
+        let clean_emails = filter_emails(&job.emails, scrape_cfg);
         match insert_job(&pool, job, &clean_emails).await {
             Ok(_) => {
                 if let Err(e) = queue_emails(&pool, job, &clean_emails).await {

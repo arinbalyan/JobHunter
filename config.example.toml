@@ -52,6 +52,17 @@ reject_titles = [
     "chef", "cook", "restaurant", "warehouse",
     "electrician", "plumber", "mechanic",
 ]
+blocked_email_prefixes = [
+    "no-reply", "noreply", "do-not-reply", "donotreply",
+]
+blocked_email_contains = [
+    "no-reply", "noreply", "do-not-reply", "donotreply",
+    "accessibility", "accommodation",
+]
+blocked_tlds = [
+    ".test", ".example", ".invalid",
+    ".tk", ".ml", ".ga",
+]
 
 # Two presets: ./jobhunter scrape --mode remote|onsite
 

@@ -12,8 +12,8 @@ import (
 	scrappy "github.com/arinbalyan/scrappy/pkg/scrappy"
 )
 
-// ponytail: stdin JSON has scrappy.ScraperInput plus extra fields.
-// We extract timeout_seconds separately, pass the rest to scrappy.
+// ponytail: stdin has scrappy.ScraperInput + timeout_seconds.
+// scrappy.ScraperInput already has SiteSearch/SiteLocation with json tags.
 
 type bridgeInput struct {
 	scrappy.ScraperInput
@@ -33,7 +33,7 @@ func main() {
 
 	timeout := time.Duration(raw.TimeoutSeconds) * time.Second
 	if timeout <= 0 {
-		timeout = 10 * time.Minute // safety net
+		timeout = 10 * time.Minute
 	}
 
 	engine := scrappy.NewEngine()

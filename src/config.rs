@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::path::Path;
 
 // ponytail: only fields that Phase 1 reads. Extra TOML sections silently ignored.
@@ -13,6 +14,17 @@ pub struct Config {
     pub telegram: TelegramConfig,
     pub templates: Templates,
     pub llm: LlmConfig,
+    /// Optional path to scrappy's config.toml. If set, its [sites] section is loaded
+    /// and merged into `sites` for per-site search term overrides.
+    pub scrappy_config: Option<String>,
+    pub sites: Option<HashMap<String, SiteConfig>>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SiteConfig {
+    #[serde(default, alias = "search")]
+    pub search_terms: Vec<String>,
+    pub location: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -43,7 +55,10 @@ pub struct SearchPreset {
 pub struct ScrapeConfig {
     pub max_runtime_minutes: Option<i32>,
     pub results_wanted: Option<i32>,
-    pub reject_titles: Vec<String>,
+    pub reject_titles: Option<Vec<String>>,
+    pub blocked_email_prefixes: Option<Vec<String>>,
+    pub blocked_email_contains: Option<Vec<String>>,
+    pub blocked_tlds: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -99,7 +114,38 @@ impl Config {
         let config_path = Self::find_path()?;
         let raw = std::fs::read_to_string(&config_path)?;
         let resolved = resolve_env_vars(&raw);
-        let cfg: Config = toml::from_str(&resolved)?;
+        let mut cfg: Config = toml::from_str(&resolved)?;
+
+        // If scrappy_config is set, load scrappy's config.toml and merge its [sites] section
+        if let Some(scrappy_path) = &cfg.scrappy_config {
+            let scrappy_path = if scrappy_path.starts_with("~") {
+                let home = std::env::var("HOME").unwrap_or_default();
+                Path::new(&home).join(&scrappy_path[2..])
+            } else {
+                Path::new(scrappy_path).to_path_buf()
+            };
+            if scrappy_path.exists() {
+                let scrappy_raw = std::fs::read_to_string(&scrappy_path)
+                    .map_err(|e| anyhow::anyhow!("failed to read scrappy config {}: {}", scrappy_path.display(), e))?;
+                // Parse only the [sites] section from scrappy's config
+                #[derive(Deserialize)]
+                struct ScrappyCfg {
+                    sites: Option<HashMap<String, SiteConfig>>,
+                }
+                if let Ok(sc) = toml::from_str::<ScrappyCfg>(&scrappy_raw) {
+                    if let Some(site_overrides) = sc.sites {
+                        let mut combined = cfg.sites.take().unwrap_or_default();
+                        for (name, scfg) in site_overrides {
+                            combined.insert(name, scfg);
+                        }
+                        cfg.sites = Some(combined);
+                    }
+                }
+            } else {
+                tracing::warn!("scrappy_config not found: {}", scrappy_path.display());
+            }
+        }
+
         Ok(cfg)
     }
 
