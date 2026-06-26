@@ -56,6 +56,7 @@ pub struct Templates {
     pub email_user: TemplateContent,
     pub scoring: TemplateContent,
     pub research: TemplateContent,
+    pub triage: TemplateContent,
 }
 
 #[derive(Debug, Deserialize, Clone)]

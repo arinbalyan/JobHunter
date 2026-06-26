@@ -10,6 +10,7 @@ mod send;
 mod smtp;
 mod telegram;
 mod tracker;
+mod triage;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
@@ -48,6 +49,11 @@ enum Commands {
     },
     /// HTTP tracking server (opens, clicks, health)
     Serve,
+    /// Classify a recruiter reply (positive/negative/neutral/unclear)
+    Triage {
+        /// The reply text to classify
+        reply: String,
+    },
     /// Run diagnostics
     Doctor,
 }
@@ -106,6 +112,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             let result = send::run(cfg, Some(max)).await?;
             println!("📧 Send complete: {} total, {} generated, {} failed",
                 result.total, result.generated, result.failed);
+            Ok(())
+        }
+        Commands::Triage { reply } => {
+            let cfg = config::Config::load()?;
+            let result = triage::run(&cfg, &reply).await?;
+            println!("📬 Reply classification: {}", result);
             Ok(())
         }
         Commands::Serve => {
