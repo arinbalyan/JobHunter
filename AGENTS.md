@@ -330,8 +330,9 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] HTTP tracking server — axum: /track, /click, /health, /version
 - [x] Open/click pixel logging to DB — tracking table INSERT/UPDATE per event
 - [x] Run log persistence — write_run_log() after scrape and send
-- [ ] Telegram alerts per workflow
+- [x] Telegram alerts — rich scrape report with timing, mode, sites/terms count
 #### Deferred
+- Send workflow Telegram report (minor — scrape covers the pipeline)
 - User-facing inbox dashboard (./jobhunter inbox) — Phase 5
 
 ### Phase 5: Polish + Deploy

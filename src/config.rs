@@ -54,6 +54,7 @@ pub struct LlmConfig {
 pub struct Templates {
     pub email_system: TemplateContent,
     pub email_user: TemplateContent,
+    pub scoring: TemplateContent,
 }
 
 #[derive(Debug, Deserialize, Clone)]

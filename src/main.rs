@@ -4,6 +4,7 @@ mod config;
 mod db;
 mod llm;
 mod scrape;
+mod score;
 mod send;
 mod smtp;
 mod telegram;
@@ -28,6 +29,12 @@ enum Commands {
     },
     /// Generate emails for queued jobs via LLM
     Send {
+        /// Max concurrent LLM calls
+        #[arg(long, default_value = "10")]
+        max: usize,
+    },
+    /// Score unscored jobs (1-10) via LLM
+    Score {
         /// Max concurrent LLM calls
         #[arg(long, default_value = "10")]
         max: usize,
@@ -72,6 +79,13 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             if let Err(e) = telegram::send_scrape_report(&telegram_cfg, &result).await {
                 tracing::warn!("telegram report failed: {}", e);
             }
+            Ok(())
+        }
+        Commands::Score { max } => {
+            let cfg = config::Config::load()?;
+            let result = score::run(cfg, Some(max)).await?;
+            println!("🎯 Score complete: {} total, {} scored, {} failed",
+                result.total, result.scored, result.failed);
             Ok(())
         }
         Commands::Send { max } => {
