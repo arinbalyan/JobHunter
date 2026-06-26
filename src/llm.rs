@@ -27,9 +27,7 @@ struct Health {
 pub struct Router {
     providers: Vec<Provider>,
     health: Vec<Health>,
-    total_weight: u32,
-    index: usize,       // round-robin position
-    tick: u64,          // monotonically increasing counter for deterministic selection
+    rng: fastrand::Rng,
 }
 
 #[derive(Debug, Deserialize)]
@@ -44,33 +42,36 @@ struct ModelEntry {
 
 impl Router {
     pub fn new(providers: Vec<Provider>) -> Self {
-        let total_weight = providers.iter().map(|p| p.weight).sum();
         let health = vec![
             Health { failures: 0, cooldown_until: None };
             providers.len()
         ];
-        Router { providers, health, total_weight, index: 0, tick: 0 }
+        Router { providers, health, rng: fastrand::Rng::new() }
     }
 
-    /// Select a healthy provider using weighted round-robin.
-    fn select(&mut self, _complex: bool) -> Option<(usize, &Provider)> {
+    /// Select a healthy provider using weighted random selection.
+    fn select(&mut self) -> Option<(usize, &Provider)> {
         let n = self.providers.len();
-        for _ in 0..n {
-            self.index = (self.index + 1) % n;
-            let h = &self.health[self.index];
+        // Build a list of healthy indices, weighted
+        let mut candidates: Vec<usize> = Vec::new();
+        for i in 0..n {
+            let h = &self.health[i];
             if h.failures >= MAX_FAILURES {
                 if let Some(cooldown) = h.cooldown_until {
                     if Instant::now() < cooldown {
                         continue; // still cooling down
                     }
                     // cooldown expired — reset
-                    self.health[self.index].failures = 0;
-                    self.health[self.index].cooldown_until = None;
+                    self.health[i].failures = 0;
+                    self.health[i].cooldown_until = None;
                 }
             }
-            return Some((self.index, &self.providers[self.index]));
+            let weight = self.providers[i].weight.max(1) as usize;
+            for _ in 0..weight { candidates.push(i); }
         }
-        None // all providers unhealthy
+        if candidates.is_empty() { return None; }
+        let idx = candidates[self.rng.usize(0..candidates.len())];
+        Some((idx, &self.providers[idx]))
     }
 
     /// Mark a provider as failed, potentially triggering cooldown.
@@ -102,7 +103,7 @@ impl Router {
         let mut last_err = anyhow::anyhow!("no providers available");
 
         for _ in 0..MAX_FAILOVER {
-            let (idx, provider) = match self.select(complex) {
+            let (idx, provider) = match self.select() {
                 Some(p) => p,
                 None => { return Err(last_err); }
             };

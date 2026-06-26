@@ -311,8 +311,11 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] GH Actions workflow — 4x daily, builds Rust + Go, runs scrape
 - [x] Onsite/remote mode selector — `--mode remote|onsite`, two config presets with separate sites/terms/locations
 
-### Phase 3: Send Workflow
-- [ ] LLM router (9 providers, weighted round-robin, failover)
+### Phase 3: Send Workflow (Current)
+- [x] LLM router — weighted round-robin + failover chain (3 attempts)
+- [x] Health tracking — 3 consecutive failures → 30s cooldown, auto-recovery
+- [x] `/models` discovery — checks all 9 providers at startup, logs available models + warns if configured model missing
+- [x] OpenAI-compatible completion — single `complete()` function works across all providers
 - [ ] Email generation via LLM (prompts from config.toml)
 - [ ] Template fallback emails
 - [ ] Concurrent generation (tokio + semaphore, max 10)

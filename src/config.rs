@@ -9,12 +9,16 @@ pub struct Config {
     pub search: Search,
     pub scrape: ScrapeConfig,
     pub telegram: TelegramConfig,
+    pub templates: Templates,
     pub llm: LlmConfig,
 }
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct User {
     pub name: String,
+    pub current_role: String,
+    pub years_experience: i32,
+    pub resume_path: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -40,6 +44,17 @@ pub struct ScrapeConfig {
 #[derive(Debug, Deserialize, Clone)]
 pub struct LlmConfig {
     pub providers: Vec<LlmProvider>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Templates {
+    pub email_system: TemplateContent,
+    pub email_user: TemplateContent,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TemplateContent {
+    pub content: String,
 }
 
 #[derive(Debug, Deserialize, Clone)]

@@ -2,6 +2,7 @@ mod config;
 mod db;
 mod llm;
 mod scrape;
+mod send;
 mod telegram;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -20,6 +21,12 @@ enum Commands {
         /// Search mode: remote (global) or onsite (India/hybrid)
         #[arg(long, default_value = "remote")]
         mode: ScrapeMode,
+    },
+    /// Generate emails for queued jobs via LLM
+    Send {
+        /// Max concurrent LLM calls
+        #[arg(long, default_value = "10")]
+        max: usize,
     },
     /// Run diagnostics
     Doctor,
@@ -59,6 +66,13 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             if let Err(e) = telegram::send_scrape_report(&telegram_cfg, &result).await {
                 tracing::warn!("telegram report failed: {}", e);
             }
+            Ok(())
+        }
+        Commands::Send { max } => {
+            let cfg = config::Config::load()?;
+            let result = send::run(cfg, Some(max)).await?;
+            println!("📧 Send complete: {} total, {} generated, {} failed",
+                result.total, result.generated, result.failed);
             Ok(())
         }
         Commands::Doctor => doctor().await,
