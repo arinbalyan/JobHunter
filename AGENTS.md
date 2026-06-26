@@ -77,7 +77,7 @@ scrappy is at `~/projects/scrappy/` (v0.3.5, 141 sites, 49 working). Consumed as
 | Groq | openai/gpt-oss-120b | 5 |
 | Together | google/gemma-4-9b-it | 4 |
 | DeepInfra | Llama-3.3-70B-Instruct-Turbo | 4 |
-| Hyperbolic | qwen3-coder-480b-a35b-instruct:free | 3 |
+| Hyperbolic | Qwen3-Coder-480B-A35B-Instruct | 3 |
 | SambaNova | Meta-Llama-3.3-70B-Instruct | 3 |
 | Cerebras | zai-glm-4.7 | 2 |
 | Z.AI | GLM-4-Plus | 1 |
