@@ -1,0 +1,8 @@
+{
+  "name": "jobhunter-tracker",
+  "private": true,
+  "engines": { "node": "20.x" },
+  "dependencies": {
+    "pg": "^8.13"
+  }
+}

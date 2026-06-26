@@ -3,3 +3,4 @@ config.toml
 target/
 scraper
 scrappy_improvements.md
+.vercel

@@ -1,0 +1,4 @@
+// ponytail: Vercel serverless — health check.
+export default function handler(req, res) {
+  res.status(200).send('ok');
+}
