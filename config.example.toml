@@ -23,7 +23,7 @@ phone = ""
 portfolio = "https://your-portfolio.com"
 github = "https://github.com/you"
 linkedin = "https://linkedin.com/in/you"
-resume_path = ".data/ArinBalyan.pdf"
+resume_path = ".data/your-resume.pdf"
 
 # ─── Job Search ────────────────────────────────────────
 [scrape]

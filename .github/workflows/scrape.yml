@@ -1,0 +1,51 @@
+name: Scrape Jobs
+on:
+  schedule:
+    # 4x daily at IST: 6 AM, 12 PM, 6 PM, 12 AM
+    # IST = UTC + 5:30
+    - cron: '30 0 * * *'
+    - cron: '30 6 * * *'
+    - cron: '30 12 * * *'
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+
+jobs:
+  scrape:
+    name: Scrape Jobs
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache: true
+
+      - name: Build Go scraper bridge
+        run: cd scraper && go build -o ../scraper .
+
+      - name: Build Rust binary
+        run: cargo build --release
+
+      - name: Create config
+        run: cp config.example.toml config.toml
+
+      - name: Run scrape
+        run: ./target/release/jobhunter scrape
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SCRAPPY_INDEED_API_KEY: ${{ secrets.SCRAPPY_INDEED_API_KEY }}
+          SCRAPPY_DICE_API_KEY: ${{ secrets.SCRAPPY_DICE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+          HYPERBOLIC_API_KEY: ${{ secrets.HYPERBOLIC_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
