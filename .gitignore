@@ -1,0 +1,5 @@
+.env
+config.toml
+target/
+.data/
+*.pdf

@@ -1,0 +1,245 @@
+# ─────────────────────────────────────────────────────────
+# JobHunter Configuration Example
+# ─────────────────────────────────────────────────────────
+# Copy to config.toml, fill in your values.
+# config.toml is gitignored — your local config stays local.
+# Secrets (API keys) go in .env or GitHub Secrets, referenced
+# as $VAR_NAME in this file.
+#
+# Usage:
+#   cp config.example.toml config.toml
+#   # edit config.toml with your preferences
+#   # add API keys to .env
+#   ./jobhunter scrape
+# ─────────────────────────────────────────────────────────
+
+# ─── User Profile ──────────────────────────────────────
+[user]
+name = "Your Name"
+email = "your.email@gmail.com"
+current_role = "Software Engineer"
+years_experience = 0
+phone = ""
+portfolio = "https://your-portfolio.com"
+github = "https://github.com/you"
+linkedin = "https://linkedin.com/in/you"
+resume_path = ".data/resume.pdf"
+
+# ─── Job Search ────────────────────────────────────────
+[search]
+terms = [
+    '"Software Engineer"',
+    '"Backend Developer"',
+]
+locations = ["remote"]
+sites = ["linkedin", "indeed", "greenhouse"]
+remote_only = true
+job_type = "fulltime"
+results_per_site = 0        # 0 = no limit
+hours_old = 0                # 0 = no time filter
+
+# ─── Database ─────────────────────────────────────────
+[database]
+# Connection string. Env var reference ($VAR) resolved at load.
+url = "$DATABASE_URL"
+
+# ─── Email Sending ────────────────────────────────────
+[email]
+daily_limit = 500
+delay_seconds = 15
+max_per_run = 490
+from_name = "Your Name"
+from_addr = "$GMAIL_USER"    # resolves from .env
+
+# ─── Deduplication ────────────────────────────────────
+[dedup]
+email_cooldown_days = 30
+domain_cooldown_hours = 24
+company_cooldown_hours = 24
+
+# ─── Telegram Alerts ──────────────────────────────────
+[telegram]
+chat_id = "123456789"         # your Telegram chat ID
+
+# ─── Email Tracking Server ────────────────────────────
+[tracking]
+server_url = "https://jobhunter-tracker.vercel.app"
+port = 8080
+
+# ─── LLM Router ───────────────────────────────────────
+[llm]
+max_tokens_per_run = 100000
+max_tokens_per_request = 2048
+temperature = 0.7
+
+# Each provider references its API key via api_key_env.
+# The env var name it points to must be set in .env or
+# available as a GitHub Secret.
+#
+# Providers with no api_key set are skipped at startup.
+
+[[llm.providers]]
+name = "OpenRouter"
+api_key_env = "OPENROUTER_API_KEY"
+base_url = "https://openrouter.ai/api/v1"
+model_complex = "google/gemma-4-26b-a4b-it:free"
+model_simple = "openrouter/free"
+weight = 10
+
+[[llm.providers]]
+name = "Groq"
+api_key_env = "GROQ_API_KEY"
+base_url = "https://api.groq.com/openai/v1"
+model_complex = "llama-3.3-70b-versatile"
+model_simple = "llama-3.1-8b-instant"
+weight = 5
+
+[[llm.providers]]
+name = "Together"
+api_key_env = "TOGETHER_API_KEY"
+base_url = "https://api.together.xyz/v1"
+model_complex = "meta-llama/Meta-Llama-3.3-70B-Instruct-Turbo"
+model_simple = "google/gemma-4-9b-it"
+weight = 4
+
+[[llm.providers]]
+name = "DeepInfra"
+api_key_env = "DEEPINFRA_API_KEY"
+base_url = "https://api.deepinfra.com/v1/openai"
+model_complex = "meta-llama/Meta-Llama-3.3-70B-Instruct"
+model_simple = "meta-llama/Meta-Llama-3.3-70B-Instruct"
+weight = 4
+
+[[llm.providers]]
+name = "Fireworks"
+api_key_env = "FIREWORKS_API_KEY"
+base_url = "https://api.fireworks.ai/inference/v1"
+model_complex = "accounts/fireworks/models/llama-v3p3-70b-instruct"
+model_simple = "accounts/fireworks/models/llama-v3p3-70b-instruct"
+weight = 3
+
+[[llm.providers]]
+name = "Hyperbolic"
+api_key_env = "HYPERBOLIC_API_KEY"
+base_url = "https://api.hyperbolic.xyz/v1"
+model_complex = "meta-llama/Meta-Llama-3.3-70B-Instruct"
+model_simple = "meta-llama/Meta-Llama-3.3-70B-Instruct"
+weight = 3
+
+[[llm.providers]]
+name = "SambaNova"
+api_key_env = "SAMBANOVA_API_KEY"
+base_url = "https://api.sambanova.ai/v1"
+model_complex = "Meta-Llama-3.3-70B-Instruct"
+model_simple = "Meta-Llama-3.3-70B-Instruct"
+weight = 3
+
+[[llm.providers]]
+name = "Cerebras"
+api_key_env = "CEREBRAS_API_KEY"
+base_url = "https://api.cerebras.ai/v1"
+model_complex = "google/gemma-4-9b-it"
+model_simple = "google/gemma-4-9b-it"
+weight = 2
+
+[[llm.providers]]
+name = "ZAI"
+api_key_env = "ZAI_API_KEY"
+base_url = "https://open.bigmodel.cn/api/paas/v4"
+model_complex = "GLM-4-Plus"
+model_simple = "GLM-4-Air"
+weight = 1
+
+# ─── Prompt Templates ─────────────────────────────────
+# All prompts the LLM uses. Edit these without recompiling.
+# Placeholders: {name}, {company}, {title}, {description},
+# {skills}, {experience}, {context}, etc.
+
+[templates.email_system]
+# System prompt for email generation
+content = """\
+You are a professional job applicant writing a cold outreach email. You write in a natural, confident first-person voice.
+
+## Core Rules
+1. Write in FIRST PERSON as the applicant.
+2. Keep the email between 120 and 300 words.
+3. Structure: 4-5 short paragraphs (2-3 sentences each).
+4. Be specific — mention a concrete skill, project, or achievement.
+5. No URLs, markdown, HTML, emojis, or placeholders.
+
+## Output Format
+SUBJECT: Your subject line here
+
+Your email body here — plain text only.
+"""
+
+[templates.email_user]
+# User prompt for email generation — filled per-job
+content = """\
+## Applicant Context
+{context}
+
+## Target Position
+- Title: {title}
+- Company: {company}
+- Description: {description}
+- Seniority: {seniority}
+- Location: {location}
+- Skills: {skills}
+- Industry: {industry}
+- Experience Match: {experience_match}
+
+Write a cold outreach email to the hiring team.
+"""
+
+[templates.followup_system]
+content = """\
+You are writing a polite follow-up email. You previously applied for a role and haven't heard back. Keep it brief, professional, and genuine.
+
+## Rules
+1. First person, 60-100 words.
+2. Reference the original application naturally.
+3. End with a low-friction call to action.
+4. No URLs, markdown, HTML, or emojis.
+
+## Output Format
+SUBJECT: Your subject here
+
+Your body here.
+"""
+
+[templates.followup_user]
+content = """\
+You applied for {title} at {company} {days_ago} days ago. Write a brief follow-up email.
+"""
+
+[templates.scoring]
+content = """\
+Score this job match from 1-10 based on how well the user's profile fits.
+
+User: {current_role} ({years_experience} years)
+Job: {title} at {company}
+Description: {description}
+Skills required: {skills}
+
+Return only a number 1-10.
+"""
+
+[templates.research]
+content = """\
+Given this job posting and company, generate 3 specific talking points for an outreach email that shows genuine research.
+
+Job: {title} at {company}
+Description: {description}
+
+Format: one short bullet per talking point.
+"""
+
+[templates.triage]
+content = """\
+Classify this email reply as one of: positive | negative | neutral | unclear
+
+Reply: {reply_text}
+
+Return one word only.
+"""
