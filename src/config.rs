@@ -43,6 +43,7 @@ pub struct SearchPreset {
 pub struct ScrapeConfig {
     pub max_runtime_minutes: Option<i32>,
     pub results_wanted: Option<i32>,
+    pub reject_titles: Vec<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

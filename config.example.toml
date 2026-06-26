@@ -29,6 +29,29 @@ resume_url = ""    # Google Drive link to resume
 [scrape]
 max_runtime_minutes = 490
 results_wanted = 0
+reject_titles = [
+    "senior", "sr ", "staff", "principal", "lead", "manager",
+    "director", "head of", "vp ", "vice president", "chief",
+    "embedded", "firmware", "hardware", "qa ", "quality",
+    "tester", "test engineer", "sdet", "manual",
+    "data scientist", "data analyst", "data engineer",
+    "devops engineer", "site reliability", "platform engineer",
+    "network", "security engineer", "infosec", "sysadmin",
+    "admin", "support", "it ", "help desk",
+    "trainee", "apprentice", "intern", "fresher",
+    "graduate", "entry level", "junior",
+    "teacher", "professor", "instructor", "tutor",
+    "nurse", "nursing", "medical assistant", "healthcare",
+    "cashier", "retail associate", "sales associate",
+    "customer service", "call center", "receptionist",
+    "driver", "delivery driver", "truck driver",
+    "security guard", "cleaning", "janitor",
+    "marketing coordinator", "social media manager",
+    "hr manager", "hr coordinator", "recruiter", "talent acquisition",
+    "accountant", "auditor", "lawyer", "paralegal",
+    "chef", "cook", "restaurant", "warehouse",
+    "electrician", "plumber", "mechanic",
+]
 
 # Two presets: ./jobhunter scrape --mode remote|onsite
 

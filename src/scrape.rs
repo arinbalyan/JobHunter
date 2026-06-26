@@ -66,30 +66,34 @@ pub struct JobPost {
     pub quality_score: i32,
 }
 
-const REJECTED_TITLES: &[&str] = &[
-    "senior", "sr ", "staff", "principal", "lead", "manager",
-    "director", "head of", "vp ", "vice president", "chief",
-    "embedded", "firmware", "hardware", "qa ", "quality",
-    "tester", "test engineer", "sdet", "manual",
-    "data scientist", "data analyst", "data engineer",
-    "devops engineer", "site reliability", "platform engineer",
-    "network", "security engineer", "infosec", "sysadmin",
-    "admin", "support", "it ", "help desk",
-    "trainee", "apprentice", "intern", "fresher",
-    "graduate", "entry level", "junior",
-];
-
-fn is_title_rejected(title: &str) -> bool {
+fn is_title_rejected(title: &str, patterns: &[String]) -> bool {
     let lower = title.to_lowercase();
-    REJECTED_TITLES.iter().any(|p| lower.contains(p))
+    patterns.iter().any(|p| lower.contains(&p.to_lowercase()))
 }
 
-const BLOCKED_EMAIL_PREFIXES: &[&str] = &["no-reply", "noreply", "do-not-reply", "donotreply"];
-const BLOCKED_TLDS: &[&str] = &[".test", ".example", ".invalid", ".local", ".localhost"];
+const BLOCKED_EMAIL_PREFIXES: &[&str] = &[
+    "no-reply", "noreply", "do-not-reply", "donotreply",
+    "accommodation@", "accommodations@",
+];
+
+const BLOCKED_EMAIL_CONTAINS: &[&str] = &[
+    "no-reply", "noreply", "do-not-reply", "donotreply",
+    "accessibility", "accommodation", "accomodation",
+    "brillied", "mediajenie", "mediajeni", "medijenie",
+    "disability", "compliance", "servicedesk",
+    "bop.gov",
+];
+
+const BLOCKED_TLDS: &[&str] = &[
+    ".test", ".example", ".invalid", ".local", ".localhost",
+    ".tk", ".ml", ".ga", ".cf", ".gq",
+    ".xyz", ".top", ".work", ".ru", ".cn", ".ua", ".kz", ".to",
+];
 
 fn is_email_filtered(addr: &str) -> bool {
     let lower = addr.to_lowercase();
     BLOCKED_EMAIL_PREFIXES.iter().any(|p| lower.starts_with(p))
+        || BLOCKED_EMAIL_CONTAINS.iter().any(|p| lower.contains(p))
         || BLOCKED_TLDS.iter().any(|t| lower.ends_with(t))
 }
 
@@ -185,7 +189,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     let mut filtered_email = 0;
 
     for job in &jobs {
-        if is_title_rejected(&job.title) {
+        if is_title_rejected(&job.title, &scrape_cfg.reject_titles) {
             filtered_title += 1;
             continue;
         }
