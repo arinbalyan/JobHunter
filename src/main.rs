@@ -54,6 +54,15 @@ enum Commands {
         /// The reply text to classify
         reply: String,
     },
+    /// Import scrappy config.toml sites into JobHunter config.toml
+    Import {
+        /// Path to scrappy's config.toml
+        #[arg(long)]
+        from: String,
+        /// Path to JobHunter's config.toml (default: config.toml)
+        #[arg(long, default_value = "config.toml")]
+        to: String,
+    },
     /// Run diagnostics
     Doctor,
 }
@@ -127,6 +136,10 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             let port = cfg.tracking.port.unwrap_or(8080);
             tracker::run(pool, port).await
         }
+        Commands::Import { from, to } => {
+            import_scrappy(&from, &to).await?;
+            Ok(())
+        }
         Commands::Doctor => doctor().await,
     }
 }
@@ -163,6 +176,76 @@ async fn doctor() -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+/// Import scrappy's [sites] section into JobHunter's config.toml.
+async fn import_scrappy(from: &str, to: &str) -> anyhow::Result<()> {
+    use std::io::Write;
+
+    let scrappy_raw = std::fs::read_to_string(from)
+        .map_err(|e| anyhow::anyhow!("cannot read {}: {}", from, e))?;
+
+    #[derive(serde::Deserialize)]
+    struct ScrappyCfg {
+        sites: Option<std::collections::HashMap<String, ScrappySite>>,
+    }
+    #[derive(serde::Deserialize)]
+    struct ScrappySite {
+        #[serde(alias = "search")]
+        search_terms: Vec<String>,
+        location: Option<String>,
+    }
+
+    let sc: ScrappyCfg = toml::from_str(&scrappy_raw)
+        .map_err(|e| anyhow::anyhow!("invalid scrappy config: {}", e))?;
+
+    let sites = match sc.sites {
+        Some(s) => s,
+        None => anyhow::bail!("no [sites] section found in scrappy config"),
+    };
+
+    let mut out = String::new();
+    out.push_str(&format!("# scrappy_config = \"{}\"\n", from));
+    out.push_str("# Per-site search terms imported from scrappy.\n");
+
+    // Sort keys for deterministic output
+    let mut keys: Vec<&String> = sites.keys().collect();
+    keys.sort();
+    for name in keys {
+        let s = &sites[name];
+        if s.search_terms.is_empty() && s.location.is_none() {
+            continue;
+        }
+        out.push_str(&format!("\n[sites.{}]\n", name));
+        if !s.search_terms.is_empty() {
+            out.push_str("search_terms = [\n");
+            for t in &s.search_terms {
+                out.push_str(&format!("    {},\n", toml_value_quote(t)));
+            }
+            out.push_str("]\n");
+        }
+        if let Some(ref loc) = s.location {
+            out.push_str(&format!("location = {}\n", toml_value_quote(loc)));
+        }
+    }
+
+    // Append to JobHunter's config
+    let mut file = std::fs::OpenOptions::new().append(true).open(to)
+        .map_err(|e| anyhow::anyhow!("cannot open {}: {}", to, e))?;
+    writeln!(file, "\n# ─── Imported from scrappy ────────────────────")?;
+    file.write_all(out.as_bytes())?;
+
+    println!("✅ imported {} site configs from {} into {}", sites.len(), from, to);
+    println!("   Uncomment the scrappy_config line at top of [sites] to enable auto-loading");
+    Ok(())
+}
+
+fn toml_value_quote(s: &str) -> String {
+    if s.contains('"') || s.contains('\n') {
+        format!("\"\"\"{}\"\"\"", s)
+    } else {
+        format!("\"{}\"", s)
+    }
 }
 
 async fn discover_models(cfg: config::Config) {
