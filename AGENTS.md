@@ -326,11 +326,13 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] Quota tracking — daily sent count from DB, stops at daily_limit
 - [ ] GH Actions workflow: send (daily)
 
-### Phase 4: Tracker + Notifications
-- [ ] HTTP tracking server (/track, /click, /health, /version)
-- [ ] Open/click pixel logging to DB
+### Phase 4: Tracker + Notifications ✅
+- [x] HTTP tracking server — axum: /track, /click, /health, /version
+- [x] Open/click pixel logging to DB — tracking table INSERT/UPDATE per event
+- [x] Run log persistence — write_run_log() after scrape and send
 - [ ] Telegram alerts per workflow
-- [ ] Run log persistence
+#### Deferred
+- User-facing inbox dashboard (./jobhunter inbox) — Phase 5
 
 ### Phase 5: Polish + Deploy
 - [ ] LLM job scoring (1-10)

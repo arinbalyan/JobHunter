@@ -110,9 +110,13 @@ pub struct ScrapeResult {
     pub filtered_title: usize,
     pub filtered_email: usize,
     pub inserted: usize,
+    pub sites_count: usize,
+    pub terms_count: usize,
+    pub duration_secs: f64,
 }
 
 pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
+    let start = std::time::Instant::now();
     let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL not set")?;
     let pool = db::connect(&db_url).await?;
 
@@ -125,6 +129,8 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         Mode::Onsite => &config.search.onsite,
         Mode::Remote => &config.search.remote,
     };
+    let sites_count = preset.sites.len();
+    let terms_count = preset.terms.len();
     let scrape_cfg = &config.scrape;
 
     let max_runtime_secs = scrape_cfg.max_runtime_minutes.unwrap_or(490) * 60;
@@ -204,11 +210,14 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         jobs.len(), filtered_title, filtered_email, inserted
     );
 
+    let duration_secs = start.elapsed().as_secs_f64();
+    tracing::info!("scrape completed in {:.1}s", duration_secs);
+
     let mode_str = match mode { Mode::Remote => "remote", Mode::Onsite => "onsite" };
     db::write_run_log(&pool, "scrape", Some(mode_str),
         jobs.len() as i32, inserted as i32, 0, 0, None).await;
 
-    Ok(ScrapeResult { mode, carried_over, received: jobs.len(), filtered_title, filtered_email, inserted })
+    Ok(ScrapeResult { mode, carried_over, received: jobs.len(), filtered_title, filtered_email, inserted, sites_count, terms_count, duration_secs })
 }
 
 // ── DB operations ──────────────────────────────────────────
