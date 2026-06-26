@@ -4,27 +4,42 @@ Single file: `.data/config.toml` (searched first) or `config.toml`.
 
 API keys use `$VAR` references resolved from environment at load time. Set them in `.env` (gitignored) or GitHub Secrets.
 
-## Sections
+## Top-level fields
 
-### `[user]`
+```toml
+# Optional: path to scrappy's config.toml for per-site search terms
+scrappy_config = "~/projects/scrappy/config.toml"
+```
+
+When `scrappy_config` is set, the Rust code loads scrappy's `config.toml` and passes its `[sites]` section to the bridge as `site_search`/`site_location` — so each site gets its optimized search terms instead of global defaults.
+
+## `[user]`
 
 ```toml
 [user]
-name = "Your Name"
+name = "Arin Balyan"
 current_role = "AI/ML Engineer"
 years_experience = 1
-resume_url = ""                       # Google Drive link to resume (appended in email signature)
+github = "https://github.com/arinbalyan"
+portfolio = "https://arinbalyan.vercel.app"
+resume_url = "https://drive.google.com/..."   # Appended to email signature
 ```
 
-### `[scrape]`
+## `[scrape]`
 
 ```toml
 [scrape]
-max_runtime_minutes = 490    # context timeout for the Go scraper bridge
-results_wanted = 0           # 0 = unlimited, otherwise caps total results
+max_runtime_minutes = 490     # Bridge context timeout
+results_wanted = 0            # 0 = unlimited
+reject_titles = ["senior", "manager", "intern", ...]   # Title patterns to skip
+blocked_email_prefixes = ["no-reply", "noreply", ...]  # Email prefixes to filter
+blocked_email_contains = ["accessibility", ...]         # Email substrings to filter
+blocked_tlds = [".tk", ".ml", ".xyz", ...]             # TLDs to filter
 ```
 
-### `[search.remote]` / `[search.onsite]`
+All filter patterns (`reject_titles`, `blocked_email_*`) are read from config at runtime — no recompilation needed. Full lists from the Go dev branch are included.
+
+## `[search.remote]` / `[search.onsite]`
 
 Two presets, selected via `--mode remote|onsite`:
 
@@ -42,30 +57,33 @@ sites = ["linkedin", "indeed", "internshala"]
 remote_only = false
 ```
 
-| Field | Description |
-|-------|-------------|
-| `terms` | Search queries. Each element is sent as-is to each site's search. |
-| `locations` | Locations to search (site-dependent, some ignore it) |
-| `sites` | Scraper site names (see scrappy docs for full list of 141) |
-| `remote_only` | If true, scrappy filters to remote jobs |
+## `[sites]` (per-site overrides)
 
-### `[telegram]`
+Optional. Overrides global search terms/locations for specific sites. Usually imported from scrappy's config:
+
+```toml
+[sites.remoteok]
+search_terms = ["software engineer", "full stack", "backend"]
+location = "Remote"
+
+[sites.linkedin]
+search_terms = ['"Software Engineer" OR "Full Stack Developer"']
+```
+
+118 sites imported by default via the `import` command.
+
+## `[telegram]`
 
 ```toml
 [telegram]
-chat_id = "123456789"    # Telegram chat ID for scrape reports
+chat_id = "123456789"
 ```
 
-Bot token is read from `TELEGRAM_BOT_TOKEN` env var.
+Bot token from `TELEGRAM_BOT_TOKEN`.
 
-### `[llm]`
+## `[llm]`
 
 ```toml
-[llm]
-max_tokens_per_run = 100000
-max_tokens_per_request = 2048
-temperature = 0.7
-
 [[llm.providers]]
 name = "OpenRouter"
 api_key_env = "OPENROUTER_API_KEY"
@@ -75,68 +93,37 @@ model_simple = "openrouter/free"
 weight = 10
 ```
 
-Each provider entry:
+## `[templates]`
 
-| Field | Description |
-|-------|-------------|
-| `name` | Display name (for logs/doctor) |
-| `api_key_env` | Env var name containing the API key |
-| `base_url` | OpenAI-compatible base URL |
-| `model_complex` | Model used for email generation |
-| `model_simple` | Model used for lightweight tasks (future: scoring, triage) |
-| `weight` | Selection weight (higher = more likely to be picked) |
-
-### `[templates]`
-
-LLM prompts. System prompt defines behavior, user prompt is filled per-job:
+LLM prompts. All configurable:
 
 ```toml
 [templates.email_system]
-content = """\
-You are a professional job applicant writing a cold outreach email...
-"""
+content = """..."""
 
 [templates.email_user]
-content = """\
-## Applicant Context
-{context}
-
-## Target Position
-- Title: {title}
-- Company: {company}
-- Description: {description}
-...
+content = """..."""
 ```
-
-Placeholders in `email_user`: `{context}`, `{title}`, `{company}`, `{description}`, `{location}`, `{seniority}`, `{job_type}`, `{salary}`, `{skills}`, `{industry}`, `{experience_match}`.
 
 ## Env vars
 
-| Variable | Where | Required |
-|----------|-------|----------|
-| `DATABASE_URL` | .env / GitHub Secret | ✅ Yes |
-| `TELEGRAM_BOT_TOKEN` | .env / GitHub Secret | For scrape reports |
-| `OPENROUTER_API_KEY` | .env / GitHub Secret | For LLM |
-| `GROQ_API_KEY` | .env / GitHub Secret | For LLM |
-| `TOGETHER_API_KEY` | .env / GitHub Secret | For LLM |
-| `DEEPINFRA_API_KEY` | .env / GitHub Secret | For LLM |
-| `HYPERBOLIC_API_KEY` | .env / GitHub Secret | For LLM |
-| `SAMBANOVA_API_KEY` | .env / GitHub Secret | For LLM |
-| `CEREBRAS_API_KEY` | .env / GitHub Secret | For LLM |
-| `ZAI_API_KEY` | .env / GitHub Secret | For LLM |
-| `SCRAPPY_INDEED_API_KEY` | .env / GitHub Secret | For Indeed scraping |
-| `SCRAPPY_DICE_API_KEY` | .env / GitHub Secret | For Dice scraping |
+| Variable | For |
+|----------|-----|
+| `DATABASE_URL` | Postgres (NeonDB) |
+| `TELEGRAM_BOT_TOKEN` | Telegram reports |
+| `OPENROUTER_API_KEY` → `ZAI_API_KEY` | LLM providers |
+| `SCRAPPY_INDEED_API_KEY` | Indeed scraping |
+| `SCRAPPY_DICE_API_KEY` | Dice scraping |
 
 ## CLI
 
 ```
-USAGE:
-    jobhunter <SUBCOMMAND>
-
-COMMANDS:
-    scrape    Scrape job boards, filter, and queue emails
-              --mode <remote|onsite>     (default: remote)
-    send      Generate emails for queued jobs via LLM
-              --max <N>                  (default: 10)
-    doctor    Run diagnostics
+jobhunter scrape --mode remote|onsite    Scrape → filter → dedup → queue
+jobhunter score                          Score unscored jobs 1-10
+jobhunter research                       Research 3 talking points per company
+jobhunter send                           Generate + send emails
+jobhunter triage "<reply>"               Classify recruiter reply
+jobhunter import --from <scrappy_config> Import scrappy per-site config
+jobhunter serve                          Tracking server + dashboard
+jobhunter doctor                         Diagnose everything
 ```

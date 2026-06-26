@@ -82,15 +82,22 @@ scrappy is at `~/projects/scrappy/` (v0.3.5, 141 sites, 49 working). Consumed as
 | Cerebras | zai-glm-4.7 | 2 |
 | Z.AI | GLM-4-Plus | 1 |
 
+## Key Design Decisions
+
+- **Config is data, not code**: `reject_titles`, `blocked_email_*` patterns, per-site search terms all live in `config.toml`. No recompilation needed to change filters.
+- **scrappy config auto-load**: Set `scrappy_config = "~/projects/scrappy/config.toml"` in JobHunter's config and all 118 per-site search terms are loaded automatically into the bridge.
+- **`./jobhunter import`**: One-time command to dump scrappy's per-site config into JobHunter's config.toml for manual editing.
+- **Everything configurable without Rust recompilation**: prompts, filters, models, weights, API keys, email signatures.
+
 ## Quick Reference
 
 ```
-jobhunter scrape --mode remote|onsite    # Scrape → filter → dedup → queue
-jobhunter score                          # Score unscored jobs 1-10
-jobhunter research                       # Generate 3 talking points per company
-jobhunter send                           # Generate + send emails
-jobhunter triage "<reply text>"          # Classify recruiter reply
-jobhunter import --from ~/projects/scrappy/config.toml  # Import scrappy per-site config
-jobhunter serve                          # Tracking server + dashboard
-jobhunter doctor                         # Diagnose everything
+jobhunter scrape --mode remote|onsite    Scrape → filter → dedup → queue
+jobhunter score                          Score unscored jobs 1-10
+jobhunter research                       Research 3 talking points per company
+jobhunter send                           Generate + send emails
+jobhunter triage "<reply text>"          Classify recruiter reply
+jobhunter import --from ~/projects/scrappy/config.toml  Import scrappy per-site config
+jobhunter serve                          Tracking server + dashboard
+jobhunter doctor                         Diagnose everything
 ```
