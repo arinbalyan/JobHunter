@@ -44,6 +44,9 @@ module.exports = async (req, res) => {
     // ── Recent failures ──
     const failures = await q("SELECT eq.email_addr, eq.company_name, eq.error_msg, to_char(eq.created_at, 'Mon DD HH24:MI') as when FROM email_queue eq WHERE eq.status = 'failed' AND eq.error_msg != '' ORDER BY eq.created_at DESC NULLS LAST LIMIT 10");
 
+    // ── Click breakdown by URL ──
+    const clickByUrl = await q("SELECT url, COUNT(*) as cnt FROM click_log GROUP BY url ORDER BY cnt DESC");
+
     // ── Recent clicks ──
     const clicks = await q("SELECT c.url, to_char(c.clicked_at, 'Mon DD HH24:MI') as when FROM click_log c ORDER BY c.clicked_at DESC LIMIT 10");
 
@@ -162,6 +165,13 @@ ${failures.length > 0 ? `<div class="section">
 <h2>❌ Recent Failures</h2>
 <table><tr><th>Email</th><th>Company</th><th>Error</th><th>When</th></tr>
 ${failures.map(f => `<tr><td>${esc(f.email_addr)}</td><td>${esc(f.company_name)}</td><td class="wrap">${esc(f.error_msg)}</td><td>${f.when}</td></tr>`).join('')}
+</table>
+</div>` : ''}
+
+${clickByUrl.length > 0 ? `<div class="section">
+<h2>🖱️ Click Breakdown by URL</h2>
+<table><tr><th>URL</th><th class="num-col">Clicks</th></tr>
+${clickByUrl.map(c => `<tr><td class="wrap">${esc(c.url)}</td><td class="num-col">${c.cnt}</td></tr>`).join('')}
 </table>
 </div>` : ''}
 
