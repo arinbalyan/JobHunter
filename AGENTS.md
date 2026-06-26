@@ -312,13 +312,13 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] Onsite/remote mode selector — `--mode remote|onsite`, two config presets with separate sites/terms/locations
 
 ### Phase 3: Send Workflow (Current)
-- [x] LLM router — weighted round-robin + failover chain (3 attempts)
+- [x] LLM router — weighted random + failover chain (3 attempts)
 - [x] Health tracking — 3 consecutive failures → 30s cooldown, auto-recovery
 - [x] `/models` discovery — checks all 9 providers at startup, logs available models + warns if configured model missing
 - [x] OpenAI-compatible completion — single `complete()` function works across all providers
-- [ ] Email generation via LLM (prompts from config.toml)
-- [ ] Template fallback emails
-- [ ] Concurrent generation (tokio + semaphore, max 10)
+- [x] Email generation via LLM (prompts from config.toml)
+- [x] Template fallback emails — when all providers fail, uses a basic template
+- [x] Concurrent generation — tokio + semaphore, default 10 concurrent
 - [ ] SMTP sender (lettre crate, Gmail 587 STARTTLS)
 - [ ] Resume PDF attachment
 - [ ] Rate-limited send (token bucket, 1 per 15s)
