@@ -335,15 +335,16 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - Send workflow Telegram report (minor — scrape covers the pipeline)
 - User-facing inbox dashboard (./jobhunter inbox) — Phase 5
 
-### Phase 5: Polish + Deploy
-- [ ] LLM job scoring (1-10)
-- [ ] LLM company research (3 talking points)
+### Phase 5: Polish + Deploy (Current)
+- [x] LLM job scoring (1-10) — `./jobhunter score`
+- [x] LLM company research (3 talking points) — `./jobhunter research`
+- [x] GH Actions: scrape (4x daily) + send (daily)
+- [x] GH Actions: tests (on push/PR)
+- [x] Release packaging — `scripts/build-release.sh`
+- [x] README with quick-start
+- [ ] `./jobhunter inbox` — telemetry dashboard with pipeline stats
 - [ ] LLM reply triage (positive/negative/neutral)
-- [ ] `./jobhunter inbox` — telemetry dashboard
-- [ ] GH Actions: scrape (4x daily) + send (daily)
-- [ ] GH Actions: tests (on push/PR)
-- [ ] Release packaging (tarball with both binaries)
-- [ ] README with quick-start
+- [ ] Vercel deployment for tracking server
 
 ### Phase 3: Send Workflow
 - [ ] LLM router (9 providers, weighted round-robin, failover)
