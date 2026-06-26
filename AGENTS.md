@@ -90,6 +90,7 @@ jobhunter score                          # Score unscored jobs 1-10
 jobhunter research                       # Generate 3 talking points per company
 jobhunter send                           # Generate + send emails
 jobhunter triage "<reply text>"          # Classify recruiter reply
+jobhunter import --from ~/projects/scrappy/config.toml  # Import scrappy per-site config
 jobhunter serve                          # Tracking server + dashboard
 jobhunter doctor                         # Diagnose everything
 ```

@@ -178,6 +178,33 @@ async fn doctor() -> anyhow::Result<()> {
     Ok(())
 }
 
+/// Deserialize a TOML field that can be either a string or an array of strings.
+fn de_string_or_vec<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de;
+    struct StringOrVec;
+    impl<'de> de::Visitor<'de> for StringOrVec {
+        type Value = Option<String>;
+        fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            f.write_str("a string or array of strings")
+        }
+        fn visit_str<E: de::Error>(self, v: &str) -> Result<Option<String>, E> {
+            Ok(Some(v.to_string()))
+        }
+        fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> Result<Option<String>, A::Error> {
+            let mut v: String = String::new();
+            while let Some(s) = seq.next_element::<String>()? {
+                if !v.is_empty() { v.push_str(", "); }
+                v.push_str(&s);
+            }
+            if v.is_empty() { Ok(None) } else { Ok(Some(v)) }
+        }
+    }
+    deserializer.deserialize_any(StringOrVec)
+}
+
 /// Import scrappy's [sites] section into JobHunter's config.toml.
 async fn import_scrappy(from: &str, to: &str) -> anyhow::Result<()> {
     use std::io::Write;
@@ -193,6 +220,7 @@ async fn import_scrappy(from: &str, to: &str) -> anyhow::Result<()> {
     struct ScrappySite {
         #[serde(alias = "search")]
         search_terms: Vec<String>,
+        #[serde(default, deserialize_with = "de_string_or_vec")]
         location: Option<String>,
     }
 
@@ -230,7 +258,7 @@ async fn import_scrappy(from: &str, to: &str) -> anyhow::Result<()> {
     }
 
     // Append to JobHunter's config
-    let mut file = std::fs::OpenOptions::new().append(true).open(to)
+    let mut file = std::fs::OpenOptions::new().append(true).create(true).open(to)
         .map_err(|e| anyhow::anyhow!("cannot open {}: {}", to, e))?;
     writeln!(file, "\n# ─── Imported from scrappy ────────────────────")?;
     file.write_all(out.as_bytes())?;
@@ -241,8 +269,9 @@ async fn import_scrappy(from: &str, to: &str) -> anyhow::Result<()> {
 }
 
 fn toml_value_quote(s: &str) -> String {
-    if s.contains('"') || s.contains('\n') {
-        format!("\"\"\"{}\"\"\"", s)
+    // Use literal string (single quotes) if contains double quotes, else basic string
+    if s.contains('"') {
+        format!("'{}'", s.replace('\'', "''"))
     } else {
         format!("\"{}\"", s)
     }
