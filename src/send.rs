@@ -1,5 +1,6 @@
 use crate::config::Config;
 use crate::llm::{self, ChatMessage};
+use crate::smtp;
 use anyhow::Context;
 use sqlx::PgPool;
 use std::sync::Arc;
@@ -85,6 +86,15 @@ pub async fn run(cfg: Config, max_concurrent: Option<usize>) -> anyhow::Result<S
     let failed = count_status(&pool, "failed").await;
 
     tracing::info!("email generation done: {} generated, {} failed", generated, failed);
+
+    // ── Phase 2: Send generated emails ──
+    tracing::info!("sending generated emails...");
+    match smtp::send_generated(&pool, &cfg.email).await {
+        Ok(sr) => tracing::info!("send done: {} sent, {} failed, {}/{} quota",
+            sr.sent, sr.failed, sr.quota_remaining, cfg.email.daily_limit.unwrap_or(500)),
+        Err(e) => tracing::warn!("send phase failed: {}", e),
+    }
+
     Ok(SendResult { total, generated, failed })
 }
 

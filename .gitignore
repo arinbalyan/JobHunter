@@ -1,7 +1,5 @@
 .env
 config.toml
 target/
-.data/
-*.pdf
 scraper
 scrappy_improvements.md

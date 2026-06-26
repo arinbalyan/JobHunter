@@ -3,6 +3,7 @@ mod db;
 mod llm;
 mod scrape;
 mod send;
+mod smtp;
 mod telegram;
 
 use clap::{Parser, Subcommand, ValueEnum};

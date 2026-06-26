@@ -319,11 +319,11 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] Email generation via LLM (prompts from config.toml)
 - [x] Template fallback emails — when all providers fail, uses a basic template
 - [x] Concurrent generation — tokio + semaphore, default 10 concurrent
-- [ ] SMTP sender (lettre crate, Gmail 587 STARTTLS)
-- [ ] Resume PDF attachment
-- [ ] Rate-limited send (token bucket, 1 per 15s)
-- [ ] Tracking pixel injection
-- [ ] Quota tracking (daily limit from config)
+- [x] SMTP sender — lettre crate, Gmail 587 STARTTLS
+- [ ] Resume PDF attachment (Phase 5)
+- [x] Rate-limited send — token bucket (delay_seconds)
+- [x] Tracking pixel injection — 1x1 img tag in HTML body
+- [x] Quota tracking — daily sent count from DB, stops at daily_limit
 - [ ] GH Actions workflow: send (daily)
 
 ### Phase 4: Tracker + Notifications

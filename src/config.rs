@@ -8,6 +8,7 @@ pub struct Config {
     pub user: User,
     pub search: Search,
     pub scrape: ScrapeConfig,
+    pub email: EmailConfig,
     pub telegram: TelegramConfig,
     pub templates: Templates,
     pub llm: LlmConfig,
@@ -65,6 +66,14 @@ pub struct LlmProvider {
     pub model_complex: String,
     pub model_simple: String,
     pub weight: u32,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct EmailConfig {
+    pub daily_limit: Option<i32>,
+    pub delay_seconds: Option<u64>,
+    pub from_name: Option<String>,
+    pub from_addr: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
