@@ -342,7 +342,7 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] GH Actions: tests (on push/PR)
 - [x] Release packaging — `scripts/build-release.sh`
 - [x] README with quick-start
-- [ ] `./jobhunter inbox` — telemetry dashboard with pipeline stats
+- [x] `./jobhunter inbox` — dashboard at `./jobhunter serve` / route with pipeline stats, recent jobs
 - [ ] LLM reply triage (positive/negative/neutral)
 - [ ] Vercel deployment for tracking server
 
@@ -385,3 +385,9 @@ When a phase is completed:
 3. Push to GitHub
 4. Update this AGENTS.md with any architectural changes learned during the phase
 5. Open a new todo list for the next phase
+
+### Phase 1 ✅ (2026-06-26)
+### Phase 2 ✅ (2026-06-26)
+### Phase 3 ✅ (2026-06-26)
+### Phase 4 ✅ (2026-06-26)
+### Phase 5 (Current) — inbox dashboard done, remaining: reply triage, Vercel

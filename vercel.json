@@ -1,0 +1,13 @@
+{
+  "rewrites": [
+    { "source": "/track", "destination": "/api/track" },
+    { "source": "/click", "destination": "/api/click" },
+    { "source": "/health", "destination": "/api/health" },
+    { "source": "/(.*)", "destination": "/api/health" }
+  ],
+  "functions": {
+    "api/*.go": {
+      "maxDuration": 10
+    }
+  }
+}
