@@ -309,9 +309,10 @@ async fn carry_over_pending(pool: &PgPool) -> anyhow::Result<i64> {
 
 fn find_scraper() -> anyhow::Result<std::path::PathBuf> {
     let candidates = vec![
+        std::path::PathBuf::from("./scraper/scraper"),
         std::path::PathBuf::from("./scraper"),
         std::path::PathBuf::from("/usr/local/bin/scraper"),
     ];
     for p in &candidates { if p.exists() { return Ok(p.clone()); } }
-    anyhow::bail!("scraper binary not found. Build: cd scraper && go build -o ../scraper .")
+    anyhow::bail!("scraper binary not found. Build: cd scraper && go build -o . .")
 }

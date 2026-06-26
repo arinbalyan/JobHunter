@@ -207,6 +207,10 @@ async fn check_provider_models(cfg: &config::Config) {
 }
 
 fn find_scraper() -> Option<std::path::PathBuf> {
-    let c = [std::path::PathBuf::from("./scraper"), std::path::PathBuf::from("/usr/local/bin/scraper")];
+    let c = [
+        std::path::PathBuf::from("./scraper/scraper"),
+        std::path::PathBuf::from("./scraper"),
+        std::path::PathBuf::from("/usr/local/bin/scraper"),
+    ];
     c.into_iter().find(|p| p.exists())
 }

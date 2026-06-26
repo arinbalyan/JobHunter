@@ -134,11 +134,13 @@ fn resolve_env_vars(raw: &str) -> String {
                 }
                 Some(_) => {
                     let mut name = String::new();
+                    let mut delim: Option<char> = None;
                     for ch in chars.by_ref() {
                         if ch.is_alphanumeric() || ch == '_' { name.push(ch); }
-                        else { out.push(ch); break; }
+                        else { delim = Some(ch); break; }
                     }
                     out.push_str(&std::env::var(&name).unwrap_or_default());
+                    if let Some(d) = delim { out.push(d); }
                 }
                 None => out.push('$'),
             }

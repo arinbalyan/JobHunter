@@ -22,7 +22,7 @@ jobs:
           cache: true
 
       - name: Build Go scraper bridge
-        run: cd scraper && go build -o ../scraper .
+        run: cd scraper && go build -o . .
 
       - name: Build Rust binary
         run: cargo build --release
