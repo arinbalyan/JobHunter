@@ -251,7 +251,7 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 | LLM email generation with router | Go dev | P0 |
 | Fallback template emails (3 experience levels) | Go dev | P0 |
 | Gmail SMTP with retry + quota detection | Go dev | P0 |
-| Resume PDF attachment | Go dev | P0 |
+| Resume PDF attachment | Go dev | ❌ Dropped — drive link in signature instead |
 | Email tracking pixel (open/click) | Go dev | P0 |
 | Run log persistence | Go dev | P0 |
 | Telegram alerts per workflow | Go dev | P0 |
@@ -320,7 +320,7 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] Template fallback emails — when all providers fail, uses a basic template
 - [x] Concurrent generation — tokio + semaphore, default 10 concurrent
 - [x] SMTP sender — lettre crate, Gmail 587 STARTTLS
-- [ ] Resume PDF attachment (Phase 5)
+
 - [x] Rate-limited send — token bucket (delay_seconds)
 - [x] Tracking pixel injection — 1x1 img tag in HTML body
 - [x] Quota tracking — daily sent count from DB, stops at daily_limit
@@ -348,7 +348,7 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [ ] Template fallback (for each experience match level)
 - [ ] Concurrent generation (tokio + semaphore, max 10)
 - [ ] SMTP sender (lettre crate, Gmail 587 STARTTLS)
-- [ ] Resume PDF attachment
+
 - [ ] Rate-limited send (token bucket, 1 per 15s)
 - [ ] Tracking pixel injection
 - [ ] Quota tracking (daily limit from config)

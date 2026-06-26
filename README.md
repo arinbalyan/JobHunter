@@ -75,9 +75,9 @@ go build -o ../scraper ./main.go
 Single file: `.data/config.toml`
 
 ```toml
-[profile]
+[user]
 name = "Arin Balyan"
-resume_path = ".data/ArinBalyan.pdf"
+resume_url = "https://drive.google.com/..."
 
 [search.remote]
 terms = ["AI Engineer", "ML Engineer"]

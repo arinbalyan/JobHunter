@@ -170,7 +170,8 @@ async fn generate_one(
 
     match result {
         Ok(response) => {
-            let (subject, body) = parse_email_response(&response);
+            let (subject, mut body) = parse_email_response(&response);
+            append_signature(&mut body, user);
             sqlx::query(
                 r#"UPDATE email_queue SET status = 'generated', body = $2, subject = $3 WHERE id = $1"#
             )
@@ -184,13 +185,14 @@ async fn generate_one(
         Err(_e) => {
             // Fallback to template
             let subject = format!("Application for {} at {}", job.job_title, job.company_name);
-            let body = format!(
+            let mut body = format!(
                 "Hi there,\n\nI am writing to express my interest in the {} position at {}. \
                  I believe my background as a {} with {} years of experience makes me a strong \
                  candidate for this role.\n\nI would love the opportunity to discuss how I can \
-                 contribute to the team.\n\nBest regards,\n{}",
-                job.job_title, job.company_name, user.current_role, user.years_experience, user.name
+                 contribute to the team.",
+                job.job_title, job.company_name, user.current_role, user.years_experience
             );
+            append_signature(&mut body, user);
             sqlx::query(
                 r#"UPDATE email_queue SET status = 'generated', body = $2, subject = $3 WHERE id = $1"#
             )
@@ -202,6 +204,21 @@ async fn generate_one(
             tracing::info!("template fallback for {}", job.email_addr);
             Ok(())
         }
+    }
+}
+
+/// Append signature footer with links.
+fn append_signature(body: &mut String, user: &crate::config::User) {
+    body.push_str("\n\n---\nRegards,\n");
+    body.push_str(&user.name);
+    if let Some(ref g) = user.github {
+        body.push_str(&format!("\nGitHub: {}", g));
+    }
+    if let Some(ref p) = user.portfolio {
+        body.push_str(&format!("\nPortfolio: {}", p));
+    }
+    if let Some(ref r) = user.resume_url {
+        body.push_str(&format!("\nResume: {}", r));
     }
 }
 

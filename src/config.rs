@@ -19,7 +19,9 @@ pub struct User {
     pub name: String,
     pub current_role: String,
     pub years_experience: i32,
-    pub resume_path: Option<String>,
+    pub github: Option<String>,
+    pub portfolio: Option<String>,
+    pub resume_url: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

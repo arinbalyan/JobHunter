@@ -13,7 +13,7 @@ API keys use `$VAR` references resolved from environment at load time. Set them 
 name = "Your Name"
 current_role = "AI/ML Engineer"
 years_experience = 1
-resume_path = ".data/YourName.pdf"    # optional, for email attachments
+resume_url = ""                       # Google Drive link to resume (appended in email signature)
 ```
 
 ### `[scrape]`
