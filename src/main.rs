@@ -4,6 +4,7 @@ mod config;
 mod db;
 mod llm;
 mod scrape;
+mod research;
 mod score;
 mod send;
 mod smtp;
@@ -35,6 +36,12 @@ enum Commands {
     },
     /// Score unscored jobs (1-10) via LLM
     Score {
+        /// Max concurrent LLM calls
+        #[arg(long, default_value = "10")]
+        max: usize,
+    },
+    /// Generate company research (3 talking points) via LLM
+    Research {
         /// Max concurrent LLM calls
         #[arg(long, default_value = "10")]
         max: usize,
@@ -86,6 +93,12 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             let result = score::run(cfg, Some(max)).await?;
             println!("🎯 Score complete: {} total, {} scored, {} failed",
                 result.total, result.scored, result.failed);
+            Ok(())
+        }
+        Commands::Research { max } => {
+            let cfg = config::Config::load()?;
+            research::run(cfg, Some(max)).await?;
+            println!("🔬 Company research complete");
             Ok(())
         }
         Commands::Send { max } => {
