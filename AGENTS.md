@@ -344,7 +344,7 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] README with quick-start
 - [x] `./jobhunter inbox` — dashboard at `./jobhunter serve` / route with pipeline stats, recent jobs
 - [ ] LLM reply triage (positive/negative/neutral)
-- [ ] Vercel deployment — Go serverless functions created at api/*.go, needs fresh VERCEL_TOKEN to deploy
+- [x] Vercel deployment — Node.js serverless functions at jobhunter-tracker.vercel.app (track, click, health)
 
 ### Phase 3: Send Workflow
 - [ ] LLM router (9 providers, weighted round-robin, failover)
