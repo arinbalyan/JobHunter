@@ -1,6 +1,7 @@
 mod config;
 mod db;
 mod scrape;
+mod telegram;
 
 use clap::{Parser, Subcommand};
 
@@ -14,11 +15,7 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Scrape job boards, filter, and queue emails
-    Scrape {
-        /// Search mode: remote | onsite
-        #[arg(long, default_value = "remote")]
-        mode: String,
-    },
+    Scrape,
     /// Run diagnostics
     Doctor,
 }
@@ -38,13 +35,17 @@ fn main() -> anyhow::Result<()> {
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Commands::Scrape { mode } => {
+        Commands::Scrape => {
             let cfg = config::Config::load()?;
-            scrape::run(cfg, &mode).await
+            let telegram_cfg = cfg.telegram.clone();
+            let result = scrape::run(cfg).await?;
+            // ponytail: fire-and-forget telegram report, don't fail the run if it errors
+            if let Err(e) = telegram::send_scrape_report(&telegram_cfg, &result).await {
+                tracing::warn!("telegram report failed: {}", e);
+            }
+            Ok(())
         }
-        Commands::Doctor => {
-            doctor().await
-        }
+        Commands::Doctor => doctor().await,
     }
 }
 
@@ -52,10 +53,8 @@ async fn doctor() -> anyhow::Result<()> {
     println!("🏥 jobhunter doctor");
     println!("━━━━━━━━━━━━━━━━━━");
 
-    // ponytail: check config, db, scraper binary — the three things that can break.
-
     match config::Config::load() {
-        Ok(cfg) => println!("✅ config.toml — found profile: {}", cfg.profile.name),
+        Ok(cfg) => println!("✅ config.toml — found user: {}", cfg.user.name),
         Err(e) => println!("❌ config.toml — {e}"),
     }
 
@@ -64,17 +63,16 @@ async fn doctor() -> anyhow::Result<()> {
         Err(_) => println!("❌ DATABASE_URL — not set"),
     }
 
-    match find_scraper_binary() {
+    match find_scraper() {
         Some(p) => println!("✅ scraper binary — found at {}", p.display()),
-        None => println!("❌ scraper binary — not found (build: cd scraper && go build -o ../scraper .)"),
+        None => println!("❌ scraper binary — not found"),
     }
 
-    // Check LLM provider env vars
     if let Ok(cfg) = config::Config::load() {
-        for provider in &cfg.llm.providers {
-            match std::env::var(&provider.api_key_env) {
-                Ok(_) => println!("✅ {} — {} set", provider.name, provider.api_key_env),
-                Err(_) => println!("⚠️  {} — {} not set (provider will be skipped)", provider.name, provider.api_key_env),
+        for p in &cfg.llm.providers {
+            match std::env::var(&p.api_key_env) {
+                Ok(_) => println!("✅ {} — {} set", p.name, p.api_key_env),
+                Err(_) => println!("⚠️  {} — {} not set", p.name, p.api_key_env),
             }
         }
     }
@@ -82,10 +80,7 @@ async fn doctor() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn find_scraper_binary() -> Option<std::path::PathBuf> {
-    let candidates = vec![
-        std::path::PathBuf::from("./scraper"),
-        std::path::PathBuf::from("/usr/local/bin/scraper"),
-    ];
-    candidates.into_iter().find(|p| p.exists())
+fn find_scraper() -> Option<std::path::PathBuf> {
+    let c = [std::path::PathBuf::from("./scraper"), std::path::PathBuf::from("/usr/local/bin/scraper")];
+    c.into_iter().find(|p| p.exists())
 }

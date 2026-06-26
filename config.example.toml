@@ -26,6 +26,10 @@ linkedin = "https://linkedin.com/in/you"
 resume_path = ".data/ArinBalyan.pdf"
 
 # ─── Job Search ────────────────────────────────────────
+[scrape]
+max_runtime_minutes = 490
+results_wanted = 0
+
 [search]
 terms = [
     '"Software Engineer"',

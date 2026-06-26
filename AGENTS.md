@@ -96,6 +96,8 @@ Rust: build ScraperInput from config → spawn ./scraper with stdin JSON
 
 scrappy is a standalone Go module at `~/projects/scrappy/` used as a **direct Go library import** (`github.com/arinbalyan/scrappy/pkg/scrappy`). The Rust binary calls it through a thin Go subprocess bridge.
 
+**📝 scrappy improvements**: Whenever you find a limitation or something scrappy could do better, document it in `scrappy_improvements.md` (gitignored). This file is the backlog for scrappy's next version. Check it before reporting bugs to avoid duplicates.
+
 ### Why a Go subprocess?
 Rust can't link against Go libraries. The bridge is ~100 lines of Go: read stdin JSON, call scrappy, write stdout JSON. That's it — no business logic, no config parsing, no filtering.
 
@@ -288,24 +290,54 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 ## Roadmap
 
 ### Phase 1: Scaffold + Config + DB (Current)
-- [ ] Rust project skeleton (Cargo.toml, clap subcommands)
-- [ ] config.toml parsing (serde + toml + $VAR env resolution)
-- [ ] Postgres connection (sqlx) + embedded migrations
-- [ ] Initial schema: jobs, emails, email_queue, run_log tables
-- [ ] Go scraper subprocess (thin bridge to scrappy)
-- [ ] `./jobhunter doctor` — diagnostic command
+- [x] Rust project skeleton — Cargo.toml, clap subcommands
+- [x] config.toml parsing — serde + toml + $VAR env resolution
+- [x] Postgres connection — sqlx + embedded migrations
+- [x] Initial schema — jobs, email_queue, tracking, run_log tables
+- [x] Go scraper subprocess — stdin JSON → scrappy.ScrapeJobs() → stdout JSON
+- [x] `./jobhunter doctor` — checks config, DB URL, scraper binary, LLM keys
 
 ### Phase 2: Scrape Workflow
-- [ ] Rust reads config, serializes search params to JSON
-- [ ] Rust spawns Go scraper, reads JSON from stdout
-- [ ] deserialize via serde into Vec<JobPost>
-- [ ] Title rejection filter
-- [ ] Email filter (starts_with, contains, tld:)
-- [ ] scrape output → DB (jobs + email_queue)
+- [x] Rust serializes search params to JSON, spawns Go scraper
+- [x] Deserialize scraper stdout → Vec<JobPost>
+- [x] Title rejection filter (~40 patterns)
+- [x] Gentle email filter (no-reply@, do-not-reply@, suspicious TLDs)
+- [x] Atomic SQL dedup — INSERT WHERE NOT EXISTS by job_url
+- [x] Email queue population per job
+- [x] `results_wanted: 0` (unlimited) — scrappy returns all jobs it finds
+- [x] `timeout_seconds` from config — bridge context uses `[scrape].max_runtime_minutes`
 - [ ] Pending job carry-over from previous runs
 - [ ] Telegram report for scrape run
 - [ ] GH Actions workflow: scrape (4x daily)
-- [ ] Onsite/remote mode selector
+- [ ] Onsite/remote mode selector (two config presets)
+
+### Phase 3: Send Workflow
+- [ ] LLM router (9 providers, weighted round-robin, failover)
+- [ ] Email generation via LLM (prompts from config.toml)
+- [ ] Template fallback emails
+- [ ] Concurrent generation (tokio + semaphore, max 10)
+- [ ] SMTP sender (lettre crate, Gmail 587 STARTTLS)
+- [ ] Resume PDF attachment
+- [ ] Rate-limited send (token bucket, 1 per 15s)
+- [ ] Tracking pixel injection
+- [ ] Quota tracking (daily limit from config)
+- [ ] GH Actions workflow: send (daily)
+
+### Phase 4: Tracker + Notifications
+- [ ] HTTP tracking server (/track, /click, /health, /version)
+- [ ] Open/click pixel logging to DB
+- [ ] Telegram alerts per workflow
+- [ ] Run log persistence
+
+### Phase 5: Polish + Deploy
+- [ ] LLM job scoring (1-10)
+- [ ] LLM company research (3 talking points)
+- [ ] LLM reply triage (positive/negative/neutral)
+- [ ] `./jobhunter inbox` — telemetry dashboard
+- [ ] GH Actions: scrape (4x daily) + send (daily)
+- [ ] GH Actions: tests (on push/PR)
+- [ ] Release packaging (tarball with both binaries)
+- [ ] README with quick-start
 
 ### Phase 3: Send Workflow
 - [ ] LLM router (9 providers, weighted round-robin, failover)

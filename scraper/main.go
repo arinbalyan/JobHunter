@@ -12,29 +12,37 @@ import (
 	scrappy "github.com/arinbalyan/scrappy/pkg/scrappy"
 )
 
-// ponytail: ~100 lines. Read JSON from stdin, call scrappy, write JSON to stdout.
-// No business logic, no config parsing, no filtering.
+// ponytail: stdin JSON has scrappy.ScraperInput plus extra fields.
+// We extract timeout_seconds separately, pass the rest to scrappy.
+
+type bridgeInput struct {
+	scrappy.ScraperInput
+	TimeoutSeconds int `json:"timeout_seconds"`
+}
 
 func main() {
-	// Read the full input from stdin.
 	data, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		log.Fatalf("error reading stdin: %v", err)
 	}
 
-	var input scrappy.ScraperInput
-	if err := json.Unmarshal(data, &input); err != nil {
+	var raw bridgeInput
+	if err := json.Unmarshal(data, &raw); err != nil {
 		log.Fatalf("error parsing input JSON: %v", err)
 	}
 
+	timeout := time.Duration(raw.TimeoutSeconds) * time.Second
+	if timeout <= 0 {
+		timeout = 10 * time.Minute // safety net
+	}
+
 	engine := scrappy.NewEngine()
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	jobs, err := engine.ScrapeJobs(ctx, input)
+	jobs, err := engine.ScrapeJobs(ctx, raw.ScraperInput)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "scrape error: %v\n", err)
-		// Still output partial results if any
 	}
 
 	if jobs == nil {
