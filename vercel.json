@@ -1,6 +1,4 @@
 {
-  "buildCommand": "",
-  "outputDirectory": "",
   "rewrites": [
     { "source": "/track", "destination": "/api/track" },
     { "source": "/click", "destination": "/api/click" },
