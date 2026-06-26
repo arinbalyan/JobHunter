@@ -78,9 +78,9 @@ pub async fn send_generated(
             break;
         }
 
-        let tracking_html = pixel_url.replace("{email_id}", &email_id.to_string());
-        let pixel = format!(r#"<img src="{}" width="1" height="1" />"#, tracking_html);
-        let html_body = format!("{}{}", body.replace('\n', "<br>"), pixel);
+        let click_base = format!("{}/click?e={}&url=", base_url.trim_end_matches('/'), email_id);
+        let pixel = format!(r#"<img src="{}" width="1" height="1" />"#, pixel_url.replace("{email_id}", &email_id.to_string()));
+        let html_body = format!("{}{}", wrap_links(&body, &click_base), pixel);
 
         let from_addr: Mailbox = format!("{} <{}>", from_name, username)
             .parse().map_err(|e| anyhow::anyhow!("invalid from: {}", e))?;
@@ -135,4 +135,26 @@ pub async fn send_generated(
     }
 
     Ok(SmtpResult { sent, failed, quota_remaining })
+}
+
+/// Convert plain text body to HTML with tracked links.
+fn wrap_links(body: &str, click_base: &str) -> String {
+    // ponytail: replace \n with <br>, wrap https:// URLs in <a> tags with tracking.
+    let mut out = String::with_capacity(body.len() * 2);
+    let mut rest = body;
+    while let Some(pos) = rest.find("https://") {
+        out.push_str(&rest[..pos].replace('\n', "<br>"));
+        let remaining = &rest[pos..];
+        let end = remaining.find(|c: char| c.is_whitespace() || c == '<' || c == '>').unwrap_or(remaining.len());
+        let url = &remaining[..end];
+        let tracked = format!("{}{}", click_base, url_encode(url));
+        out.push_str(&format!("<a href=\"{}\">{}</a>", tracked, url));
+        rest = &remaining[end..];
+    }
+    out.push_str(&rest.replace('\n', "<br>"));
+    out
+}
+
+fn url_encode(s: &str) -> String {
+    s.replace('%', "%25").replace('&', "%26").replace('=', "%3D").replace('?', "%3F")
 }
