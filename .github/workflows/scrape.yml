@@ -34,8 +34,8 @@ jobs:
       - name: Create config
         run: cp config.example.toml config.toml
 
-      - name: Run scrape
-        run: ./target/release/jobhunter scrape
+      - name: Run scrape (remote)
+        run: ./target/release/jobhunter scrape --mode remote
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}

@@ -297,7 +297,7 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] Go scraper subprocess — stdin JSON → scrappy.ScrapeJobs() → stdout JSON
 - [x] `./jobhunter doctor` — checks config, DB URL, scraper binary, LLM keys
 
-### Phase 2: Scrape Workflow
+### Phase 2: Scrape Workflow ✅
 - [x] Rust serializes search params to JSON, spawns Go scraper
 - [x] Deserialize scraper stdout → Vec<JobPost>
 - [x] Title rejection filter (~40 patterns)
@@ -306,10 +306,10 @@ Router uses weighted round-robin + failover chain up to 3 providers. Health trac
 - [x] Email queue population per job
 - [x] `results_wanted: 0` (unlimited) — scrappy returns all jobs it finds
 - [x] `timeout_seconds` from config — bridge context uses `[scrape].max_runtime_minutes`
-- [ ] Pending job carry-over from previous runs
-- [ ] Telegram report for scrape run
-- [ ] GH Actions workflow: scrape (4x daily)
-- [ ] Onsite/remote mode selector (two config presets)
+- [x] Pending job carry-over — INSERT-SELECT for unqueued jobs from last 7 days
+- [x] Telegram report — scrape summary sent to chat after each run
+- [x] GH Actions workflow — 4x daily, builds Rust + Go, runs scrape
+- [x] Onsite/remote mode selector — `--mode remote|onsite`, two config presets with separate sites/terms/locations
 
 ### Phase 3: Send Workflow
 - [ ] LLM router (9 providers, weighted round-robin, failover)

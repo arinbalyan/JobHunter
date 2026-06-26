@@ -3,7 +3,7 @@ mod db;
 mod scrape;
 mod telegram;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 #[command(name = "jobhunter", about = "Job scraping and LLM-powered email outreach")]
@@ -15,9 +15,19 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Scrape job boards, filter, and queue emails
-    Scrape,
+    Scrape {
+        /// Search mode: remote (global) or onsite (India/hybrid)
+        #[arg(long, default_value = "remote")]
+        mode: ScrapeMode,
+    },
     /// Run diagnostics
     Doctor,
+}
+
+#[derive(Clone, ValueEnum)]
+enum ScrapeMode {
+    Remote,
+    Onsite,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -35,10 +45,11 @@ fn main() -> anyhow::Result<()> {
 
 async fn run(cli: Cli) -> anyhow::Result<()> {
     match cli.command {
-        Commands::Scrape => {
+        Commands::Scrape { mode } => {
             let cfg = config::Config::load()?;
             let telegram_cfg = cfg.telegram.clone();
-            let result = scrape::run(cfg).await?;
+            let scrape_mode = match mode { ScrapeMode::Remote => scrape::Mode::Remote, ScrapeMode::Onsite => scrape::Mode::Onsite };
+            let result = scrape::run(cfg, scrape_mode).await?;
             // ponytail: fire-and-forget telegram report, don't fail the run if it errors
             if let Err(e) = telegram::send_scrape_report(&telegram_cfg, &result).await {
                 tracing::warn!("telegram report failed: {}", e);

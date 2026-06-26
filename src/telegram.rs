@@ -7,8 +7,13 @@ pub async fn send_scrape_report(cfg: &TelegramConfig, r: &ScrapeResult) -> anyho
     let token = std::env::var("TELEGRAM_BOT_TOKEN")
         .map_err(|_| anyhow::anyhow!("TELEGRAM_BOT_TOKEN not set"))?;
 
+    let mode_label = match r.mode {
+        crate::scrape::Mode::Remote => "🌍 Remote",
+        crate::scrape::Mode::Onsite => "🇮🇳 Onsite",
+    };
+
     let text = format!(
-        "🦀 <b>Scrape Complete</b>\n\
+        "🦀 <b>Scrape {mode_label}</b>\n\
          ━━━━━━━━━━━━━━━━━\n\
          📥 Received: {}\n\
          📤 Carried over: {}\n\

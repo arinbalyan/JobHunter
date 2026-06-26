@@ -19,8 +19,15 @@ pub struct User {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct Search {
-    pub sites: Vec<String>,
+    pub remote: SearchPreset,
+    pub onsite: SearchPreset,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct SearchPreset {
+    pub terms: Vec<String>,
     pub locations: Vec<String>,
+    pub sites: Vec<String>,
     pub remote_only: bool,
 }
 

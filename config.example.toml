@@ -30,17 +30,26 @@ resume_path = ".data/your-resume.pdf"
 max_runtime_minutes = 490
 results_wanted = 0
 
-[search]
+# Two presets: ./jobhunter scrape --mode remote|onsite
+
+[search.remote]
+terms = [
+    '"Software Engineer"',
+    '"Backend Developer"',
+    '"Full Stack Developer"',
+]
+locations = ["remote"]
+sites = ["linkedin", "indeed", "greenhouse", "remoteok", "ycjobs"]
+remote_only = true
+
+[search.onsite]
 terms = [
     '"Software Engineer"',
     '"Backend Developer"',
 ]
-locations = ["remote"]
-sites = ["linkedin", "indeed", "greenhouse"]
-remote_only = true
-job_type = "fulltime"
-results_per_site = 0        # 0 = no limit
-hours_old = 0                # 0 = no time filter
+locations = ["bangalore", "mumbai"]
+sites = ["linkedin", "indeed", "internshala", "glassdoor"]
+remote_only = false
 
 # ─── Database ─────────────────────────────────────────
 [database]

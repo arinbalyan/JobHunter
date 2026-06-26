@@ -8,6 +8,18 @@ use tokio::process::Command;
 
 // ponytail: bridge receives ScraperInput + extra fields (timeout_seconds) in one JSON.
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Mode { Remote, Onsite }
+
+impl From<&str> for Mode {
+    fn from(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "onsite" => Mode::Onsite,
+            _ => Mode::Remote,
+        }
+    }
+}
+
 #[derive(Serialize)]
 struct BridgeInput {
     #[serde(flatten)]
@@ -92,6 +104,7 @@ fn has_valid_email(emails: &[Email]) -> bool {
 // ── Scrape execution ───────────────────────────────────────
 
 pub struct ScrapeResult {
+    pub mode: Mode,
     pub carried_over: i64,
     pub received: usize,
     pub filtered_title: usize,
@@ -99,7 +112,7 @@ pub struct ScrapeResult {
     pub inserted: usize,
 }
 
-pub async fn run(config: Config) -> anyhow::Result<ScrapeResult> {
+pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL not set")?;
     let pool = db::connect(&db_url).await?;
 
@@ -108,7 +121,10 @@ pub async fn run(config: Config) -> anyhow::Result<ScrapeResult> {
 
     // ── run scraper ──
     let scraper_path = find_scraper()?;
-    let search = &config.search;
+    let preset = match mode {
+        Mode::Onsite => &config.search.onsite,
+        Mode::Remote => &config.search.remote,
+    };
     let scrape_cfg = &config.scrape;
 
     let max_runtime_secs = scrape_cfg.max_runtime_minutes.unwrap_or(490) * 60;
@@ -116,10 +132,10 @@ pub async fn run(config: Config) -> anyhow::Result<ScrapeResult> {
 
     let input = BridgeInput {
         scraper_input: ScraperInput {
-            search_terms: vec!["\"Software Engineer\"".to_string()],
-            locations: search.locations.clone(),
-            sites: search.sites.clone(),
-            remote_only: search.remote_only,
+            search_terms: preset.terms.clone(),
+            locations: preset.locations.clone(),
+            sites: preset.sites.clone(),
+            remote_only: preset.remote_only,
             results_wanted,
             verify_email: true,
             description_format: "markdown".to_string(),
@@ -131,7 +147,7 @@ pub async fn run(config: Config) -> anyhow::Result<ScrapeResult> {
 
     tracing::info!(
         "spawning scraper — {} locations, {} sites, {}s timeout, {} results_wanted",
-        search.locations.len(), search.sites.len(), max_runtime_secs, results_wanted
+        preset.locations.len(), preset.sites.len(), max_runtime_secs, results_wanted
     );
 
     let mut child = Command::new(&scraper_path)
@@ -188,7 +204,7 @@ pub async fn run(config: Config) -> anyhow::Result<ScrapeResult> {
         jobs.len(), filtered_title, filtered_email, inserted
     );
 
-    Ok(ScrapeResult { carried_over, received: jobs.len(), filtered_title, filtered_email, inserted })
+    Ok(ScrapeResult { mode, carried_over, received: jobs.len(), filtered_title, filtered_email, inserted })
 }
 
 // ── DB operations ──────────────────────────────────────────
