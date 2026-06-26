@@ -9,6 +9,7 @@ pub struct Config {
     pub search: Search,
     pub scrape: ScrapeConfig,
     pub email: EmailConfig,
+    pub tracking: TrackingConfig,
     pub telegram: TelegramConfig,
     pub templates: Templates,
     pub llm: LlmConfig,
@@ -68,6 +69,12 @@ pub struct LlmProvider {
     pub model_complex: String,
     pub model_simple: String,
     pub weight: u32,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct TrackingConfig {
+    pub server_url: Option<String>,
+    pub port: Option<u16>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

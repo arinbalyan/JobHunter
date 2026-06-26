@@ -1,3 +1,5 @@
+use anyhow::Context;
+
 mod config;
 mod db;
 mod llm;
@@ -5,6 +7,7 @@ mod scrape;
 mod send;
 mod smtp;
 mod telegram;
+mod tracker;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
@@ -29,6 +32,8 @@ enum Commands {
         #[arg(long, default_value = "10")]
         max: usize,
     },
+    /// HTTP tracking server (opens, clicks, health)
+    Serve,
     /// Run diagnostics
     Doctor,
 }
@@ -75,6 +80,13 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             println!("📧 Send complete: {} total, {} generated, {} failed",
                 result.total, result.generated, result.failed);
             Ok(())
+        }
+        Commands::Serve => {
+            let cfg = config::Config::load()?;
+            let db_url = std::env::var("DATABASE_URL").context("DATABASE_URL not set")?;
+            let pool = db::connect(&db_url).await?;
+            let port = cfg.tracking.port.unwrap_or(8080);
+            tracker::run(pool, port).await
         }
         Commands::Doctor => doctor().await,
     }

@@ -204,6 +204,10 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         jobs.len(), filtered_title, filtered_email, inserted
     );
 
+    let mode_str = match mode { Mode::Remote => "remote", Mode::Onsite => "onsite" };
+    db::write_run_log(&pool, "scrape", Some(mode_str),
+        jobs.len() as i32, inserted as i32, 0, 0, None).await;
+
     Ok(ScrapeResult { mode, carried_over, received: jobs.len(), filtered_title, filtered_email, inserted })
 }
 

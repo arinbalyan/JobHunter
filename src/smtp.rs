@@ -1,4 +1,4 @@
-use crate::config::EmailConfig;
+use crate::config::{EmailConfig, TrackingConfig};
 use anyhow::Context;
 use lettre::{
     message::{header::ContentType, Mailbox, MultiPart, SinglePart},
@@ -8,9 +8,7 @@ use lettre::{
 use sqlx::PgPool;
 use std::time::Duration;
 
-// ponytail: sends generated emails via Gmail SMTP. No PDF attachment yet (Phase 5).
-
-const TRACKING_PIXEL: &str = r#"<img src="https://tracker.jobhunter.dev/track?e={email_id}" width="1" height="1" />"#;
+// ponytail: sends generated emails via Gmail SMTP. Tracking pixel from config.
 
 pub struct SmtpResult {
     pub sent: usize,
@@ -21,6 +19,7 @@ pub struct SmtpResult {
 pub async fn send_generated(
     pool: &PgPool,
     email_cfg: &EmailConfig,
+    tracking_cfg: &TrackingConfig,
 ) -> anyhow::Result<SmtpResult> {
     let username = email_cfg.from_addr.clone()
         .or_else(|| std::env::var("GMAIL_USER").ok())
@@ -30,6 +29,10 @@ pub async fn send_generated(
     let from_name = email_cfg.from_name.clone().unwrap_or_default();
     let delay = Duration::from_secs(email_cfg.delay_seconds.unwrap_or(15));
     let daily_limit = email_cfg.daily_limit.unwrap_or(500);
+
+    // Tracking pixel URL
+    let base_url = tracking_cfg.server_url.as_deref().unwrap_or("https://tracker.jobhunter.dev");
+    let pixel_url = format!("{}/track?e={{email_id}}", base_url.trim_end_matches('/'));
 
     // Daily quota
     let sent_today: i64 = sqlx::query_scalar(
@@ -75,8 +78,9 @@ pub async fn send_generated(
             break;
         }
 
-        let tracking_html = TRACKING_PIXEL.replace("{email_id}", &email_id.to_string());
-        let html_body = format!("{}{}", body.replace('\n', "<br>"), tracking_html);
+        let tracking_html = pixel_url.replace("{email_id}", &email_id.to_string());
+        let pixel = format!(r#"<img src="{}" width="1" height="1" />"#, tracking_html);
+        let html_body = format!("{}{}", body.replace('\n', "<br>"), pixel);
 
         let from_addr: Mailbox = format!("{} <{}>", from_name, username)
             .parse().map_err(|e| anyhow::anyhow!("invalid from: {}", e))?;

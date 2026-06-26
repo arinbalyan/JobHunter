@@ -89,11 +89,21 @@ pub async fn run(cfg: Config, max_concurrent: Option<usize>) -> anyhow::Result<S
 
     // ── Phase 2: Send generated emails ──
     tracing::info!("sending generated emails...");
-    match smtp::send_generated(&pool, &cfg.email).await {
-        Ok(sr) => tracing::info!("send done: {} sent, {} failed, {}/{} quota",
-            sr.sent, sr.failed, sr.quota_remaining, cfg.email.daily_limit.unwrap_or(500)),
-        Err(e) => tracing::warn!("send phase failed: {}", e),
-    }
+    let (sent, send_failed) = match smtp::send_generated(&pool, &cfg.email, &cfg.tracking).await {
+        Ok(sr) => {
+            tracing::info!("send done: {} sent, {} failed, {}/{} quota",
+                sr.sent, sr.failed, sr.quota_remaining, cfg.email.daily_limit.unwrap_or(500));
+            (sr.sent, sr.failed)
+        }
+        Err(e) => {
+            tracing::warn!("send phase failed: {}", e);
+            (0, 0)
+        }
+    };
+
+    crate::db::write_run_log(&pool, "send", None,
+        0, total as i32, sent as i32, send_failed as i32,
+        if send_failed > 0 { Some("some sends failed") } else { None }).await;
 
     Ok(SendResult { total, generated, failed })
 }
