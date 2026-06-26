@@ -46,6 +46,10 @@ pub struct LlmConfig {
 pub struct LlmProvider {
     pub name: String,
     pub api_key_env: String,
+    pub base_url: String,
+    pub model_complex: String,
+    pub model_simple: String,
+    pub weight: u32,
 }
 
 #[derive(Debug, Deserialize, Clone)]

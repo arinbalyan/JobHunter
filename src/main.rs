@@ -1,5 +1,6 @@
 mod config;
 mod db;
+mod llm;
 mod scrape;
 mod telegram;
 
@@ -49,6 +50,10 @@ async fn run(cli: Cli) -> anyhow::Result<()> {
             let cfg = config::Config::load()?;
             let telegram_cfg = cfg.telegram.clone();
             let scrape_mode = match mode { ScrapeMode::Remote => scrape::Mode::Remote, ScrapeMode::Onsite => scrape::Mode::Onsite };
+
+            // ponytail: discover available models in background, don't block the scrape
+            tokio::spawn(discover_models(cfg.clone()));
+
             let result = scrape::run(cfg, scrape_mode).await?;
             // ponytail: fire-and-forget telegram report, don't fail the run if it errors
             if let Err(e) = telegram::send_scrape_report(&telegram_cfg, &result).await {
@@ -86,9 +91,53 @@ async fn doctor() -> anyhow::Result<()> {
                 Err(_) => println!("⚠️  {} — {} not set", p.name, p.api_key_env),
             }
         }
+        println!();
+        println!("🔍 Checking /models endpoints...");
+        check_provider_models(&cfg).await;
     }
 
     Ok(())
+}
+
+async fn discover_models(cfg: config::Config) {
+    let providers: Vec<llm::Provider> = cfg.llm.providers.iter().filter_map(|p| {
+        let key = std::env::var(&p.api_key_env).ok()?;
+        Some(llm::Provider {
+            name: p.name.clone(),
+            api_key: key,
+            base_url: p.base_url.clone(),
+            model_complex: p.model_complex.clone(),
+            model_simple: p.model_simple.clone(),
+            weight: p.weight,
+        })
+    }).collect();
+    let router = llm::Router::new(providers);
+    router.discover_models().await;
+}
+
+async fn check_provider_models(cfg: &config::Config) {
+    for p in &cfg.llm.providers {
+        let key = match std::env::var(&p.api_key_env) {
+            Ok(k) => k,
+            Err(_) => { println!("⚠️  {} — no key, skipping", p.name); continue; }
+        };
+        let url = format!("{}/models", p.base_url.trim_end_matches('/'));
+        let client = reqwest::Client::new();
+        match client.get(&url).header("Authorization", format!("Bearer {}", key)).send().await {
+            Ok(resp) => match resp.text().await {
+                Ok(body) => {
+                    let has_complex = body.contains(&p.model_complex);
+                    let has_simple = body.contains(&p.model_simple);
+                    print!("✅ {} — models available", p.name);
+                    if !has_complex { print!(" ⚠️ complex '{}' not found", p.model_complex); }
+                    if !has_simple { print!(" ⚠️ simple '{}' not found", p.model_simple); }
+                    println!();
+                }
+                Err(e) => println!("⚠️  {} — /models error: {}", p.name, e),
+            },
+            Err(e) => println!("⚠️  {} — /models request failed: {}", p.name, e),
+        }
+    }
 }
 
 fn find_scraper() -> Option<std::path::PathBuf> {
