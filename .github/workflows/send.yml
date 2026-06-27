@@ -15,14 +15,14 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install Go
-        uses: actions/setup-go@v5
+      - name: Cache Rust build
+        uses: actions/cache@v4
         with:
-          go-version: '1.26'
-          cache: true
-
-      - name: Build Go scraper bridge
-        run: cd scraper && go build -o . .
+          path: |
+            target/
+            ~/.cargo/registry
+          key: rust-cache-${{ hashFiles('Cargo.lock') }}
+          restore-keys: rust-cache-
 
       - name: Build Rust binary
         run: cargo build --release
