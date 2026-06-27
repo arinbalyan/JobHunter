@@ -98,6 +98,57 @@ Same job posted on multiple boards (same title+company, different URL) won't be 
 
 **Fix**: Optional fuzzy dedup by normalized title + company name. Low priority — URL dedup catches most duplicates.
 
+### 12. Better error type distinction
+
+All errors surface as generic strings. Consumers can't distinguish "site down" vs "no jobs found" vs "rate limited" vs "auth failure" without parsing log text.
+
+**Fix**: Define typed error sentinels or error kinds:
+```go
+var ErrRateLimited = errors.New("rate limited")
+var ErrNoJobs = errors.New("no jobs found")
+```
+Include error kind in `SiteResult` (item 3).
+
+### 13. Per-site timeout
+
+Global timeout applies to all sites equally. Some sites (LinkedIn Playwright, Indeed) take 60s+, while others (RemoteOK, Himalayas) finish in 5s. The global timeout forces a lowest-common-denominator wait.
+
+**Fix**: Allow per-site timeout override in `ScraperInput`:
+```go
+SiteTimeout: map[Site]time.Duration{"linkedin": 120 * time.Second}
+```
+Default to global timeout when not specified.
+
+### 14. Playwright detection fails silently
+
+If Playwright is not installed and a site requires it, scrappy logs a warning and returns 0 jobs — no clear signal to the consumer that browser dependency is missing.
+
+**Fix**: Return a distinguishable error when a site requires Playwright but it's unavailable. Consumers can then install it or exclude the site.
+
+### 15. Config reload without restart
+
+Changing search terms in `config.toml` requires restarting the process. For long-running consumers (like JobHunter's tracking server), this is disruptive.
+
+**Fix**: Add a `ReloadConfig()` method on Engine that re-reads the config file and updates per-site search terms / locations without restarting.
+
+## Priority: Low
+
+### 16. Per-site proxy support
+
+Some sites (LinkedIn, Indeed) benefit from proxies to avoid rate limits. Others (RemoteOK, YCJobs) never block. Currently proxy is all-or-nothing via env vars.
+
+**Fix**: Allow per-site proxy assignment in config.toml:
+```toml
+[sites.linkedin]
+proxy = "socks5://user:pass@proxy:1080"
+```
+
+### 17. ATS provider rate limiting
+
+Some ATS providers (Greenhouse, Ashby) have aggressive rate limits when scraping 100+ companies. The current per-site token bucket doesn't account for the extra load from ATS slug processing.
+
+**Fix**: Separate ATS rate limiting from regular site rate limiting. Allow setting a separate RPS for ATS seed processing.
+
 ---
 
 ## Things scrappy does GREAT (don't touch)
