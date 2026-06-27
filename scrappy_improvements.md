@@ -9,6 +9,20 @@ Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick it
 
 ## To add for JobHunter (not scrappy)
 
+### Determine remote/onsite per-job during scrape
+
+scrappy already has `IsRemote bool` on `JobPost` (line 395 of `internal/model/types.go`). But it's not always reliably set — some scrapers leave it as `false` even for remote jobs, others don't populate it at all.
+
+scrappy **can** determine this more accurately:
+- **Site-level**: remote-only boards (`remoteok`, `weworkremotely`, `himalayas`, `ycjobs`) → all jobs are `IsRemote=true`
+- **Location-level**: if job posting says "remote" in any location field → `IsRemote=true`
+- **Input-level**: if `ScraperInput.RemoteOnly` is true → all returned jobs are remote (the consumer requested only remote jobs)
+- **Explicit**: some job postings have a "remote" or "work-from-home" flag in their API response
+
+**Fix**: Add a post-processing step after each site's scrape that normalizes `IsRemote` using the signals above. This is already partially done in some scrapers but not consistently.
+
+**JobHunter benefit**: If `IsRemote` is reliable on every `JobPost`, send can filter by it without needing a separate `scrape_mode` column in the DB. The job itself carries the signal.
+
 ### Send doesn't differentiate onsite vs remote (JobHunter fix, not scrappy)
 
 `send` processes all pending emails together regardless of scrape mode. Onsite jobs (Bangalore) and remote jobs get the same email template. The `{location}` placeholder helps the LLM adapt, but the system prompt is identical.
