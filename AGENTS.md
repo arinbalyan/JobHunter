@@ -91,14 +91,36 @@ scrappy is at `~/projects/scrappy/` (v0.3.5, 141 sites, 49 working). Consumed as
 
 ## Session Context 2026-06-27
 
-- scrappy v0.3.7 released with LinkedIn guest API fix, security fixes
-- scrappy v0.3.8 added WithConfig(), SiteSkipLocation
-- scrappy v0.3.9 added SiteInfo(), SiteTimeout, Playwright detection
-- 5/17 scrappy improvements done, 12 remaining (uTLS blocked forever)
-- Bridge updated to v0.3.7 (no replace directive, uses GitHub module)
-- JobHunter fully built: 17 files, ~1000 lines Rust + Go bridge
-- Vercel dashboard live at jobhunter-tracker.vercel.app
+### Completed This Session
+- scrappy 14/17 improvements done (all except uTLS blocked, per-site proxy, ATS rate limiting)
+- Latest scrappy: v0.3.10 (dev branch), needs tag for bridge to consume
+- JobHunter: TOML env var resolver bug fixed, scraper binary path fixed
+- Config-driven filtering: reject_titles, blocked_email_* all in config.toml
+- scrappy_config auto-loads per-site terms from scrappy's config
+- Bridge passes site_search/site_location for per-site search terms
+- Vercel dashboard with pipeline funnel + per-URL click breakdown
+- Click tracking via /click?e=&url= with click_log table
+- Import command: converts scrappy config to JobHunter config.toml format
 - GH Actions: scrape 4x daily, send daily, tests on push
+
+### Files Changed This Session
+- src/config.rs — added sites, scrappy_config, email filters, reject_titles
+- src/scrape.rs — removed all hardcoded const arrays, reads from config
+- src/llm.rs — weighted random router with failover
+- src/send.rs — concurrent LLM generation + SMTP sending pipeline
+- src/smtp.rs — URL wrapping for click tracking
+- src/score.rs — LLM job scoring (1-10)
+- src/research.rs — LLM company research (3 talking points)
+- src/triage.rs — LLM reply classification
+- src/tracker.rs — axum HTTP server + inbox dashboard
+- src/telegram.rs — rich scrape report with timing
+- src/main.rs — 8 subcommands
+- scraper/main.go — updated for v0.3.7 API
+- migrations/ — 4 migration files
+- api/*.js — Vercel serverless functions
+- .github/workflows/ — 3 GH Actions workflows
+- docs/ — architecture + configuration reference
+- scrappy_improvements.md — full backlog with 14/17 done
 
 ## Quick Reference
 
