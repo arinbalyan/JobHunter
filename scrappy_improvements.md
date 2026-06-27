@@ -4,6 +4,21 @@ Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick it
 
 **Final tally: 14/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️**
 
+## To add for JobHunter (not scrappy)
+
+### Send doesn't differentiate onsite vs remote
+
+`send` processes all pending emails together regardless of scrape mode. Onsite jobs (Bangalore) and remote jobs get the same email template. The `{location}` placeholder helps the LLM adapt slightly, but the system prompt is identical for both.
+
+**Fix**: Either:
+- Store `mode` on each job (add column to `jobs` table)
+- Add `--mode` filter to `send` command
+- Or have two separate email prompt sets in config.toml (`[templates.email_system_onsite]` / `[templates.email_system_remote]`)
+
+### Scrape DOES differentiate onsite vs remote (send doesn't)
+
+**Scrape**: ✅ Works correctly. `--mode remote` uses `[search.remote]` preset (78 remote-friendly sites, `remote_only=true`, `locations=[
+
 ## Completed
 
 | # | Item | Status |
