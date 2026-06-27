@@ -4,6 +4,9 @@ Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick it
 
 **Final tally: 14/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️**
 
+> **JobHunter improvements**: See `jobhunter_improvements.md` for JobHunter-side items (send mode, per-site stats, Vercel, etc.).
+> This file is for **scrappy** changes only.
+
 ## To add for JobHunter (not scrappy)
 
 ### Send doesn't differentiate onsite vs remote (JobHunter fix, not scrappy)
