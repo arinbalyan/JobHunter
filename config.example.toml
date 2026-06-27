@@ -23,7 +23,13 @@ phone = ""
 portfolio = "https://your-portfolio.com"
 github = "https://github.com/you"
 linkedin = "https://linkedin.com/in/you"
-resume_url = ""    # Google Drive link to resume
+resume_url = ""    # Google Drive link to resume (appended in email signature)
+context = """
+Your professional background — skills, projects, achievements.
+This is sent to the LLM to help it write personalized outreach emails.
+Be specific: mention tech stack, notable projects, years of experience.
+Example: Senior backend engineer with 5 years in Rust/Python...
+"""
 
 # ─── Job Search ────────────────────────────────────────
 [scrape]

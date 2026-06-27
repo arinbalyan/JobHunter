@@ -35,6 +35,9 @@ pub struct User {
     pub github: Option<String>,
     pub portfolio: Option<String>,
     pub resume_url: Option<String>,
+    /// Rich context for LLM email generation. Describe skills, achievements,
+    /// projects, education — anything that helps the LLM write a convincing email.
+    pub context: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

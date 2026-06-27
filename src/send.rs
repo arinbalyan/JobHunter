@@ -151,10 +151,10 @@ async fn generate_one(
         .await?;
 
     // Build the user prompt with placeholders filled
-    let context = format!(
+    let context = user.context.clone().unwrap_or_else(|| format!(
         "Role: {}, Experience: {} years, Name: {}",
         user.current_role, user.years_experience, user.name
-    );
+    ));
 
     let user_prompt = fill_placeholders(&templates.email_user.content, &[
         ("context", &context),
