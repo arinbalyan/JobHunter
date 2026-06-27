@@ -1,7 +1,6 @@
 name: Send Emails
 on:
   schedule:
-    # Once daily at 10:00 AM IST (4:30 UTC)
     - cron: '30 4 * * *'
   workflow_dispatch:
 
@@ -12,26 +11,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust build
-        uses: actions/cache@v4
-        with:
-          path: |
-            target/
-            ~/.cargo/registry
-          key: rust-cache-${{ hashFiles('Cargo.lock') }}
-          restore-keys: rust-cache-
-
-      - name: Build Rust binary
-        run: cargo build --release
+      - name: Download latest release
+        run: |
+          gh release download --pattern '*.tar.gz' --dir /tmp
+          tar xzf /tmp/jobhunter-*.tar.gz -C /tmp
+          mv /tmp/jobhunter-*/jobhunter .
+          mv /tmp/jobhunter-*/scraper .
+          chmod +x jobhunter scraper
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create config
         run: cp config.ci.toml config.toml
 
       - name: Generate & send emails
-        run: ./target/release/jobhunter send --max 10
+        run: ./jobhunter send --max 10
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
