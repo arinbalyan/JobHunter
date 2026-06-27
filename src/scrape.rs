@@ -35,6 +35,7 @@ struct ScraperInput {
     remote_only: bool,
     results_wanted: i32,
     verify_email: bool,
+    emails_only: bool,
     description_format: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     site_search: Option<std::collections::HashMap<String, Vec<String>>>,
@@ -158,6 +159,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
             remote_only: preset.remote_only,
             results_wanted,
             verify_email: true,
+            emails_only: true,
             description_format: "markdown".to_string(),
             site_search,
             site_location,
