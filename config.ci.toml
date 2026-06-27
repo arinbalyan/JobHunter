@@ -130,7 +130,7 @@ scrappy_config = "~/projects/scrappy/config.toml"
 [scrape]
 # Max runtime in minutes. 490 = ~8 hours (GH Actions max).
 # Results wanted (0 = unlimited). scrappy caps at ~100k internally.
-max_runtime_minutes = 490
+max_runtime_minutes = 330    # 5.5h — fits within GitHub's 6h job limit
 results_wanted = 0
 reject_titles = [
     "senior", "sr ", "staff", "principal", "lead", "manager",

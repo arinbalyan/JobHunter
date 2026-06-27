@@ -21,6 +21,15 @@ jobs:
           go-version: '1.26'
           cache: true
 
+      - name: Cache Rust build
+        uses: actions/cache@v4
+        with:
+          path: |
+            target/
+            ~/.cargo/registry
+          key: rust-cache-${{ hashFiles('Cargo.lock') }}
+          restore-keys: rust-cache-
+
       - name: Check Rust
         run: cargo check
 
