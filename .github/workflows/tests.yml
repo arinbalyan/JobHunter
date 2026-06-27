@@ -1,7 +1,7 @@
 name: Tests
 on:
   push:
-    branches: [rust/jobhunter, dev, main]
+    branches: [rust/jobhunter, dev, beta, main]
   pull_request:
     branches: [main]
 
