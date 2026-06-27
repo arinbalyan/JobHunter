@@ -207,14 +207,14 @@ mod tests {
 
     #[test]
     fn test_env_resolve_bare() {
-        std::env::set_var("TEST_KEY", "hello");
-        assert_eq!(resolve_env_vars("prefix $TEST_KEY suffix"), "prefix hello suffix");
+        std::env::set_var("TMP_TEST_BARE", "hello");
+        assert_eq!(resolve_env_vars("prefix $TMP_TEST_BARE suffix"), "prefix hello suffix");
     }
 
     #[test]
     fn test_env_resolve_braced() {
-        std::env::set_var("TEST_KEY", "world");
-        assert_eq!(resolve_env_vars("prefix ${TEST_KEY} suffix"), "prefix world suffix");
+        std::env::set_var("TMP_TEST_BRACED", "world");
+        assert_eq!(resolve_env_vars("prefix ${TMP_TEST_BRACED} suffix"), "prefix world suffix");
     }
 
     #[test]
