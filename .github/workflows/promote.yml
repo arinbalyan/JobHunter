@@ -1,0 +1,33 @@
+name: promote
+
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      step:
+        description: 'Which step to run'
+        type: choice
+        options:
+          - beta-to-main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote dev → beta
+        if: github.event_name == 'schedule'
+        run: bash .github/scripts/promote.sh dev beta
+
+      - name: Create PR beta → main
+        if: github.event_name == 'workflow_dispatch' && inputs.step == 'beta-to-main'
+        run: bash .github/scripts/promote.sh beta main --force --pr-only
