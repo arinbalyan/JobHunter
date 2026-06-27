@@ -9,6 +9,12 @@ Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick it
 
 ## To add for JobHunter (not scrappy)
 
+### `EmailsOnly` changes output format (return type differs)
+
+When `EmailsOnly: true`, scrappy returns `Emails` as `[]string` (simple email strings). When `false`, it returns `[]Email` objects with `addr`, `verified`, `source`, `role`. This means consumers that expect objects break when toggling the flag.
+
+**Fix**: Always return `[]Email` regardless of `EmailsOnly`. The flag should only control whether jobs without emails are included, not change the data type of the emails field.
+
 ### Determine remote/onsite per-job during scrape
 
 scrappy already has `IsRemote bool` on `JobPost` (line 395 of `internal/model/types.go`). But it's not always reliably set — some scrapers leave it as `false` even for remote jobs, others don't populate it at all.
