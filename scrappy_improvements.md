@@ -14,15 +14,13 @@ Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick it
 
 **Fix**: Standardize: each site scraper should treat `ResultsWanted <= 0` as "get all available" (like Indeed does).
 
-### 2. `NewEngine()` has no way to pass config.toml
+### 2. ✅ `NewEngine(WithConfig())` — Done v0.3.8
 
-The engine registers all 141 scrapers but library consumers have no way to pass per-site search terms from scrappy's `config.toml`. The CLI loads it; the library can't.
-
-**Fix**: Add a method on Engine:
+Library consumers can now pass per-site search terms from scrappy's `config.toml`:
 ```go
 engine, _ := scrappy.NewEngine(scrappy.WithConfig("config.toml"))
 ```
-This populates `SiteSearch`/`SiteLocation` from the file's `[sites]` section.
+`WithConfig` loads the `[sites]` section and sets per-site search terms / location / country on the Engine.
 
 ### 3. No per-site result metadata returned
 
@@ -86,11 +84,13 @@ The uTLS revert (`76451d1`) fixed TLS state machine issues, but losing fingerpri
 
 ## Priority: Low
 
-### 10. Per-site `skip_location` for remote-only boards
+### 10. ✅ `SiteSkipLocation` — Done v0.3.8
 
-The engine generates `terms × locations` combinations. Remote-only boards (remoteok, himalayas, ycjobs) waste time on location combos since they only serve remote jobs.
-
-**Fix**: Site config option `skip_location: true` — don't iterate locations, just use the site's default.
+The engine now supports skipping location iteration per site:
+```go
+SiteSkipLocation: map[Site]bool{"remoteok": true, "himalayas": true}
+```
+Remote-only boards no longer waste time on location combos.
 
 ### 11. Dedup within a run is URL-only
 
