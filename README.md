@@ -1,15 +1,18 @@
 # JobHunter
 
-AI-powered job application pipeline. Scrapes 100+ job boards, scores jobs, generates personalized outreach emails, and sends them — all at **$0 in LLM costs** via free-tier providers.
+AI-powered job application pipeline. Scrapes 100+ job boards, scores jobs, researches companies, generates personalized outreach emails, and sends them — all at **$0 in LLM costs** via free-tier providers.
 
 ```bash
 # Quick start
-curl -fsSL https://github.com/arinbalyan/jobhunter/releases/latest/download/jobhunter-linux.tar.gz | tar xz
-cp config.example.toml .data/config.toml  # edit with your details
-./jobhunter doctor                         # verify setup
-./jobhunter scrape --mode remote           # scrape remote jobs
-./jobhunter score                          # score jobs 1-10
-./jobhunter send                           # generate + send emails
+git clone https://github.com/arinbalyan/jobhunter.git
+cd jobhunter
+cargo build --release
+cd scraper && go build -o scraper . && cd ..
+cp config.example.toml .data/config.toml   # edit with your details
+./target/release/jobhunter doctor           # verify setup
+./target/release/jobhunter scrape --mode remote   # scrape remote jobs
+./target/release/jobhunter score                  # score jobs 1-10
+./target/release/jobhunter send                   # generate + send emails
 ```
 
 ---
@@ -17,15 +20,16 @@ cp config.example.toml .data/config.toml  # edit with your details
 ## Architecture
 
 ```
-jobhunter (Rust binary)
+jobhunter (Rust binary, ~700 lines)
   │
   ├── spawns → scraper (Go bridge, ~30 lines)
   │               │
-  │               └── scrappy (Go library: 141 sites, email extraction, MX verify)
+  │               └── scrappy v0.3.9 (Go library: 141 sites, email extraction, MX verify)
   │
   ├── LLM router (9 free providers, weighted random + failover)
   ├── SMTP sender (Gmail 587 STARTTLS, rate-limited, quota tracked)
   ├── Tracking server (open/click pixels)
+  ├── Pipeline dashboard (Vercel)
   └── Telegram alerts (per-run reports)
 ```
 
@@ -35,46 +39,45 @@ Two binaries in one tarball. The Go `scraper` is a thin bridge to [scrappy](http
 
 | Command | What it does |
 |---------|-------------|
-| `jobhunter scrape --mode remote\|onsite` | Scrape jobs → filter → dedup → queue |
+| `jobhunter scrape --mode remote\|onsite` | Scrape 141 boards → filter → dedup → queue |
 | `jobhunter score` | Score unscored jobs 1-10 via LLM |
 | `jobhunter research` | Generate 3 talking points per company via LLM |
 | `jobhunter send` | Generate emails + send via SMTP |
-| `jobhunter serve` | HTTP tracking server (/track, /click, /health) |
+| `jobhunter triage "<reply>"` | Classify recruiter reply (positive/negative/neutral) |
+| `jobhunter import --from <scrappy_config>` | Import scrappy per-site config into JobHunter config |
+| `jobhunter serve` | HTTP tracking server + pipeline dashboard |
 | `jobhunter doctor` | Diagnose config, DB, API keys, binary |
 
 ## Pipeline
 
 ```
-Scrape → Score → Research → Send
-  │         │        │         │
-  │         │        │         └── SMTP (rate-limited, 1/15s)
-  │         │        │             └── Tracking pixel + quota tracking
-  │         │        └── 3 talking points per company (LLM, simple model)
-  │         └── 1-10 match score per job (LLM, simple model)
+Scrape → Score → Research → Send → Track
+  │        │        │         │        │
+  │        │        │         │        └── opens (1x1 pixel)
+  │        │        │         │        └── clicks (/click?e=&url=)
+  │        │        │         └── Gmail SMTP (rate-limited 1/15s)
+  │        │        │             └── signature with GitHub/Portfolio/Resume
+  │        │        └── 3 talking points per company (LLM, simple model)
+  │        └── 1-10 match score per job (LLM, simple model)
   └── 141 boards → title filter → email filter → SQL dedup → email_queue
+      scrappy guest API (no Playwright needed)
 ```
 
 ## Configuration
 
 Single file `.data/config.toml`. API keys via `$VAR` references from `.env` or GitHub Secrets.
 
-```toml
-[user]
-name = "Your Name"
-resume_url = "https://drive.google.com/..."
+Key sections:
 
-[search.remote]
-terms = ["AI Engineer", "ML Engineer"]
-locations = ["remote"]
-sites = ["linkedin", "indeed", "remoteok", "ycjobs"]
-remote_only = true
-
-[search.onsite]
-terms = ["software engineer", "backend developer"]
-locations = ["bangalore", "mumbai"]
-sites = ["linkedin", "indeed", "internshala"]
-remote_only = false
-```
+| Section | Purpose |
+|---------|---------|
+| `[user]` | Name, role, experience, GitHub, portfolio, resume URL, **LLM context** |
+| `[search.remote]` / `[search.onsite]` | Search terms, locations, sites per mode |
+| `[scrape]` | Runtime, results limit, **reject_titles**, **blocked_email_*** (all configurable) |
+| `scrappy_config` | Path to scrappy's `config.toml` — auto-loads **118 per-site search overrides** |
+| `[sites.*]` | Per-site search terms/location overrides (optional, auto-imported) |
+| `[[llm.providers]]` | 8 free providers with weights, models, API key env vars |
+| `[templates.*]` | All LLM prompts — edit without recompiling |
 
 Full reference at [docs/configuration.md](docs/configuration.md).
 
@@ -97,24 +100,32 @@ Weighted random selection, failover up to 3 providers, auto-cooldown on failures
 
 | Feature | Model | Cost |
 |---------|-------|------|
-| Email generation | Complex | One call per email |
+| Email generation | Complex (e.g. Gemma 4 31B) | One call per email |
 | Job scoring (1-10) | Simple | One short call per job |
 | Company research (3 points) | Simple | One call per company |
-| Reply triage (planned) | Simple | One call per reply |
+| Reply triage | Simple | One call per reply |
 
 ## Deployment
 
 ### GitHub Actions (automated)
 
-Two workflows: **scrape** (4x daily) + **send** (daily). Secrets set as repository variables.
+Three workflows:
+- **scrape** — 4x daily, builds Rust + Go bridge, scrapes all 78 sites
+- **send** — daily, generates + sends emails for queued jobs
+- **tests** — on every push, runs `cargo test` + Go vet
+
+### Vercel Dashboard
+
+Live at **https://jobhunter-tracker.vercel.app** — pipeline funnel, per-URL click breakdown, run history, failures. Node.js serverless functions in `api/`.
 
 ### Self-hosted tracking server
 
 ```bash
 ./jobhunter serve
-# → /track?e=<uuid>  (1x1 GIF, logs open)
-# → /click?e=<uuid>  (302 redirect, logs click)
-# → /health
+# → GET /         pipeline dashboard (HTML)
+# → GET /track?e= 1x1 GIF, logs open
+# → GET /click?e=&url= 302 redirect, logs click
+# → GET /health
 ```
 
 ## License
