@@ -1,0 +1,406 @@
+# ─────────────────────────────────────────────────────────
+# JobHunter Configuration
+# ─────────────────────────────────────────────────────────
+# Local config file — gitignored. API keys resolved from
+# $VAR references (set in .env or GitHub Secrets).
+#
+# ./jobhunter scrape
+# ─────────────────────────────────────────────────────────
+
+# ─── User Profile ──────────────────────────────────────
+[user]
+name = "Your Name"
+email = "arinbalyan.work@gmail.com"
+current_role = "AI/ML Engineer"
+years_experience = 1
+phone = ""
+portfolio = "https://arinbalyan.vercel.app"
+github = "https://github.com/arinbalyan"
+linkedin = "https://linkedin.com/in/arinbalyan"
+resume_url = ""
+context = """
+AI/ML Engineer with 1 year of professional experience.
+Built JobHunter — a fully automated job application pipeline that scrapes 141 job boards,
+scores jobs via LLM, generates personalized outreach emails, and sends them.
+Tech stack: Rust, Go, Python, TypeScript, PostgreSQL, LLMs (OpenRouter, Groq, etc.),
+Axum, Tokio, scrappy, Playwright, Vercel serverless.
+Key projects: JobHunter (AI hiring agent), scrappy (job scraping engine),
+multi-provider LLM router with failover, Vercel-deployed tracking dashboard.
+Strong in: system architecture, API design, concurrent programming, automation,
+LLM integration, web scraping, email deliverability.
+Education: B.Tech in Computer Science.
+Looking for: AI/ML Engineer, LLM Engineer, AI Agent Engineer roles where I can
+build systems that combine LLMs with practical automation.
+"""
+
+# ─── Job Search ────────────────────────────────────────
+# Two presets: remote (global remote roles) and onsite (India/hybrid).
+# Use: ./jobhunter scrape --mode remote|onsite
+
+[search.remote]
+terms = [
+    '"AI Engineer" OR "Artificial Intelligence Engineer"',
+    '"ML Engineer" OR "Machine Learning Engineer"',
+    '"LLM Engineer" OR "Large Language Model Engineer"',
+    '"Deep Learning Engineer"',
+    '"AI/ML Engineer"',
+    '"AI Researcher" OR "Applied AI Scientist"',
+    '"LangChain Developer" OR "LangChain Engineer"',
+    '"LangGraph Developer"',
+    '"AI Agent Engineer" OR "AI Agent Developer"',
+    '"CrewAI Engineer" OR "AutoGen Engineer"',
+    '"Python Developer" OR "Python Engineer"',
+    '"Backend Engineer" OR "Backend Developer" OR "Backend Software Engineer"',
+    '"Full Stack Developer" OR "Full Stack Engineer"',
+    '"AI Full Stack Developer" OR "AI Full Stack Engineer"',
+    '"Python Backend Developer" OR "Python Backend Engineer"',
+    '"MLOps Engineer" OR "ML Platform Engineer"',
+    '"Data Scientist" OR "Data Engineer"',
+    '"NLP Engineer" OR "Natural Language Processing Engineer"',
+    '"AI Platform Engineer" OR "AI Infrastructure Engineer"',
+    '"DevOps Engineer" OR "Cloud Engineer"',
+    '"Software Engineer" OR "Software Developer"',
+    '"SDE" OR "Software Development Engineer"',
+    '"Web Developer"',
+    '"GTM Engineer" OR "Forward Deployed Engineer" OR "AI Automation Engineer" OR "AI Product Engineer"',
+]
+locations = ["remote"]
+sites = [
+    "linkedin", "indeed", "greenhouse", "builtin", "google",
+    "hiringcafe", "remoteok", "himalayas", "themuse", "dice",
+    "monster", "simplyhired", "reed", "ycjobs", "aijobs",
+    "workday", "glassdoor", "wellfound", "ziprecruiter",
+    "startupjobs", "weworkremotely", "remotive", "workingnomads",
+    "jobspresso", "hackernews", "echojobs", "findwork",
+    "careerbuilder", "careerjet", "adzuna",
+    "jobicy", "crunchboard",
+    "hugginfacejobs", "devopsjobs", "arbeitnow", "gunio",
+    "4dayweek", "berlinstartupjobs", "canadajobbank", "coroflot",
+    "freelancercom", "getonboard", "icrunchdata",
+    "joinrise", "nofluffjobs", "railsjobs", "stepstone",
+    "upwork", "ukvisajobs", "usajobs", "wordpressjobs",
+    "mycareersfuture", "jobindex", "djinni", "snagajob",
+    "eurojobs", "cryptojobslist", "cryptocurrencyjobs", "dribbble",
+    "ats-greenhouse", "ats-ashby", "ats-smartrecruiters",
+    "ats-bamboohr", "ats-hiringthing", "ats-jobvite",
+    "ats-taleo", "ats-successfactors", "ats-mercor",
+    "ats-pinpoint", "ats-recruiterflow", "ats-oracle",
+    "ats-loxo", "ats-deel", "ats-gem", "ats-jazzhr",
+    "ats-personio", "ats-bullhorn", "ats-trakstar",
+]
+remote_only = true
+
+[search.onsite]
+terms = [
+    '"Software Engineer" OR "Software Developer"',
+    '"SDE" OR "Software Development Engineer"',
+    '"Backend Engineer" OR "Backend Developer"',
+    '"Full Stack Developer" OR "Full Stack Engineer"',
+    '"Python Developer" OR "Python Engineer"',
+    '"AI/ML Engineer"',
+    '"AI Engineer" OR "Machine Learning Engineer"',
+    '"Data Scientist" OR "Data Engineer"',
+    '"DevOps Engineer" OR "Cloud Engineer"',
+    '"Frontend Developer" OR "React Developer"',
+    '"Node.js Developer" OR "Node Developer"',
+    '"Web Developer"',
+]
+locations = [
+    "bangalore", "mumbai", "pune", "hyderabad", "chennai",
+    "delhi", "gurgaon", "noida", "kolkata", "ahmedabad",
+    "remote",
+]
+sites = [
+    "linkedin", "indeed", "internshala", "hasjob",
+    "glassdoor", "monster", "simplyhired", "careerbuilder",
+    "jobstreet", "adzuna", "dice", "reed",
+    "workday", "wellfound", "themuse",
+    "ats-greenhouse", "ats-ashby", "ats-smartrecruiters",
+    "ats-bamboohr", "ats-hiringthing", "ats-jobvite",
+    "ats-taleo", "ats-successfactors", "ats-mercor",
+    "ats-pinpoint", "ats-recruiterflow", "ats-oracle",
+    "ats-loxo", "ats-deel", "ats-gem", "ats-jazzhr",
+    "ats-personio", "ats-bullhorn", "ats-trakstar",
+]
+remote_only = false
+
+# ─── Scrape Runtime ──────────────────────────────────
+scrappy_config = "~/projects/scrappy/config.toml"
+
+[scrape]
+# Max runtime in minutes. 490 = ~8 hours (GH Actions max).
+# Results wanted (0 = unlimited). scrappy caps at ~100k internally.
+max_runtime_minutes = 490
+results_wanted = 0
+reject_titles = [
+    "senior", "sr ", "staff", "principal", "lead", "manager",
+    "director", "head of", "vp ", "vice president", "chief",
+    "embedded", "firmware", "hardware", "qa ", "quality",
+    "tester", "test engineer", "sdet", "manual",
+    "data scientist", "data analyst", "data engineer",
+    "devops engineer", "site reliability", "platform engineer",
+    "network", "security engineer", "infosec", "sysadmin",
+    "admin", "support", "it ", "help desk",
+    "trainee", "apprentice", "intern", "fresher",
+    "graduate", "entry level", "junior",
+    "teacher", "professor", "instructor", "tutor",
+    "nurse", "nursing", "medical assistant", "healthcare",
+    "cashier", "retail associate", "sales associate",
+    "customer service", "call center", "receptionist",
+    "driver", "delivery driver", "truck driver",
+    "security guard", "cleaning", "janitor",
+    "marketing coordinator", "social media manager",
+    "hr manager", "hr coordinator", "recruiter", "talent acquisition",
+    "accountant", "auditor", "lawyer", "paralegal",
+    "chef", "cook", "restaurant", "warehouse",
+    "electrician", "plumber", "mechanic",
+]
+blocked_email_prefixes = [
+    "no-reply", "noreply", "do-not-reply", "donotreply",
+    "accommodation@", "accommodations@",
+]
+blocked_email_contains = [
+    "no-reply", "noreply", "do-not-reply", "donotreply",
+    "accessibility", "accommodation", "accomodation",
+    "brillied", "mediajenie", "mediajeni", "medijenie",
+    "disability", "compliance", "servicedesk",
+    "bop.gov",
+]
+blocked_tlds = [
+    ".test", ".example", ".invalid", ".local", ".localhost",
+    ".tk", ".ml", ".ga", ".cf", ".gq",
+    ".xyz", ".top", ".work", ".ru", ".cn", ".ua", ".kz", ".to",
+]
+
+# ─── Database ─────────────────────────────────────────
+[database]
+url = "$DATABASE_URL"
+
+# ─── Email Sending ────────────────────────────────────
+[email]
+daily_limit = 500
+delay_seconds = 15
+max_per_run = 490
+from_name = "Your Name"
+from_addr = "$GMAIL_USER"
+
+# ─── Deduplication ────────────────────────────────────
+[dedup]
+email_cooldown_days = 30
+domain_cooldown_hours = 24
+company_cooldown_hours = 24
+
+# ─── Telegram Alerts ──────────────────────────────────
+[telegram]
+chat_id = "814775992"
+
+# ─── Email Tracking Server ────────────────────────────
+[tracking]
+server_url = "https://jobhunter-tracker.vercel.app"
+port = 8080
+
+# ─── LLM Router ───────────────────────────────────────
+# Latest free models as of June 2026.
+# Researched per-provider: free tier confirmed, no payment required.
+# Router does weighted round-robin + failover to keep costs at $0.
+[llm]
+max_tokens_per_run = 100000
+max_tokens_per_request = 2048
+temperature = 0.7
+
+[[llm.providers]]
+name = "OpenRouter"
+api_key_env = "OPENROUTER_API_KEY"
+base_url = "https://openrouter.ai/api/v1"
+model_complex = "google/gemma-4-31b-it:free"
+model_simple = "openrouter/free"
+weight = 10
+# June 2026: Gemma 4 31B (free) is best free model. openrouter/free routes dynamically.
+
+[[llm.providers]]
+name = "Groq"
+api_key_env = "GROQ_API_KEY"
+base_url = "https://api.groq.com/openai/v1"
+model_complex = "openai/gpt-oss-120b"
+model_simple = "openai/gpt-oss-20b"
+weight = 5
+# June 2026: llama-3.3-70b-versatile and llama-3.1-8b-instant DEPRECATED June 17.
+# Replaced by gpt-oss-120b (complex) and gpt-oss-20b (simple). 30 RPM free.
+
+[[llm.providers]]
+name = "Together"
+api_key_env = "TOGETHER_API_KEY"
+base_url = "https://api.together.xyz/v1"
+model_complex = "google/gemma-4-9b-it"
+model_simple = "google/gemma-4-9b-it"
+weight = 4
+
+[[llm.providers]]
+name = "DeepInfra"
+api_key_env = "DEEPINFRA_API_KEY"
+base_url = "https://api.deepinfra.com/v1/openai"
+model_complex = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+model_simple = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+weight = 4
+
+[[llm.providers]]
+name = "Hyperbolic"
+api_key_env = "HYPERBOLIC_API_KEY"
+base_url = "https://api.hyperbolic.xyz/v1"
+model_complex = "Qwen3-Coder-480B-A35B-Instruct"
+model_simple = "DeepSeek-R1-0528"
+weight = 3
+# June 2026: Qwen3-Coder-480B, DeepSeek-R1-0528, DeepSeek-V3-0324 all free.
+
+[[llm.providers]]
+name = "SambaNova"
+api_key_env = "SAMBANOVA_API_KEY"
+base_url = "https://api.sambanova.ai/v1"
+model_complex = "Meta-Llama-3.3-70B-Instruct"
+model_simple = "Meta-Llama-3.3-70B-Instruct"
+weight = 3
+# June 2026: $5 free credits on signup, free tier when no payment method.
+
+[[llm.providers]]
+name = "Cerebras"
+api_key_env = "CEREBRAS_API_KEY"
+base_url = "https://api.cerebras.ai/v1"
+model_complex = "zai-glm-4.7"
+model_simple = "gpt-oss-120b"
+weight = 2
+# June 2026: Free tier confirmed. zai-glm-4.7 and gpt-oss-120b.
+
+[[llm.providers]]
+name = "ZAI"
+api_key_env = "ZAI_API_KEY"
+base_url = "https://open.bigmodel.cn/api/paas/v4"
+model_complex = "GLM-4-Plus"
+model_simple = "GLM-4-Air"
+weight = 1
+
+# ─── Prompt Templates ─────────────────────────────────
+# Edit these to change LLM behavior without recompiling.
+
+[templates.email_system]
+content = """\
+You are a professional job applicant writing a cold outreach email. You write in a natural, confident first-person voice. Your goal is to get a response from the hiring team.
+
+## Core Rules
+1. Write in FIRST PERSON as the applicant. Never refer to yourself in third person.
+2. Keep the email between 120 and 300 words.
+3. Structure: 4-5 short paragraphs (2-3 sentences each). Tight and scannable.
+4. Be specific — mention a concrete skill, project, or achievement from the context that matches the job description.
+5. Sound natural and confident — not generic, not salesy, not desperate.
+6. The closing and signature will be added by the system. Do NOT include sign-off blocks.
+
+## Experience Match Strategies
+
+### When UNDERQUALIFIED (user has less experience than the role requires)
+- Lead with honesty: acknowledge the gap directly but frame it positively.
+- Immediately pivot to relevant projects, skills, or quick learning ability.
+- Emphasize transferable skills and enthusiasm for the specific domain.
+- Suggest a conversation to discuss fit rather than making a hard ask.
+- NEVER apologize excessively or sound insecure. Frame it as "early but accelerating."
+
+### When OVERQUALIFIED (user has more experience than the role requires)
+- Show genuine interest in THIS specific role and company — avoid sounding like you're settling.
+- Explain WHY you want this particular role: specific technology, industry, company stage, etc.
+- Address retention concerns implicitly: show you're looking for impact, not just a title.
+- Emphasize what unique value you bring beyond the listed requirements.
+- Keep it humble — don't list credentials, focus on what you can DO for them.
+
+### When QUALIFIED (good match)
+- Be direct and confident. Lead with your strongest relevant skill.
+- Show you've done your research on the company — reference their product, tech stack, or mission.
+- Keep it tight: why you, why this role, why now.
+- End with a clear, low-friction call to action (e.g., "I'd love a quick chat").
+
+## Forbidden
+- NO URLs, links, phone numbers, or contact info in the body.
+- NO markdown formatting (no bold, italic, headers, bullet points, asterisks).
+- NO HTML tags.
+- NO emojis.
+- NO placeholders like [Your Name] or [Company].
+- NO subject line prefixes like "Re:" or "Fwd:".
+- NO fabricated experience. Never claim a skill or project you don't have.
+- NO apologies for lack of experience — reframe as a positive instead.
+
+## Output Format
+Return EXACTLY in this format — nothing before or after:
+
+SUBJECT: Your subject line here
+
+Your email body here — plain text only, no formatting.
+"""
+
+[templates.email_user]
+content = """\
+## Applicant Context
+{context}
+
+## Target Position
+- Title: {title}
+- Company: {company}
+- Description: {description}
+- Seniority: {seniority}
+- Location: {location}
+- Job Type: {job_type}
+- Salary: {salary}
+- Skills Listed: {skills}
+- Industry: {industry}
+- Experience Match: {experience_match}
+
+## Instructions
+Write a cold outreach email to the hiring team at {company} about the {title} position. Use the applicant context and experience match strategy defined in the system prompt.
+"""
+
+[templates.followup_system]
+content = """\
+You are writing a polite follow-up email. You previously applied for a role at a company and haven't heard back. Keep it brief, professional, and genuine.
+
+## Rules
+1. Write in first person, 60-100 words maximum.
+2. Reference the original application naturally — mention the role and company.
+3. Express continued interest without sounding pushy.
+4. End with a low-friction call to action (quick chat, update, etc.).
+5. No URLs, markdown, HTML, emojis, or placeholders.
+6. The signature will be added by the system.
+"""
+
+[templates.followup_user]
+content = """\
+You applied for {title} at {company} {days_ago} days ago. The original job description was: {description}
+
+Write a brief, natural follow-up email asking for an update. Keep it to 60-100 words.
+"""
+
+[templates.scoring]
+content = """\
+Score this job match from 1-10 based on how well the user's profile fits the requirements.
+
+User: {current_role} with {years_experience} years experience
+Job: {title} at {company}
+Description: {description}
+Skills required: {skills}
+
+Return only a single integer 1-10.
+"""
+
+[templates.research]
+content = """\
+Given this job posting and company, generate 3 specific talking points for an outreach email that shows genuine research and interest.
+
+Job: {title} at {company}
+Description: {description}
+
+Format each as a short phrase (5-15 words), one per line.
+"""
+
+[templates.triage]
+content = """\
+Classify this email reply as one of: positive | negative | neutral | unclear
+
+Reply: {reply_text}
+
+Return one word only: positive, negative, neutral, or unclear.
+"""
