@@ -11,13 +11,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Download latest release
+      - name: Download latest release binaries
         run: |
           gh release download --pattern '*.tar.gz' --dir /tmp
           tar xzf /tmp/jobhunter-*.tar.gz -C /tmp
-          mv /tmp/jobhunter-*/jobhunter .
-          mv /tmp/jobhunter-*/scraper .
-          chmod +x jobhunter scraper
+          cp /tmp/jobhunter-*/jobhunter ./jobhunter
+          cp /tmp/jobhunter-*/scraper ./scraper/scraper
+          chmod +x jobhunter scraper/scraper
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
