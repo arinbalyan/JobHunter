@@ -123,6 +123,7 @@ pub struct ScrapeResult {
     pub filtered_title: usize,
     pub filtered_email: usize,
     pub inserted: usize,
+    pub dedup_skipped: usize,
     pub sites_count: usize,
     pub terms_count: usize,
     pub duration_secs: f64,
@@ -199,6 +200,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     tracing::info!("received {} jobs from scraper", jobs.len());
 
     let mut inserted = 0;
+    let mut dedup_skipped = 0;
     let mut filtered_title = 0;
     let mut filtered_email = 0;
 
@@ -214,19 +216,23 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         }
         let clean_emails = filter_emails(&job.emails, scrape_cfg);
         match insert_job(&pool, job, &clean_emails).await {
-            Ok(_) => {
-                if let Err(e) = queue_emails(&pool, job, &clean_emails).await {
-                    tracing::warn!("failed to queue emails for {}: {}", job.title, e);
+            Ok(rows) => {
+                if rows > 0 {
+                    if let Err(e) = queue_emails(&pool, job, &clean_emails).await {
+                        tracing::warn!("failed to queue emails for {}: {}", job.title, e);
+                    }
+                    inserted += 1;
+                } else {
+                    dedup_skipped += 1;
                 }
-                inserted += 1;
             }
             Err(e) => tracing::warn!("skipping job {}: {}", job.title, e),
         }
     }
 
     tracing::info!(
-        "scrape done: {} received, {} title-filtered, {} email-filtered, {} inserted",
-        jobs.len(), filtered_title, filtered_email, inserted
+        "scrape done: {} received, {} title-filt, {} email-filt, {} dedup-skip, {} inserted",
+        jobs.len(), filtered_title, filtered_email, dedup_skipped, inserted
     );
 
     let duration_secs = start.elapsed().as_secs_f64();
@@ -236,12 +242,13 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     db::write_run_log(&pool, "scrape", Some(mode_str),
         jobs.len() as i32, inserted as i32, 0, 0, None).await;
 
-    Ok(ScrapeResult { mode, carried_over, received: jobs.len(), filtered_title, filtered_email, inserted, sites_count, terms_count, duration_secs })
+    Ok(ScrapeResult { mode, carried_over, received: jobs.len(), filtered_title, filtered_email, inserted, dedup_skipped, sites_count, terms_count, duration_secs })
 }
 
 // ── DB operations ──────────────────────────────────────────
 
-async fn insert_job(pool: &PgPool, job: &JobPost, emails: &[Email]) -> anyhow::Result<()> {
+/// Returns number of rows inserted (0 = dedup skipped, 1 = new).
+async fn insert_job(pool: &PgPool, job: &JobPost, emails: &[Email]) -> anyhow::Result<u64> {
     let emails_json = serde_json::to_value(emails)?;
     sqlx::query(
         r#"
@@ -262,8 +269,9 @@ async fn insert_job(pool: &PgPool, job: &JobPost, emails: &[Email]) -> anyhow::R
     .bind(&emails_json)
     .bind(job.quality_score)
     .execute(pool)
-    .await?;
-    Ok(())
+    .await
+    .context("failed to insert job")
+    .map(|r| r.rows_affected())
 }
 
 async fn queue_emails(pool: &PgPool, job: &JobPost, emails: &[Email]) -> anyhow::Result<()> {
