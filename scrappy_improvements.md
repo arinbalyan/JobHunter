@@ -64,11 +64,15 @@ engine.ScrapeJobsStream(ctx, input, func(job JobPost) {
 })
 ```
 
-### 7. `AvailableSites()` needs richer metadata
+### 7. ✅ `SiteInfo()` — Done v0.3.9
 
-Returns just site names. Consumers (like JobHunter) want to know: which method (html_parse, http_api, hybrid, playwright), which needs API keys, which are working/broken, expected speed tier.
-
-**Fix**: Return `[]SiteInfo` with method, needs_api_key, status, avg_response_time.
+Returns method + needs_api_key per site.
+```go
+siteInfo, _ := engine.SiteInfo()
+for _, s := range siteInfo {
+    fmt.Printf("%s: method=%s needs_key=%v\n", s.Name, s.Method, s.NeedsAPIKey)
+}
+```
 
 ### 8. uTLS/tls fingerprinting was reverted but useful
 
@@ -109,21 +113,21 @@ var ErrNoJobs = errors.New("no jobs found")
 ```
 Include error kind in `SiteResult` (item 3).
 
-### 13. Per-site timeout
+### 13. ✅ `SiteTimeout` — Done v0.3.9
 
-Global timeout applies to all sites equally. Some sites (LinkedIn Playwright, Indeed) take 60s+, while others (RemoteOK, Himalayas) finish in 5s. The global timeout forces a lowest-common-denominator wait.
-
-**Fix**: Allow per-site timeout override in `ScraperInput`:
+Per-site timeout override on ScraperInput:
 ```go
-SiteTimeout: map[Site]time.Duration{"linkedin": 120 * time.Second}
+SiteTimeout: map[Site]time.Duration{"linkedin": 120 * time.Second, "remoteok": 10 * time.Second}
 ```
 Default to global timeout when not specified.
 
-### 14. Playwright detection fails silently
+### 14. ✅ Playwright detection — Done v0.3.9
 
-If Playwright is not installed and a site requires it, scrappy logs a warning and returns 0 jobs — no clear signal to the consumer that browser dependency is missing.
-
-**Fix**: Return a distinguishable error when a site requires Playwright but it's unavailable. Consumers can then install it or exclude the site.
+`playwrightCheck()` runs once at startup, caches result. Clear error when missing:
+```
+site: requires Playwright but Node.js or playwright module is not installed
+(run: npx playwright install chromium)
+```
 
 ### 15. Config reload without restart
 
