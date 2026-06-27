@@ -89,6 +89,17 @@ scrappy is at `~/projects/scrappy/` (v0.3.5, 141 sites, 49 working). Consumed as
 - **`./jobhunter import`**: One-time command to dump scrappy's per-site config into JobHunter's config.toml for manual editing.
 - **Everything configurable without Rust recompilation**: prompts, filters, models, weights, API keys, email signatures.
 
+## Session Context 2026-06-27
+
+- scrappy v0.3.7 released with LinkedIn guest API fix, security fixes
+- scrappy v0.3.8 added WithConfig(), SiteSkipLocation
+- scrappy v0.3.9 added SiteInfo(), SiteTimeout, Playwright detection
+- 5/17 scrappy improvements done, 12 remaining (uTLS blocked forever)
+- Bridge updated to v0.3.7 (no replace directive, uses GitHub module)
+- JobHunter fully built: 17 files, ~1000 lines Rust + Go bridge
+- Vercel dashboard live at jobhunter-tracker.vercel.app
+- GH Actions: scrape 4x daily, send daily, tests on push
+
 ## Quick Reference
 
 ```

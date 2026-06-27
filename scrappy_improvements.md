@@ -2,6 +2,12 @@
 
 Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick items from here.
 
+**Status**: 5/17 done ✅ · 12 remaining
+
+**Next for JobHunter**: Items 3 (ScrapeResult metadata) + 12 (error sentinels) together give the bridge full visibility into which sites worked/failed and why. Currently we parse log strings.
+
+**Blocked forever**: Item 8 (uTLS) — already tried, corrupts Go's HTTP transport TLS state machine.
+
 ## Priority: High
 
 ### 1. ResultsWanted=0 not consistently "unlimited" across scrapers
