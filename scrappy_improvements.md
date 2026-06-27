@@ -2,22 +2,30 @@
 
 Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick items from here.
 
-**Final tally: 14/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️**
+**Final tally: 16/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️ · 2 additional fixes ✅**
 
 > **JobHunter improvements**: See `jobhunter_improvements.md` for JobHunter-side items (send mode, per-site stats, Vercel, etc.).
 > This file is for **scrappy** changes only.
 
-## To add for JobHunter (not scrappy)
+## Additional fixes (post-v0.3.9, on dev branch)
 
-### `EmailsOnly` changes output format (return type differs)
+### ✅ `EmailsOnly` does NOT change output format
 
-When `EmailsOnly: true`, scrappy returns `Emails` as `[]string` (simple email strings). When `false`, it returns `[]Email` objects with `addr`, `verified`, `source`, `role`. This means consumers that expect objects break when toggling the flag.
+Verified: `EmailsOnly` returns `[]Email` objects regardless of the flag. The flag only filters jobs without emails — it does not change the data type. No fix needed, behavior was already correct.
 
-**Fix**: Always return `[]Email` regardless of `EmailsOnly`. The flag should only control whether jobs without emails are included, not change the data type of the emails field.
+### ✅ `normalizeIsRemote()` added
 
-### Determine remote/onsite per-job during scrape
+Post-processing step that runs after each site's scrape and normalizes `IsRemote`:
+- Remote-only boards (`remote*`, `weworkremotely`, `workingnomads`, `4dayweek`) → all jobs `IsRemote=true`
+- Jobs with "remote" in any location field → `IsRemote=true`
+- `RemoteOnly` flag → all returned jobs marked remote
+- Preserves scraper-set `IsRemote` when already true
 
-scrappy already has `IsRemote bool` on `JobPost` (line 395 of `internal/model/types.go`). But it's not always reliably set — some scrapers leave it as `false` even for remote jobs, others don't populate it at all.
+## JobHunter-side (not scrappy)
+
+### Send doesn't differentiate onsite vs remote
+
+`send` processes all pending emails together regardless of scrape mode. Onsite jobs (Bangalore) and remote jobs get the same email template. `IsRemote` is now reliable on every `JobPost` (scrappy fix above), so JobHunter can filter by it.
 
 scrappy **can** determine this more accurately:
 - **Site-level**: remote-only boards (`remoteok`, `weworkremotely`, `himalayas`, `ycjobs`) → all jobs are `IsRemote=true`
