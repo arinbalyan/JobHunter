@@ -3,16 +3,19 @@
 AI-powered job application pipeline. Scrapes 100+ job boards, scores jobs, researches companies, generates personalized outreach emails, and sends them — all at **$0 in LLM costs** via free-tier providers.
 
 ```bash
-# Quick start
+# Quick start (download tarball)
+curl -fsSL https://github.com/arinbalyan/jobhunter/releases/latest/download/jobhunter-x86_64-linux.tar.gz \
+  | tar xz
+cd jobhunter-*
+cp config.example.toml config.toml   # edit with your details
+./jobhunter doctor                    # verify setup
+
+# Or build from source
 git clone https://github.com/arinbalyan/jobhunter.git
 cd jobhunter
-cargo build --release
-cd scraper && go build -o scraper . && cd ..
-cp config.example.toml .data/config.toml   # edit with your details
-./target/release/jobhunter doctor           # verify setup
-./target/release/jobhunter scrape --mode remote   # scrape remote jobs
-./target/release/jobhunter score                  # score jobs 1-10
-./target/release/jobhunter send                   # generate + send emails
+cargo build --release && cd scraper && go build -o . . && cd ..
+cp config.example.toml config.toml
+./target/release/jobhunter doctor
 ```
 
 ---
