@@ -4,3 +4,6 @@ target/
 scraper
 scrappy_improvements.md
 .vercel
+*.tar.gz
+sync-all.sh
+
