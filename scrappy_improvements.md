@@ -6,18 +6,17 @@ Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick it
 
 ## To add for JobHunter (not scrappy)
 
-### Send doesn't differentiate onsite vs remote
+### Send doesn't differentiate onsite vs remote (JobHunter fix, not scrappy)
 
-`send` processes all pending emails together regardless of scrape mode. Onsite jobs (Bangalore) and remote jobs get the same email template. The `{location}` placeholder helps the LLM adapt slightly, but the system prompt is identical for both.
+`send` processes all pending emails together regardless of scrape mode. Onsite jobs (Bangalore) and remote jobs get the same email template. The `{location}` placeholder helps the LLM adapt, but the system prompt is identical.
 
-**Fix**: Either:
-- Store `mode` on each job (add column to `jobs` table)
-- Add `--mode` filter to `send` command
-- Or have two separate email prompt sets in config.toml (`[templates.email_system_onsite]` / `[templates.email_system_remote]`)
+This is a **JobHunter issue**, not scrappy. scrappy's `JobPost.IsRemote` is per-job from the posting data, but the `--mode remote|onsite` flag is a search-level concept that scrappy doesn't track.
 
-### Scrape DOES differentiate onsite vs remote (send doesn't)
-
-**Scrape**: ✅ Works correctly. `--mode remote` uses `[search.remote]` preset (78 remote-friendly sites, `remote_only=true`, `locations=[
+**JobHunter fix**:
+1. Migration: `ALTER TABLE jobs ADD COLUMN scrape_mode TEXT`
+2. `insert_job()` stores the mode on each row
+3. `send` gets `--mode` filter, only processes matching emails
+4. Separate prompt sets in config.toml for onsite vs remote would allow different email tones/lengths
 
 ## Completed
 
