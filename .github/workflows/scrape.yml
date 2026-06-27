@@ -32,7 +32,7 @@ jobs:
         run: cargo build --release
 
       - name: Create config
-        run: cp config.example.toml config.toml
+        run: cp config.ci.toml config.toml
 
       - name: Run scrape (remote)
         run: ./target/release/jobhunter scrape --mode remote
