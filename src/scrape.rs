@@ -53,13 +53,29 @@ pub struct Email {
     pub role: bool,
 }
 
+#[derive(Debug, Default, Deserialize)]
+pub struct Location {
+    pub city: Option<String>,
+    pub state: Option<String>,
+    pub country: Option<String>,
+}
+
+impl Location {
+    fn display(&self) -> String {
+        let parts: Vec<&str> = [self.city.as_deref(), self.state.as_deref(), self.country.as_deref()]
+            .into_iter().flatten().filter(|s| !s.is_empty()).collect();
+        if parts.is_empty() { "remote".into() } else { parts.join(", ") }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct JobPost {
     pub title: String,
     pub company_name: Option<String>,
     pub company_url: Option<String>,
     pub job_url: String,
-    pub location: Option<String>,
+    #[serde(default)]
+    pub location: Option<Location>,
     #[serde(default)]
     pub is_remote: bool,
     pub description: Option<String>,
@@ -261,7 +277,7 @@ async fn insert_job(pool: &PgPool, job: &JobPost, emails: &[Email]) -> anyhow::R
     .bind(job.company_name.as_deref().unwrap_or(""))
     .bind(job.company_url.as_deref().unwrap_or(""))
     .bind(&job.job_url)
-    .bind(job.location.as_deref().unwrap_or(""))
+    .bind(job.location.as_ref().map(|l| l.display()).unwrap_or_default())
     .bind(job.is_remote)
     .bind(job.description.as_deref().unwrap_or(""))
     .bind(&emails_json)
