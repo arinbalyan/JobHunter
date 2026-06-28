@@ -1,12 +1,27 @@
 const { Pool } = require('pg');
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// Convert bigint count values to numbers (node-pg returns COUNT(*) as string)
+const toNum = (v) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : v;
+};
+
 module.exports = async (req, res) => {
   try {
     const r = {};
     const q = async (sql) => {
       const { rows } = await pool.query(sql);
-      return rows;
+      // Convert known count fields to numbers; handle nulls for run_log
+      return rows.map(row => {
+        if ('count' in row) row.count = toNum(row.count);
+        if ('cnt' in row) row.cnt = toNum(row.cnt);
+        if ('coalesce' in row) row.coalesce = toNum(row.coalesce);
+        ['jobs_found','emails_queued','emails_sent','emails_failed'].forEach(k => {
+          if (k in row) row[k] = (row[k] == null ? 0 : toNum(row[k]));
+        });
+        return row;
+      });
     };
 
     // ── Pipeline funnel ──
@@ -56,133 +71,219 @@ module.exports = async (req, res) => {
     // ── HTML ──
     const html = `<!DOCTYPE html>
 <html lang="en">
-<head><meta charset="UTF-8"><title>JobHunter Dashboard</title>
+<head><meta charset="UTF-8"><title>JobHunter Pipeline</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,system-ui,sans-serif;background:#f5f5f5;color:#222;padding:1.5rem;max-width:1200px;margin:0 auto}
-h1{font-size:1.4rem;margin-bottom:.5rem;color:#111}
-.sub{color:#666;font-size:.85rem;margin-bottom:1.5rem}
-.section{margin-bottom:2rem}
-h2{font-size:1.1rem;margin-bottom:.75rem;color:#333;border-bottom:2px solid #e0e0e0;padding-bottom:.3rem}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.75rem;margin-bottom:1.5rem}
-.card{background:#fff;border-radius:8px;padding:1rem;box-shadow:0 1px 3px rgba(0,0,0,.08);text-align:center}
-.card .num{font-size:1.6rem;font-weight:700;color:#0a7cff}
-.card .label{font-size:.75rem;color:#666;margin-top:.15rem}
-.card.green .num{color:#16a34a};.card.yellow .num{color:#d97706};.card.red .num{color:#dc2626};.card.purple .num{color:#7c3aed};.card.grey .num{color:#888}
-.funnel{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-bottom:1.5rem}
-.funnel .stage{background:#fff;border-radius:6px;padding:.6rem 1rem;box-shadow:0 1px 2px rgba(0,0,0,.08);text-align:center;min-width:80px}
-.funnel .stage .num{font-weight:700;font-size:1.1rem}
-.funnel .stage .lbl{font-size:.7rem;color:#666}
-.funnel .arrow{color:#ccc;font-size:1.2rem}
-table{width:100%;border-collapse:collapse;font-size:.82rem;margin-bottom:1.5rem}
-th,td{padding:.4rem .6rem;text-align:left;border-bottom:1px solid #eee}
-th{background:#fafafa;font-weight:600;color:#555;position:sticky;top:0}
-tr:hover{background:#f8f9ff}
-.num-col{text-align:right;font-variant-numeric:tabular-nums}
-.wrap{max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.footer{margin-top:1.5rem;font-size:.75rem;color:#999;text-align:center}
+body{font-family:'Inter',system-ui,sans-serif;background:oklch(0.13 0.01 260);color:oklch(0.92 0.005 260);padding:clamp(1rem,3vw,2.5rem);max-width:1280px;margin:0 auto;min-height:100dvh}
+::selection{background:oklch(0.55 0.18 45);color:#000}
+
+/* ── header ── */
+header{margin-bottom:2rem;display:flex;align-items:baseline;gap:.75rem;flex-wrap:wrap}
+h1{font-size:clamp(1.1rem,2.2vw,1.5rem);font-weight:700;letter-spacing:-.02em;color:oklch(0.95 0.01 260)}
+h1 span{color:oklch(0.65 0.16 45)}
+.sub{font-size:.82rem;color:oklch(0.6 0.02 260);font-weight:450}
+
+/* ── pipeline bar ── */
+.pipeline{display:flex;gap:.3rem;align-items:stretch;margin-bottom:2.5rem;flex-wrap:wrap}
+.pipeline .seg{flex:1;min-width:60px;padding:.7rem .5rem .5rem;border-radius:6px;text-align:center;position:relative}
+.pipeline .seg .num{font-size:clamp(1rem,1.8vw,1.3rem);font-weight:700;letter-spacing:-.02em;line-height:1}
+.pipeline .seg .lbl{font-size:.65rem;font-weight:500;opacity:.7;margin-top:.25rem;letter-spacing:.03em;text-transform:uppercase}
+.pipeline .seg .chg{position:absolute;top:-.25rem;right:.3rem;font-size:.6rem;opacity:.4}
+.pipeline .arrow{display:flex;align-items:center;color:oklch(0.35 0.02 260);font-size:.8rem;padding:0 .1rem;user-select:none}
+.pipeline .seg-0{background:oklch(0.18 0.02 260/.5)}
+.pipeline .seg-1{background:oklch(0.55 0.2 260/.15);border:1px solid oklch(0.55 0.2 260/.3)}
+.pipeline .seg-2{background:oklch(0.5 0.18 160/.15);border:1px solid oklch(0.5 0.18 160/.3)}
+.pipeline .seg-3{background:oklch(0.55 0.18 45/.15);border:1px solid oklch(0.55 0.18 45/.3)}
+.pipeline .seg-4{background:oklch(0.5 0.16 310/.15);border:1px solid oklch(0.5 0.16 310/.3)}
+.pipeline .seg-5{background:oklch(0.5 0.18 160/.15);border:1px solid oklch(0.5 0.18 160/.3)}
+.pipeline .seg-6{background:oklch(0.5 0.16 45/.15);border:1px solid oklch(0.5 0.16 45/.3)}
+.pipeline .seg-7{background:oklch(0.5 0.16 10/.15);border:1px solid oklch(0.5 0.16 10/.3)}
+
+/* ── grid sections ── */
+.section{margin-bottom:2.5rem}
+.section-header{display:flex;align-items:baseline;gap:.6rem;margin-bottom:.9rem}
+.section-header h2{font-size:.9rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:oklch(0.7 0.02 260)}
+.section-header .sub{font-size:.78rem;color:oklch(0.5 0.02 260);font-weight:400}
+
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:.6rem;margin-bottom:2rem}
+
+.stat-card{background:oklch(0.2 0.015 260/.6);border:1px solid oklch(0.28 0.02 260/.5);border-radius:8px;padding:.85rem 1rem}
+.stat-card .num{font-size:1.15rem;font-weight:700;letter-spacing:-.02em;color:oklch(0.9 0.01 260);line-height:1.2}
+.stat-card .num.highlight{color:oklch(0.65 0.2 260)}
+.stat-card .num.amber{color:oklch(0.7 0.16 70)}
+.stat-card .num.green{color:oklch(0.65 0.18 150)}
+.stat-card .num.red{color:oklch(0.65 0.18 25)}
+.stat-card .num.purple{color:oklch(0.65 0.16 310)}
+.stat-card .label{font-size:.7rem;color:oklch(0.55 0.02 260);margin-top:.15rem;font-weight:450}
+
+/* ── tables ── */
+.table-wrap{overflow-x:auto;border:1px solid oklch(0.25 0.015 260/.6);border-radius:8px}
+table{width:100%;border-collapse:collapse;font-size:.8rem}
+th{background:oklch(0.17 0.015 260);color:oklch(0.65 0.02 260);font-weight:600;text-transform:uppercase;letter-spacing:.04em;font-size:.7rem;padding:.6rem .7rem;text-align:left;border-bottom:1px solid oklch(0.25 0.015 260/.6);position:sticky;top:0}
+td{padding:.5rem .7rem;border-bottom:1px solid oklch(0.22 0.01 260/.4);color:oklch(0.85 0.01 260)}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:oklch(0.25 0.015 260/.4)}
+.num-col{text-align:right;font-family:'JetBrains Mono',monospace;font-size:.75rem;font-variant-numeric:tabular-nums}
+.col-status{min-width:80px}
+.wrap{max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+.status-badge{display:inline-block;padding:.1rem .45rem;border-radius:3px;font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.02em}
+.status-badge.completed{background:oklch(0.5 0.18 160/.2);color:oklch(0.7 0.18 150)}
+.status-badge.failed{background:oklch(0.5 0.18 25/.2);color:oklch(0.7 0.18 25)}
+.status-badge.running{background:oklch(0.55 0.2 260/.2);color:oklch(0.7 0.2 260)}
+
+/* ── score bars ── */
+.score-row{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem}
+.score-label{min-width:3rem;font-size:.75rem;color:oklch(0.6 0.02 260);font-weight:500}
+.score-bar-wrap{flex:1;height:6px;background:oklch(0.25 0.015 260);border-radius:3px;overflow:hidden}
+.score-bar{height:100%;border-radius:3px;transition:width .6s ease}
+.score-bar.s0{background:oklch(0.6 0.15 10)}
+.score-bar.s1{background:oklch(0.65 0.16 30)}
+.score-bar.s2{background:oklch(0.7 0.16 70)}
+.score-bar.s3{background:oklch(0.65 0.18 150)}
+.score-bar.s4{background:oklch(0.55 0.2 260)}
+.score-count{font-size:.75rem;font-family:'JetBrains Mono',monospace;color:oklch(0.55 0.02 260);min-width:2rem;text-align:right}
+
+/* ── footer ── */
+.footer{margin-top:3rem;padding-top:1rem;border-top:1px solid oklch(0.22 0.01 260/.4);font-size:.73rem;color:oklch(0.45 0.02 260);text-align:center;display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap}
+.footer a{color:oklch(0.55 0.16 260);text-decoration:none}
+.footer a:hover{color:oklch(0.65 0.2 260);text-decoration:underline}
+
+@media(max-width:640px){
+  .stat-grid{grid-template-columns:repeat(2,1fr)}
+  .pipeline .seg{min-width:50px;padding:.5rem .3rem .4rem}
+  .pipeline .arrow{display:none}
+}
 </style></head>
 <body>
-<h1>📊 JobHunter Pipeline</h1>
-<div class="sub">Live stats from NeonDB · last refreshed now</div>
 
-<div class="section">
-<h2>Pipeline Funnel</h2>
-<div class="funnel">
-  <div class="stage"><div class="num" style="color:#0a7cff">${r.total_jobs}</div><div class="lbl">Scraped</div></div>
-  <div class="arrow">→</div>
-  <div class="stage"><div class="num" style="color:#888">-${filtered_approx}</div><div class="lbl">Filtered</div></div>
-  <div class="arrow">→</div>
-  <div class="stage"><div class="num" style="color:#16a34a">${r.with_emails}</div><div class="lbl">With Emails</div></div>
-  <div class="arrow">→</div>
-  <div class="stage"><div class="num" style="color:#7c3aed">${r.scored}</div><div class="lbl">Scored</div></div>
-  <div class="arrow">→</div>
-  <div class="stage"><div class="num" style="color:#0a7cff">${total_emails}</div><div class="lbl">Queued</div></div>
-  <div class="arrow">→</div>
-  <div class="stage"><div class="num" style="color:#16a34a">${r.queue_sent}</div><div class="lbl">Sent</div></div>
-  <div class="arrow">→</div>
-  <div class="stage"><div class="num" style="color:#d97706">${r.unique_opens}</div><div class="lbl">Opened</div></div>
-  <div class="arrow">→</div>
-  <div class="stage"><div class="num" style="color:#dc2626">${r.unique_clicked}</div><div class="lbl">Clicked</div></div>
-</div>
-</div>
+<header>
+  <h1>JobHunter <span>Pipeline</span></h1>
+  <div class="sub">NeonDB · live</div>
+</header>
 
+<!-- ── Pipeline ── -->
 <div class="section">
-<h2>📬 Email Queue</h2>
-<div class="grid">
-  <div class="card purple"><div class="num">${r.queue_pending}</div><div class="label">Pending</div></div>
-  <div class="card yellow"><div class="num">${r.queue_generating}</div><div class="label">Generating</div></div>
-  <div class="card" style="border-left:3px solid #0a7cff"><div class="num">${r.queue_generated}</div><div class="label">Generated</div></div>
-  <div class="card green"><div class="num">${r.queue_sent}</div><div class="label">Sent</div></div>
-  <div class="card red"><div class="num">${r.queue_failed}</div><div class="label">Failed</div></div>
+<div class="section-header"><h2>Funnel</h2></div>
+<div class="pipeline">
+  <div class="seg seg-0"><div class="num">${r.total_jobs.toLocaleString()}</div><div class="lbl">Scraped</div></div>
+  <div class="arrow">→</div>
+  <div class="seg seg-1"><div class="num">${filtered_approx.toLocaleString()}</div><div class="lbl">Filtered${filtered_approx > 0 ? '' : ''}</div></div>
+  <div class="arrow">→</div>
+  <div class="seg seg-2"><div class="num">${r.with_emails.toLocaleString()}</div><div class="lbl">With Emails</div></div>
+  <div class="arrow">→</div>
+  <div class="seg seg-3"><div class="num">${r.scored.toLocaleString()}</div><div class="lbl">Scored</div></div>
+  <div class="arrow">→</div>
+  <div class="seg seg-4"><div class="num">${total_emails.toLocaleString()}</div><div class="lbl">Queued</div></div>
+  <div class="arrow">→</div>
+  <div class="seg seg-5"><div class="num">${r.queue_sent.toLocaleString()}</div><div class="lbl">Sent</div></div>
+  <div class="arrow">→</div>
+  <div class="seg seg-6"><div class="num">${r.unique_opens.toLocaleString()}</div><div class="lbl">Opened</div></div>
+  <div class="arrow">→</div>
+  <div class="seg seg-7"><div class="num">${r.unique_clicked.toLocaleString()}</div><div class="lbl">Clicked</div></div>
 </div>
 </div>
 
+<!-- ── Email Queue + Engagement ── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2.5rem">
 <div class="section">
-<h2>📈 Engagement</h2>
-<div class="grid">
-  <div class="card green"><div class="num">${r.opens}</div><div class="label">Total Opens</div></div>
-  <div class="card yellow"><div class="num">${r.open_pct}%</div><div class="label">Open Rate</div></div>
-  <div class="card purple"><div class="num">${r.clicks}</div><div class="label">Total Clicks</div></div>
-  <div class="card" style="border-left:3px solid #0a7cff"><div class="num">${r.click_pct}%</div><div class="label">Click Rate</div></div>
-  <div class="card green"><div class="num">${r.scored}</div><div class="label">Scored Jobs</div></div>
-  <div class="card purple"><div class="num">${r.researched}</div><div class="label">Researched</div></div>
+<div class="section-header"><h2>📬 Email Queue</h2></div>
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
+  <div class="stat-card"><div class="num highlight">${r.queue_pending.toLocaleString()}</div><div class="label">Pending</div></div>
+  <div class="stat-card"><div class="num amber">${r.queue_generating.toLocaleString()}</div><div class="label">Generating</div></div>
+  <div class="stat-card"><div class="num">${r.queue_generated.toLocaleString()}</div><div class="label">Generated</div></div>
+  <div class="stat-card"><div class="num green">${r.queue_sent.toLocaleString()}</div><div class="label">Sent</div></div>
+  <div class="stat-card"><div class="num red">${r.queue_failed.toLocaleString()}</div><div class="label">Failed</div></div>
 </div>
 </div>
 
 <div class="section">
-<h2>🌐 Per-Site Breakdown</h2>
-<table><tr><th>Source</th><th class="num-col">Jobs</th></tr>
-${sites.map(s => `<tr><td>${esc(s.source_site)}</td><td class="num-col">${s.cnt}</td></tr>`).join('')}
+<div class="section-header"><h2>📈 Engagement</h2></div>
+<div class="stat-grid" style="grid-template-columns:repeat(auto-fill,minmax(90px,1fr))">
+  <div class="stat-card"><div class="num">${r.opens.toLocaleString()}</div><div class="label">Total Opens</div></div>
+  <div class="stat-card"><div class="num amber">${r.open_pct}%</div><div class="label">Open Rate</div></div>
+  <div class="stat-card"><div class="num">${r.clicks.toLocaleString()}</div><div class="label">Total Clicks</div></div>
+  <div class="stat-card"><div class="num amber">${r.click_pct}%</div><div class="label">Click Rate</div></div>
+  <div class="stat-card"><div class="num">${r.scored.toLocaleString()}</div><div class="label">Scored</div></div>
+  <div class="stat-card"><div class="num">${r.researched.toLocaleString()}</div><div class="label">Researched</div></div>
+</div>
+</div>
+</div>
+
+<!-- ── Per-Site Breakdown + Scores (side by side) ── -->
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:2.5rem">
+<div class="section">
+<div class="section-header"><h2>🌐 Per-Site Breakdown</h2></div>
+<div class="table-wrap">
+<table>
+  <tr><th>Source</th><th class="num-col">Jobs</th></tr>
+  ${sites.map(s => `<tr><td>${esc(s.source_site)}</td><td class="num-col">${s.cnt.toLocaleString()}</td></tr>`).join('')}
 </table>
 </div>
-
-<div class="section">
-<h2>📊 Score Distribution</h2>
-<table><tr><th>Score</th><th class="num-col">Count</th></tr>
-${scores.map(s => `<tr><td>${s.llm_score}/10</td><td class="num-col">${s.cnt}</td></tr>`).join('')}
-</table>
 </div>
 
 <div class="section">
-<h2>🔄 Run History</h2>
-<table><tr><th>Workflow</th><th>Mode</th><th>Status</th><th class="num-col">Found</th><th class="num-col">Queued</th><th class="num-col">Sent</th><th class="num-col">Failed</th><th>Error</th><th>Started</th></tr>
-${runs.map(r => `<tr>
-  <td>${esc(r.workflow)}</td>
-  <td>${r.mode || '-'}</td>
-  <td>${r.status}</td>
-  <td class="num-col">${r.jobs_found}</td>
-  <td class="num-col">${r.emails_queued}</td>
-  <td class="num-col">${r.emails_sent}</td>
-  <td class="num-col">${r.emails_failed}</td>
-  <td class="wrap">${r.error_msg || ''}</td>
-  <td>${r.started}</td>
-</tr>`).join('')}
+<div class="section-header"><h2>📊 Score Distribution</h2></div>
+${scores.length > 0 ? `<div class="table-wrap" style="padding:.7rem">
+${scores.map(s => {
+  const maxCnt = Math.max(...scores.map(x => x.cnt));
+  const pct = maxCnt > 0 ? (s.cnt / maxCnt) * 100 : 0;
+  const bin = Math.min(4, Math.floor(s.llm_score / 2.5));
+  return `<div class="score-row"><span class="score-label">${s.llm_score}/10</span><div class="score-bar-wrap"><div class="score-bar s${bin}" style="width:${pct}%"></div></div><span class="score-count">${s.cnt.toLocaleString()}</span></div>`;
+}).join('')}
+</div>` : '<div style="color:oklch(0.5 0.02 260);font-size:.82rem">No scored jobs yet</div>'}
+</div>
+</div>
+
+<!-- ── Run History ── -->
+<div class="section">
+<div class="section-header"><h2>🔄 Run History</h2></div>
+${runs.length > 0 ? `<div class="table-wrap">
+<table>
+  <tr><th>Workflow</th><th>Mode</th><th class="col-status">Status</th><th class="num-col">Found</th><th class="num-col">Queued</th><th class="num-col">Sent</th><th class="num-col">Failed</th><th>Error</th><th>Started</th></tr>
+  ${runs.map(r => {
+    const statusClass = r.status === 'completed' ? 'completed' : r.status === 'failed' || r.status === 'error' ? 'failed' : 'running';
+    return `<tr>
+      <td>${esc(r.workflow)}</td>
+      <td>${r.mode || '-'}</td>
+      <td><span class="status-badge ${statusClass}">${r.status}</span></td>
+      <td class="num-col">${toNum(r.jobs_found).toLocaleString()}</td>
+      <td class="num-col">${toNum(r.emails_queued).toLocaleString()}</td>
+      <td class="num-col">${toNum(r.emails_sent).toLocaleString()}</td>
+      <td class="num-col">${toNum(r.emails_failed).toLocaleString()}</td>
+      <td class="wrap">${r.error_msg || ''}</td>
+      <td>${r.started}</td>
+    </tr>`;
+  }).join('')}
 </table>
+</div>` : '<div style="color:oklch(0.5 0.02 260);font-size:.82rem">No runs yet</div>'}
 </div>
 
 ${failures.length > 0 ? `<div class="section">
-<h2>❌ Recent Failures</h2>
+<div class="section-header"><h2>❌ Recent Failures</h2></div>
+<div class="table-wrap">
 <table><tr><th>Email</th><th>Company</th><th>Error</th><th>When</th></tr>
 ${failures.map(f => `<tr><td>${esc(f.email_addr)}</td><td>${esc(f.company_name)}</td><td class="wrap">${esc(f.error_msg)}</td><td>${f.when}</td></tr>`).join('')}
 </table>
+</div>
 </div>` : ''}
 
 ${clickByUrl.length > 0 ? `<div class="section">
-<h2>🖱️ Click Breakdown by URL</h2>
+<div class="section-header"><h2>🖱️ Click Breakdown by URL</h2></div>
+<div class="table-wrap">
 <table><tr><th>URL</th><th class="num-col">Clicks</th></tr>
-${clickByUrl.map(c => `<tr><td class="wrap">${esc(c.url)}</td><td class="num-col">${c.cnt}</td></tr>`).join('')}
+${clickByUrl.map(c => `<tr><td class="wrap">${esc(c.url)}</td><td class="num-col">${c.cnt.toLocaleString()}</td></tr>`).join('')}
 </table>
+</div>
 </div>` : ''}
 
-${clicks.length > 0 ? `<div class="section">
-<h2>🖱️ Recent Clicks</h2>
-<table><tr><th>URL</th><th>When</th></tr>
-${clicks.map(c => `<tr><td class="wrap">${esc(c.url)}</td><td>${c.when}</td></tr>`).join('')}
-</table>
-</div>` : ''}
-
-<div class="footer">jobhunter-tracker · <a href="/track?e=test">track pixel</a> · <a href="/health">health</a></div>
+<div class="footer">
+  <span>jobhunter-tracker</span>
+  <a href="/track?e=test">track pixel</a>
+  <a href="/health">health</a>
+</div>
 </body></html>`;
 
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
