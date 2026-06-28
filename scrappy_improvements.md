@@ -2,7 +2,7 @@
 
 Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick items from here.
 
-**Final tally: 16/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️ · 2 additional fixes ✅ · 4 email extraction gaps to investigate**
+**Final tally: 16/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️ · 2 additional fixes ✅ · 3/4 email extraction gaps fixed ✅**
 
 > **JobHunter improvements**: See `jobhunter_improvements.md` for JobHunter-side items (send mode, per-site stats, Vercel, etc.).
 > This file is for **scrappy** changes only.
@@ -92,17 +92,49 @@ LinkedIn job postings often have rich HTML descriptions. scrappy's LinkedIn scra
 
 **Benefit**: LinkedIn is the largest job board. Even a small % of listings with embedded emails would add significantly.
 
-### Impact summary
+### Fixes applied (in scrappy dev branch)
+
+#### ✅ ExtractFromHTML (instead of plain Extract)
+
+Changed description parsing to use `ExtractFromHTML` instead of `Extract`. Catches `mailto:` links in HTML job descriptions (LinkedIn, etc.) that were previously ignored.
+
+**Effort**: 1 line. **Impact**: +5-20% email yield.
+
+#### ✅ EmailEnrich — auto-generate company emails
+
+When a job has a `company_url` or `company_name` with a known domain but no emails, scrappy auto-generates:
+- `hr@{domain}`
+- `careers@{domain}`
+- `recruiting@{domain}`
+- `jobs@{domain}`
+
+Then verifies via MX DNS before including.
+
+**Effort**: 15 lines. **Impact**: +20-50% email yield (fills the ATS gap).
+
+#### ✅ Skip personal email domains
+
+Built-in — never generates emails for `gmail.com`, `outlook.com`, `yahoo.com`, `hotmail.com`, `aol.com`. Prevents spamming personal inboxes.
+
+#### ⏭️ Company URL crawling (not done)
+
+Visiting each job's `company_url` to scan for contact emails would add +100-300% but is a 1-2 week project. Skip for now — EmailEnrich covers most of this gap.
+
+### Updated yield estimate
+
+With Description extraction + EmailEnrich, expected yield goes from 0.08% → ~2-5%. Need real scrape runs to measure.
+
+### Impact summary (for reference)
 
 | Improvement | Effort | Email yield boost |
 |------------|--------|------------------|
-| Description email extraction | 1-2 hours | +5-20% |
-| LinkedIn description parsing | 2-4 hours | +10-30% |
-| Company URL crawling | 1-2 weeks | +100-300% |
-| EmailEnrich domains | 1 line | +5-10% |
+| ~~Description email extraction~~ | ✅ Done | +5-20% |
+| ~~LinkedIn description parsing~~ | ✅ Done (same fix) | +10-30% |
+| ~~EmailEnrich domains~~ | ✅ Done | +20-50% |
+| Company URL crawling | ⏭️ 1-2 weeks | +100-300% |
 
-**Current yield: 86 emails / 112k listings = 0.08%**.
-Target: at least 5% (7 emails per scrape run instead of 29).
+**Before**: 86 emails / 112k listings = 0.08%.
+**After (expected)**: 2-5% with Description + EmailEnrich.
 
 ## Additional fixes (post-v0.3.9, on dev branch)
 
