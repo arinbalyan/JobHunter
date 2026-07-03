@@ -24,6 +24,15 @@ module.exports = async (req, res) => {
       });
     };
 
+    // ── Aggregate pipeline stats (cumulative across all scrape runs) ──
+    const agg = (await q("SELECT COALESCE(SUM(jobs_found),0) as total_raw, COALESCE(SUM(emails_queued),0) as total_inserted FROM run_log WHERE workflow='scrape'"))[0];
+    r.total_raw = agg.total_raw;
+    r.total_inserted = agg.total_inserted;
+    r.filtered_deduped = r.total_raw - r.total_inserted;
+
+    // ── Unique emails (distinct email+company pairs) ──
+    r.unique_emails = (await q("SELECT COUNT(*) as count FROM (SELECT DISTINCT email_addr, company_name FROM email_queue) sub"))[0].count;
+
     // ── Pipeline funnel ──
     r.total_jobs = (await q("SELECT COUNT(*) FROM jobs"))[0].count;
     r.with_emails = (await q("SELECT COUNT(*) FROM jobs WHERE emails != '[]'::jsonb AND emails IS NOT NULL"))[0].count;
@@ -66,7 +75,6 @@ module.exports = async (req, res) => {
     const clicks = await q("SELECT c.url, to_char(c.clicked_at, 'Mon DD HH24:MI') as when FROM click_log c ORDER BY c.clicked_at DESC LIMIT 10");
 
     const total_emails = r.queue_pending + r.queue_generating + r.queue_generated + r.queue_sent + r.queue_failed;
-    const filtered_approx = Math.max(0, r.total_jobs - r.with_emails);
 
     // ── HTML ──
     const html = `<!DOCTYPE html>
@@ -166,24 +174,28 @@ tr:hover td{background:oklch(0.25 0.015 260/.4)}
 
 <!-- ── Pipeline ── -->
 <div class="section">
-<div class="section-header"><h2>Funnel</h2></div>
+<div class="section-header"><h2>Pipeline</h2> <div class="sub">${r.total_raw.toLocaleString()} raw listings → ${r.unique_emails.toLocaleString()} unique emails</div></div>
 <div class="pipeline">
-  <div class="seg seg-0"><div class="num">${r.total_jobs.toLocaleString()}</div><div class="lbl">Scraped</div></div>
+  <div class="seg seg-0"><div class="num">${r.total_raw.toLocaleString()}</div><div class="lbl">Raw from scrappy</div></div>
   <div class="arrow">→</div>
-  <div class="seg seg-1"><div class="num">${filtered_approx.toLocaleString()}</div><div class="lbl">Filtered${filtered_approx > 0 ? '' : ''}</div></div>
+  <div class="seg seg-1"><div class="num" style="color:oklch(0.65 0.18 25)">-${r.filtered_deduped.toLocaleString()}</div><div class="lbl">Filtered + Deduped</div></div>
   <div class="arrow">→</div>
-  <div class="seg seg-2"><div class="num">${r.with_emails.toLocaleString()}</div><div class="lbl">With Emails</div></div>
+  <div class="seg seg-2"><div class="num">${r.total_jobs.toLocaleString()}</div><div class="lbl">Unique jobs in DB</div></div>
   <div class="arrow">→</div>
-  <div class="seg seg-3"><div class="num">${r.scored.toLocaleString()}</div><div class="lbl">Scored</div></div>
+  <div class="seg seg-3"><div class="num green">${r.unique_emails.toLocaleString()}</div><div class="lbl">Unique email+company</div></div>
   <div class="arrow">→</div>
-  <div class="seg seg-4"><div class="num">${total_emails.toLocaleString()}</div><div class="lbl">Queued</div></div>
+  <div class="seg seg-4"><div class="num purple">${total_emails.toLocaleString()}</div><div class="lbl">Email Queue entries</div></div>
   <div class="arrow">→</div>
-  <div class="seg seg-5"><div class="num">${r.queue_sent.toLocaleString()}</div><div class="lbl">Sent</div></div>
+  <div class="seg seg-5"><div class="num green">${r.queue_sent.toLocaleString()}</div><div class="lbl">Sent</div></div>
   <div class="arrow">→</div>
-  <div class="seg seg-6"><div class="num">${r.unique_opens.toLocaleString()}</div><div class="lbl">Opened</div></div>
+  <div class="seg seg-6"><div class="num amber">${r.unique_opens.toLocaleString()}</div><div class="lbl">Opened</div></div>
   <div class="arrow">→</div>
-  <div class="seg seg-7"><div class="num">${r.unique_clicked.toLocaleString()}</div><div class="lbl">Clicked</div></div>
+  <div class="seg seg-7"><div class="num red">${r.unique_clicked.toLocaleString()}</div><div class="lbl">Clicked</div></div>
 </div>
+<p style="color:oklch(0.5 0.02 260);font-size:.72rem;margin-top:-1.5rem;margin-bottom:1.5rem">
+  ${r.total_raw.toLocaleString()} raw scrappy listings → ${r.filtered_deduped.toLocaleString()} filtered/deduped → ${r.total_jobs.toLocaleString()} unique jobs stored
+  → ${r.unique_emails.toLocaleString()} unique (email+company) pairs to send to
+</p>
 </div>
 
 <!-- ── Email Queue + Engagement ── -->
