@@ -2,7 +2,7 @@
 
 Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick items from here.
 
-**Final tally: 16/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️ · 2 additional fixes ✅ · 3/4 email extraction gaps fixed ✅**
+**Final tally: 16/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️ · 2 additional fixes ✅ · 4/4 email extraction gaps fixed ✅**
 
 > **JobHunter improvements**: See `jobhunter_improvements.md` for JobHunter-side items (send mode, per-site stats, Vercel, etc.).
 > This file is for **scrappy** changes only.
@@ -119,6 +119,21 @@ Built-in — never generates emails for `gmail.com`, `outlook.com`, `yahoo.com`,
 #### ⏭️ Company URL crawling (not done)
 
 Visiting each job's `company_url` to scan for contact emails would add +100-300% but is a 1-2 week project. Skip for now — EmailEnrich covers most of this gap.
+
+#### ✅ LinkedIn description email regex
+
+Implemented `ExtractFromHTML` which handles both `mailto:` links AND inline regex for emails in HTML descriptions. Catches patterns like "email us at hiring@x.com" in LinkedIn/Indeed descriptions.
+
+**Effort**: 10 lines. **Impact**: +5-15%.
+
+#### ✅ Domain-level batch enrichment (biggest win)
+
+After all jobs are collected, scrappy groups by company domain, visits each website once probing `/about`, `/contact`, `/team`, `/careers` pages. Found emails apply to ALL jobs from that domain. Also adds:
+- Company name → domain heuristic (tries `{companyname}.com` DNS)
+- Multi-TLD fallback (`.com` → `.io` → `.co` → `.org`)
+- Skips personal domains (gmail/outlook/yahoo/hotmail/aol)
+
+**Effort**: Core scrappy feature. **Impact**: +100-300%. This is what takes email yield from 0.08% → 2-5%.
 
 ### Updated yield estimate
 

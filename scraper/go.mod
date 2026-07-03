@@ -2,7 +2,7 @@ module jobhunter/scraper
 
 go 1.26.3
 
-require github.com/arinbalyan/scrappy v0.3.9
+require github.com/arinbalyan/scrappy v0.3.10
 
 require (
 	github.com/AfterShip/email-verifier v1.4.1 // indirect

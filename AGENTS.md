@@ -1,136 +1,184 @@
-# Agent Configuration
+# Agent Configuration — JobHunter
 
-## Project Status
-**Complete.** All phases done. Rust rewrite of the original Go JobHunter, using a thin Go bridge to call [scrappy](https://github.com/arinbalyan/scrappy) for job scraping.
+## Project Overview
 
----
+Fully automated Rust job application pipeline. Scrapes 141 job boards via [scrappy](https://github.com/arinbalyan/scrappy) (Go library through a thin Go bridge), scores/researches jobs via LLM (9 free-tier providers with failover), generates personalized outreach emails, and tracks opens/clicks via a Vercel dashboard.
 
-## Roadmap
-
-### Phase 1: Scaffold + Config + DB ✅ (2026-06-26)
-- [x] Rust project skeleton — Cargo.toml, clap subcommands
-- [x] config.toml parsing — serde + toml + $VAR env resolution
-- [x] Postgres connection — sqlx + embedded migrations
-- [x] Initial schema — jobs, email_queue, tracking, run_log tables
-- [x] Go scraper subprocess — stdin JSON → scrappy.ScrapeJobs() → stdout JSON
-- [x] `./jobhunter doctor` — checks config, DB URL, scraper binary, LLM keys
-
-### Phase 2: Scrape Workflow ✅ (2026-06-26)
-- [x] Rust serializes search params to JSON, spawns Go scraper
-- [x] Deserialize scraper stdout → Vec<JobPost>
-- [x] Title rejection filter (~40 patterns)
-- [x] Gentle email filter (no-reply@, do-not-reply@, suspicious TLDs)
-- [x] Atomic SQL dedup — INSERT WHERE NOT EXISTS by job_url
-- [x] Email queue population per job
-- [x] `results_wanted: 0` (unlimited) — scrappy returns all jobs
-- [x] `timeout_seconds` from config — bridge uses `[scrape].max_runtime_minutes`
-- [x] Pending job carry-over — INSERT-SELECT for unqueued jobs from last 7 days
-- [x] Telegram report — scrape summary with timing, mode, sites/terms
-- [x] GH Actions — 4x daily scrape workflow
-- [x] Onsite/remote mode — `--mode remote|onsite`
-
-### Phase 3: Send Workflow ✅ (2026-06-26)
-- [x] LLM router — weighted random + failover (3 attempts, 30s cooldown)
-- [x] `/models` discovery — checks all 9 providers at startup
-- [x] Email generation via LLM (prompts from config.toml)
-- [x] Template fallback when all providers fail
-- [x] Concurrent generation — semaphore (default 10)
-- [x] SMTP sender — lettre, Gmail 587 STARTTLS
-- [x] Rate-limited send — delay_seconds between sends
-- [x] Quota tracking — daily sent count, stops at daily_limit
-- [x] Tracking pixel injection — 1x1 img tag in HTML body
-- [x] URL click tracking — wraps signature links with /click?e=&url= redirects
-- [x] GH Actions — daily send workflow
-- [x] Signature footer with GitHub, Portfolio, Resume links
-
-### Phase 4: Tracker + Notifications ✅ (2026-06-26)
-- [x] HTTP tracking server — axum: /track, /click, /health, /version
-- [x] Vercel deployment — Node.js serverless functions at jobhunter-tracker.vercel.app
-- [x] Open tracking — 1x1 GIF pixel, logs to DB
-- [x] Click tracking — /click?e=&url= logs to click_log, 302 redirect
-- [x] Pipeline dashboard — https://jobhunter-tracker.vercel.app/
-- [x] Run log persistence — write_run_log() after scrape and send
-- [x] Telegram alerts — rich scrape report per run
-
-### Phase 5: Polish + Deploy ✅ (2026-06-27)
-- [x] LLM job scoring (1-10) — `./jobhunter score`
-- [x] LLM company research (3 talking points) — `./jobhunter research`
-- [x] LLM reply triage — `./jobhunter triage` classifies recruiter replies
-- [x] GH Actions: scrape (4x daily) + send (daily) + tests (on push)
-- [x] Release packaging — `scripts/build-release.sh`
-- [x] README with quick-start
-- [x] Vercel dashboard with full pipeline stats, per-URL click breakdown
+**Cost**: $0 (all LLM providers are free tier, NeonDB free tier, Vercel Hobby, GH Actions free)
 
 ---
 
-## scrappy Integration
+## Architecture
 
-scrappy is at `~/projects/scrappy/` (v0.3.5, 141 sites, 49 working). Consumed as a Go library import via the thin `scraper/main.go` bridge (~30 lines).
+```
+┌─────────────────────────────────────────────────────┐
+│                   jobhunter (Rust)                    │
+│  ┌──────────┐  ┌──────────┐  ┌────────┐  ┌───────┐  │
+│  │ scrape   │  │ send     │  │ score  │  │ serve │  │
+│  │ score/   │  │ generate │  │research│  │tracker│  │
+│  │ research │  │ → SMTP   │  │triage  │  │:8080  │  │
+│  └────┬─────┘  └────┬─────┘  └────────┘  └───────┘  │
+│       │              │                                │
+│  ┌────▼─────┐  ┌────▼─────┐                          │
+│  │ Go bridge│  │ LLM      │  9 free providers         │
+│  │ scraper/ │  │ router   │  weighted + failover      │
+│  │ main.go  │  │ src/llm  │                           │
+│  └────┬─────┘  └──────────┘                           │
+│       │              │                                │
+└───────┼──────────────┼────────────────────────────────┘
+        │              │
+  ┌─────▼─────┐  ┌─────▼──────┐    ┌───────────────────┐
+  │ scrappy   │  │ PostgreSQL │    │ Vercel Dashboard  │
+  │ (Go lib)  │  │ (NeonDB)   │    │ jobhunter-tracker │
+  │ 141 sites │  │ jobs,      │    │ .vercel.app       │
+  │ 49 working│  │ email_queue│    │ /track /click     │
+  └───────────┘  │ tracking,  │    └───────────────────┘
+                 │ run_log    │
+                 └────────────┘
+```
 
-**📝 scrappy improvements**: Found limitations go in `scrappy_improvements.md` (gitignored).
+**Data flow**: scrappy (Go) → JSON stdout → Rust parses → filters titles/emails → INSERT WHERE NOT EXISTS → queues emails → LLM generates → SMTP sends → tracking pixels track opens/clicks.
 
-## LLM Providers (All Free Tier)
+---
 
-| Provider | Complex Model | Weight |
-|----------|--------------|--------|
-| OpenRouter | google/gemma-4-31b-it:free | 10 |
-| Groq | openai/gpt-oss-120b | 5 |
-| Together | google/gemma-4-9b-it | 4 |
-| DeepInfra | Llama-3.3-70B-Instruct-Turbo | 4 |
-| Hyperbolic | Qwen3-Coder-480B-A35B-Instruct | 3 |
-| SambaNova | Meta-Llama-3.3-70B-Instruct | 3 |
-| Cerebras | zai-glm-4.7 | 2 |
-| Z.AI | GLM-4-Plus | 1 |
+## Branch & CI Structure
+
+```
+dev  ──sync-all.sh──►  beta  ──merge PR──►  main  ──release.yml──►  v0.1.x
+  ▲                      ▲                     │
+  │                      │                     ├─ scrape.yml (4x daily)
+  └── push only ─────────┘                     │    remote + onsite modes
+                                                ├─ send.yml (daily)
+                                                └─ tests.yml (on push)
+```
+
+- **Work on `dev`**, run `./sync-all.sh` to promote to beta (auto-merge PR) → main (manual merge PR)
+- **Releases** auto-bump patch version on push to main
+- **GH Actions**: scrape/download tarball from latest release (not build from source)
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `src/main.rs` | CLI entry — 8 subcommands |
+| `src/scrape.rs` | Scraper bridge, JSON parsing, filters, Location struct |
+| `src/send.rs` | Email pipeline — fetch pending, generate, send |
+| `src/smtp.rs` | SMTP sender via lettre, tracking pixel/URL wrapping |
+| `src/llm.rs` | LLM router — 9 providers, weighted random, failover |
+| `src/config.rs` | TOML config with `$VAR` env resolution |
+| `src/telegram.rs` | Rich Telegram scrape report |
+| `src/db.rs` | Postgres connect, migrate, write_run_log |
+| `scraper/main.go` | ~30 line Go bridge — stdin→scrappy→stdout |
+| `scraper/go.mod` | References scrappy GitHub module version |
+| `api/dashboard.js` | Vercel dashboard — dark mode, pipeline stats, run history |
+| `config.ci.toml` | Committed config for CI (real terms/sites, placeholder secrets) |
+| `config.toml` | Local personal config (gitignored) |
+| `.github/workflows/scrape.yml` | 4x daily scrape + Telegram report |
+| `.github/workflows/send.yml` | Daily email send (disabled currently) |
+
+---
+
+## Current State (2026-07-03)
+
+### Scraper
+- **scrappy v0.3.10** with full email enrichment pipeline:
+  - ExtractFromHTML (mailto: + inline regex from descriptions)
+  - EmailEnrich (auto-generates hr@/careers@/recruiting@/jobs@{domain})
+  - Domain-level batch enrichment (visits each company website once, probes /about /contact /team /careers)
+  - Company name → domain heuristic + multi-TLD fallback
+  - Skips personal domains (gmail/outlook/yahoo/hotmail/aol)
+- **Location struct fix**: scrappy returns location as JSON `{city,state,country}`. Rust matches it exactly now (was expecting `Option<String>`, causing JSON parse error)
+- **Email yield**: Before v0.3.10: 86 emails / 112k listings = 0.08%. Expected with domain enrichment: 2,000-5,000 (2-5%)
+- **Remote locations**: 11 (remote, global, international, worldwide, EMEA, APAC, Americas, US, UK, Canada, Europe)
+- **Onsite scraping**: Added to GH Actions workflow (runs after remote)
+
+### Dashboard (jobhunter-tracker.vercel.app)
+- Full dark mode with oklch colors
+- Pipeline funnel: Raw → Filtered/Deduped → Unique jobs → Unique email+company
+- Per-site breakdown, score distribution, run history, failures
+- Fixed: bigint string-concat bug, -0 display, "Queued"→"Inserted" label
+
+### Send workflow
+- **Currently disabled** (waiting for scrape to fill meaningful email queue)
+- LLM router with 9 free providers, weighted random + failover
+- Tracked emails via tracking pixel + click redirect wrapping
+
+### Email-rich sites (top yielders)
+| Site | Jobs | Why it works |
+|------|------|-------------|
+| Greenhouse | 719 | ATS, no emails — EmailEnrich + domain enrichment now fills the gap |
+| Indeed | 133 | Has some emails, now enhanced by domain enrichment |
+| mycareersfuture | 63 | Natively exposes recruiter emails |
+| himalayas | 17 | Natively exposes recruiter emails |
+
+---
 
 ## Key Design Decisions
 
-- **Config is data, not code**: `reject_titles`, `blocked_email_*` patterns, per-site search terms all live in `config.toml`. No recompilation needed to change filters.
-- **scrappy config auto-load**: Set `scrappy_config = "~/projects/scrappy/config.toml"` in JobHunter's config and all 118 per-site search terms are loaded automatically into the bridge.
-- **`./jobhunter import`**: One-time command to dump scrappy's per-site config into JobHunter's config.toml for manual editing.
-- **Everything configurable without Rust recompilation**: prompts, filters, models, weights, API keys, email signatures.
+- **Config is data, not code**: All filters (title reject, email block), search terms, LLM prompts in `config.toml`. Change without recompiling.
+- **scrappy config auto-load**: `scrappy_config = "~/projects/scrappy/config.toml"` loads per-site search terms automatically.
+- **Pre-built tarball in CI**: `gh release download` gets latest release. No Rust/Go toolchain in scrape/send workflows. Tests still build from source.
+- **All filters in config**: `reject_titles`, `blocked_email_prefixes`, `blocked_email_contains`, `blocked_tlds` — no hardcoded Rust arrays.
+- **EmailEnrich enabled**: `email_enrich: true` in bridge input (scrappy v0.3.10).
+- **Don't spam**: Email queue dedup prevents same (email+company) being queued within 30 days.
+- **No sync-all automation**: User runs it manually. Always push to `dev` only.
 
-## Session Context 2026-06-27
+---
 
-### Completed This Session
-- scrappy 14/17 improvements done (all except uTLS blocked, per-site proxy, ATS rate limiting)
-- Latest scrappy: v0.3.10 (dev branch), needs tag for bridge to consume
-- JobHunter: TOML env var resolver bug fixed, scraper binary path fixed
-- Config-driven filtering: reject_titles, blocked_email_* all in config.toml
-- scrappy_config auto-loads per-site terms from scrappy's config
-- Bridge passes site_search/site_location for per-site search terms
-- Vercel dashboard with pipeline funnel + per-URL click breakdown
-- Click tracking via /click?e=&url= with click_log table
-- Import command: converts scrappy config to JobHunter config.toml format
-- GH Actions: scrape 4x daily, send daily, tests on push
+## Improvement Docs (read before modifying)
 
-### Files Changed This Session
-- src/config.rs — added sites, scrappy_config, email filters, reject_titles
-- src/scrape.rs — removed all hardcoded const arrays, reads from config
-- src/llm.rs — weighted random router with failover
-- src/send.rs — concurrent LLM generation + SMTP sending pipeline
-- src/smtp.rs — URL wrapping for click tracking
-- src/score.rs — LLM job scoring (1-10)
-- src/research.rs — LLM company research (3 talking points)
-- src/triage.rs — LLM reply classification
-- src/tracker.rs — axum HTTP server + inbox dashboard
-- src/telegram.rs — rich scrape report with timing
-- src/main.rs — 8 subcommands
-- scraper/main.go — updated for v0.3.7 API
-- migrations/ — 4 migration files
-- api/*.js — Vercel serverless functions
-- .github/workflows/ — 3 GH Actions workflows
-- docs/ — architecture + configuration reference
-- scrappy_improvements.md — full backlog with 14/17 done
+- **`scrappy_improvements.md`** — scrappy-side improvements backlog. 16/17 original done, 4/4 email extraction gaps fixed. Items that scrappy should fix, not JobHunter.
+- **`jobhunter_improvements.md`** — JobHunter-side improvements backlog. 9 items (per-site stats, telegram reports, config validation, etc.). Items that JobHunter should fix, not scrappy.
+
+Both cross-reference each other. If you find a bug, determine which project should fix it.
+
+---
 
 ## Quick Reference
 
+```bash
+./jobhunter scrape --mode remote|onsite    Scrape → filter → dedup → queue
+./jobhunter score                          Score unscored jobs 1-10
+./jobhunter research                       Research 3 talking points per company
+./jobhunter send                           Generate + send emails
+./jobhunter triage "<reply text>"          Classify recruiter reply
+./jobhunter import --from ~/projects/scrappy/config.toml  Import scrappy per-site config
+./jobhunter serve                          Tracking server + dashboard
+./jobhunter doctor                         Diagnose everything
 ```
-jobhunter scrape --mode remote|onsite    Scrape → filter → dedup → queue
-jobhunter score                          Score unscored jobs 1-10
-jobhunter research                       Research 3 talking points per company
-jobhunter send                           Generate + send emails
-jobhunter triage "<reply text>"          Classify recruiter reply
-jobhunter import --from ~/projects/scrappy/config.toml  Import scrappy per-site config
-jobhunter serve                          Tracking server + dashboard
-jobhunter doctor                         Diagnose everything
-```
+
+## Session Context 2026-07-03
+
+All changes on `dev` branch. Not yet promoted to main. Run `./sync-all.sh` then merge the beta→main PR.
+
+### What was done
+- **scrappy v0.3.7 → v0.3.10**: Multiple bumps. v0.3.10 includes ExtractFromHTML, EmailEnrich, domain-level batch enrichment, company→domain heuristic.
+- **Location struct fix** (`src/scrape.rs`): scrappy returns `location` as JSON object `{city,state,country}`. Added matching Rust struct.
+- **Dashboard** (`api/dashboard.js`): Full dark mode oklch redesign, fixed bigint string-concat bug (showed 860k instead of 86), added cumulative pipeline stats, fixed -0 display.
+- **Expanded locations** (`config.ci.toml`): 1→11 remote locations (global, EMEA, APAC, Americas, US, UK, Canada, Europe, etc.)
+- **Onsite scraping** (`.github/workflows/scrape.yml`): Added `--mode onsite` step after remote.
+- **EmailEnrich enabled** (`src/scrape.rs`): Added `email_enrich: true` to bridge input.
+- **Software eng search terms** (`config.ci.toml`): Added Backend, Frontend, Full Stack, React, Node, Go, Rust, TypeScript, DevOps, Platform, etc.
+- **Release tag race fix** (`.github/workflows/release.yml`): While-loop to find next free tag.
+- **Download fix** (`.github/workflows/scrape.yml`): `cp` instead of `mv` to avoid directory conflict with `scraper/`.
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `src/scrape.rs` | Location struct, dedup_skipped, email_enrich, emails_only revert |
+| `src/telegram.rs` | dedup_skipped in Telegram scrape report |
+| `scraper/go.mod` | v0.3.7→v0.3.8→v0.3.9→v0.3.10 |
+| `api/dashboard.js` | Dark mode redesign, bigint fix, cumulative pipeline stats |
+| `config.ci.toml` | 11 remote locations + software eng search terms |
+| `.github/workflows/scrape.yml` | Onsite scrape step + download fix |
+| `.github/workflows/release.yml` | Tag race condition fix |
+| `scrappy_improvements.md` | Email investigation, 4/4 fixes done |
+| `jobhunter_improvements.md` | Created with 9 items |
+| `AGENTS.md` | This file — full agent context |
+
+### What's pending
+- Merge PR #38 (beta→main) to deploy dashboard + new scrape config to GH Actions
+- After merge, release v0.1.5 will trigger with all changes
+- Send workflow still disabled — waiting to verify email yield from v0.3.10's domain enrichment
