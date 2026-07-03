@@ -120,6 +120,30 @@ Built-in — never generates emails for `gmail.com`, `outlook.com`, `yahoo.com`,
 
 Visiting each job's `company_url` to scan for contact emails would add +100-300% but is a 1-2 week project. Skip for now — EmailEnrich covers most of this gap.
 
+#### 🔲 LinkedIn description HTML needs regex email extraction
+
+LinkedIn job postings include rich HTML descriptions. Many contain recruiter emails embedded in the description text ("Send resume to hiring@company.com", "Apply at careers@company.com").
+
+The current `ExtractFromHTML` fix handles `mailto:` links but NOT inline email patterns like "email us at hiring@x.com". LinkedIn's HTML often has these as plain text inside `<div>` or `<p>` tags.
+
+**Fix**: After `ExtractFromHTML`, run a regex pass over the description text:
+```go
+// ponytail: simple regex catches most inline emails in descriptions
+var emailRe = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
+for _, job := range results {
+    found := emailRe.FindAllString(job.Description, -1)
+    for _, e := range found {
+        if !alreadyInList(job.Emails, e) {
+            job.Emails = append(job.Emails, model.Email{Addr: e, Source: "description_regex"})
+        }
+    }
+}
+```
+
+This is critical because LinkedIn is the #1 site by volume — even a 1% hit rate on LinkedIn descriptions would add significant emails.
+
+**Effort**: 10 lines. **Impact**: +5-15% email yield, especially from LinkedIn.
+
 ### Updated yield estimate
 
 With Description extraction + EmailEnrich, expected yield goes from 0.08% → ~2-5%. Need real scrape runs to measure.

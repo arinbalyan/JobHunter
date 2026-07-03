@@ -134,3 +134,39 @@ jobhunter import --from ~/projects/scrappy/config.toml  Import scrappy per-site 
 jobhunter serve                          Tracking server + dashboard
 jobhunter doctor                         Diagnose everything
 ```
+
+## Session Context 2026-07-03
+
+### What was done
+- **scrappy v0.3.8 → v0.3.9**: Bumped bridge go.mod. v0.3.9 includes EmailEnrich (auto-generates hr@/careers@/jobs@ from company domain) + ExtractFromHTML (mailto: in descriptions).
+- **Location struct fix**: scrappy returns `location` as JSON object `{city,state,country}` but Rust expected `Option<String>`. Added matching `Location` struct with `display()` method. Fixes all JSON parse errors.
+- **EmailsOnly revert**: Reverted because it changes `Emails` field type from objects to strings.
+- **Download fix**: Changed `mv /tmp/jobhunter-*/scraper .` to `cp ... ./scraper/scraper` to avoid directory conflict.
+- **Dashboard dark mode redesign**: Full oklch dark mode palette, fixed `total_emails` string-concat bug ("86"+"0"="860000"), fixed `-0` display, renamed "Queued"→"Inserted" in run history.
+- **scrappy_improvements.md**: Added email extraction investigation (86 emails from 112k listings = 0.08%), 4 proposals. 3/4 done. Added LinkedIn description regex email parsing item.
+- **Expanded remote locations**: Added "global", "international", "worldwide", "EMEA", "APAC", "Americas", "US", "UK", "Canada", "Europe" to remote search — makes scrape run longer and cover more Indeed/etc results.
+- **Onsite scraping**: Added `--mode onsite` step to GH Actions scrape workflow (runs after remote).
+- **Release tag race fix**: While-loop in release.yml to find next free tag. Tolerates concurrent pushes to main.
+
+### Key Files Changed This Session
+| File | Change |
+|------|--------|
+| `src/scrape.rs` | Location struct, dedup_skipped tracking, emails_only revert |
+| `src/telegram.rs` | dedup_skipped in Telegram scrape report |
+| `scraper/go.mod` | scrappy v0.3.7→v0.3.8→v0.3.9 |
+| `api/dashboard.js` | Full dark mode redesign, bigint fix, -0 fix, label fix |
+| `config.ci.toml` | Extended remote locations (11 instead of 1) |
+| `.github/workflows/scrape.yml` | Added onsite scrape step |
+| `.github/workflows/release.yml` | Tag race condition fix |
+| `scrappy_improvements.md` | Email extraction investigation, 4 proposals, LinkedIn regex |
+| `jobhunter_improvements.md` | Created with 9 items |
+
+### Current State
+- Dashboard at jobhunter-tracker.vercel.app: dark mode, numbers correct (942 scraped, 141 pending)
+- Scrape runs: ~18-52 min for remote. Will be ~36-104 min with onsite added + more locations
+- Email yield: 86/112k = 0.08% before scrappy v0.3.9. Expected 2-5% with EmailEnrich + ExtractFromHTML
+- Email-rich sites: Greenhouse (719), Indeed (133), mycareersfuture (63), himalayas (17) — these are the sites returning actual recruiter emails
+
+### Blockers
+- LinkedIn description regex email parsing not yet implemented in scrappy (item in scrappy_improvements.md)
+- Company URL crawling (1-2 week project, deferred — EmailEnrich covers most)

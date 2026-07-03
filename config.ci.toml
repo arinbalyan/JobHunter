@@ -64,7 +64,8 @@ terms = [
     '"Web Developer"',
     '"GTM Engineer" OR "Forward Deployed Engineer" OR "AI Automation Engineer" OR "AI Product Engineer"',
 ]
-locations = ["remote"]
+# Extended locations to scrape more pages on email-rich sites (Indeed, mycareersfuture, himalayas)
+locations = ["remote", "global", "international", "worldwide", "EMEA", "APAC", "Americas", "US", "UK", "Canada", "Europe"]
 sites = [
     "linkedin", "indeed", "greenhouse", "builtin", "google",
     "hiringcafe", "remoteok", "himalayas", "themuse", "dice",
