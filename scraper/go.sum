@@ -2,8 +2,8 @@ github.com/AfterShip/email-verifier v1.4.1 h1:vDmnqq680siSLw8rtiAYaqgmqYeW+AUoMf
 github.com/AfterShip/email-verifier v1.4.1/go.mod h1:AcFyA5b7X6L4l5dBuemWBSh8mq74nxkBTtoWgLOFrbw=
 github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
 github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
-github.com/arinbalyan/scrappy v0.3.9 h1:PArIXJeUa2h1LNml1M538ffnnfvt9yGNqspRePK4C7A=
-github.com/arinbalyan/scrappy v0.3.9/go.mod h1:Y6fX8p1dqLveF9D7ZK6y6G4R+mz/N27pAAJPMLjwk24=
+github.com/arinbalyan/scrappy v0.3.10 h1:iujKYnV6uvgdIRxRit/ZvTfY9y4T0zUFm6FLQpvnqWY=
+github.com/arinbalyan/scrappy v0.3.10/go.mod h1:Y6fX8p1dqLveF9D7ZK6y6G4R+mz/N27pAAJPMLjwk24=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/h2non/parth v0.0.0-20190131123155-b4df798d6542 h1:2VTzZjLZBgl62/EtslCrtky5vbi9dd7HrQPQIx6wqiw=

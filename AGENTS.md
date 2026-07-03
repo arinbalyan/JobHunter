@@ -147,6 +147,10 @@ jobhunter doctor                         Diagnose everything
 - **Expanded remote locations**: Added "global", "international", "worldwide", "EMEA", "APAC", "Americas", "US", "UK", "Canada", "Europe" to remote search — makes scrape run longer and cover more Indeed/etc results.
 - **Onsite scraping**: Added `--mode onsite` step to GH Actions scrape workflow (runs after remote).
 - **Release tag race fix**: While-loop in release.yml to find next free tag. Tolerates concurrent pushes to main.
+- **EmailEnrich enabled**: Added `email_enrich: true` to bridge input. scrappy v0.3.10 auto-generates hr@/careers@/recruiting@/jobs@{domain} for jobs with company URLs but no emails.
+- **Domain-level batch enrichment**: scrappy v0.3.10 visits each company website once probing /about /contact /team /careers pages. Biggest email yield win.
+- **Dashboard transparency**: Funnel now shows Raw→Filtered/Deduped→Unique jobs→Unique email+company. Cumulative stats from run_log.
+- **software eng search terms**: Added general SWE terms alongside AI/ML terms (Backend, Frontend, Full Stack, React, Node, Go, Rust, TypeScript, DevOps, Platform, etc.)
 
 ### Key Files Changed This Session
 | File | Change |

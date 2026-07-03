@@ -2,7 +2,7 @@
 
 Found while integrating scrappy v0.3.7 into JobHunter. When you're free, pick items from here.
 
-**Final tally: 16/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️ · 2 additional fixes ✅ · 3/4 email extraction gaps fixed ✅**
+**Final tally: 16/17 done ✅ · 1 blocked forever ❌ · 2 skipped ⏭️ · 2 additional fixes ✅ · 4/4 email extraction gaps fixed ✅**
 
 > **JobHunter improvements**: See `jobhunter_improvements.md` for JobHunter-side items (send mode, per-site stats, Vercel, etc.).
 > This file is for **scrappy** changes only.
@@ -120,29 +120,20 @@ Built-in — never generates emails for `gmail.com`, `outlook.com`, `yahoo.com`,
 
 Visiting each job's `company_url` to scan for contact emails would add +100-300% but is a 1-2 week project. Skip for now — EmailEnrich covers most of this gap.
 
-#### 🔲 LinkedIn description HTML needs regex email extraction
+#### ✅ LinkedIn description email regex
 
-LinkedIn job postings include rich HTML descriptions. Many contain recruiter emails embedded in the description text ("Send resume to hiring@company.com", "Apply at careers@company.com").
+Implemented `ExtractFromHTML` which handles both `mailto:` links AND inline regex for emails in HTML descriptions. Catches patterns like "email us at hiring@x.com" in LinkedIn/Indeed descriptions.
 
-The current `ExtractFromHTML` fix handles `mailto:` links but NOT inline email patterns like "email us at hiring@x.com". LinkedIn's HTML often has these as plain text inside `<div>` or `<p>` tags.
+**Effort**: 10 lines. **Impact**: +5-15%.
 
-**Fix**: After `ExtractFromHTML`, run a regex pass over the description text:
-```go
-// ponytail: simple regex catches most inline emails in descriptions
-var emailRe = regexp.MustCompile(`[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}`)
-for _, job := range results {
-    found := emailRe.FindAllString(job.Description, -1)
-    for _, e := range found {
-        if !alreadyInList(job.Emails, e) {
-            job.Emails = append(job.Emails, model.Email{Addr: e, Source: "description_regex"})
-        }
-    }
-}
-```
+#### ✅ Domain-level batch enrichment (biggest win)
 
-This is critical because LinkedIn is the #1 site by volume — even a 1% hit rate on LinkedIn descriptions would add significant emails.
+After all jobs are collected, scrappy groups by company domain, visits each website once probing `/about`, `/contact`, `/team`, `/careers` pages. Found emails apply to ALL jobs from that domain. Also adds:
+- Company name → domain heuristic (tries `{companyname}.com` DNS)
+- Multi-TLD fallback (`.com` → `.io` → `.co` → `.org`)
+- Skips personal domains (gmail/outlook/yahoo/hotmail/aol)
 
-**Effort**: 10 lines. **Impact**: +5-15% email yield, especially from LinkedIn.
+**Effort**: Core scrappy feature. **Impact**: +100-300%. This is what takes email yield from 0.08% → 2-5%.
 
 ### Updated yield estimate
 
