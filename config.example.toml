@@ -34,7 +34,7 @@ Example: Senior backend engineer with 5 years in Rust/Python...
 # ─── Job Search ────────────────────────────────────────
 [scrape]
 max_runtime_minutes = 490
-results_wanted = 10000
+results_wanted = 500
 reject_titles = [
     "senior", "sr ", "staff", "principal", "lead", "manager",
     "director", "head of", "vp ", "vice president", "chief",
