@@ -7,6 +7,10 @@ on:
     - cron: '30 18 * * *'
   workflow_dispatch:
 
+concurrency:
+  group: scrape
+  cancel-in-progress: false  # queue instead of colliding — scrape can run 30-50 min
+
 jobs:
   scrape:
     name: Scrape Jobs
@@ -51,6 +55,7 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           SCRAPPY_INDEED_API_KEY: ${{ secrets.SCRAPPY_INDEED_API_KEY }}
+          SCRAPPY_DICE_API_KEY: ${{ secrets.SCRAPPY_DICE_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}

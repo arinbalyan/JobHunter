@@ -176,7 +176,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
             remote_only: preset.remote_only,
             results_wanted,
             verify_email: true,
-            email_enrich: true,
+            email_enrich: false,  // ponytail: generic hr@/careers@ inboxes, not real people. Also OOMs domain enrichment phase
             description_format: "markdown".to_string(),
             site_search,
             site_location,
