@@ -176,7 +176,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
             remote_only: preset.remote_only,
             results_wanted,
             verify_email: true,
-            email_enrich: false,  // ponytail: generic hr@/careers@ inboxes, not real people. Also OOMs domain enrichment phase
+            email_enrich: true,   // ponytail: auto-generates hr@/careers@/{domain}; domain enrichment capped at 200
             description_format: "markdown".to_string(),
             site_search,
             site_location,
@@ -205,22 +205,38 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         stdin.shutdown().await?;
     }
 
-    let output = child.wait_with_output().await?;
-    if !output.status.success() {
-        anyhow::bail!("scraper exited with status {}", output.status);
-    }
-
-    let jobs: Vec<JobPost> = serde_json::from_slice(&output.stdout)
-        .context("failed to parse scraper JSON output")?;
-
-    tracing::info!("received {} jobs from scraper", jobs.len());
+    // ponytail: read NDJSON line-by-line, insert incrementally.
+    // A killed process only loses in-flight lines, not the entire run.
+    let stdout = child.stdout.take().context("no stdout from scraper")?;
+    let reader = tokio::io::BufReader::new(stdout);
+    use tokio::io::AsyncBufReadExt;
+    let mut lines = reader.lines();
 
     let mut inserted = 0;
     let mut dedup_skipped = 0;
     let mut filtered_title = 0;
     let mut filtered_email = 0;
+    let mut parse_errors = 0;
 
-    for job in &jobs {
+    while let Some(line) = lines.next_line().await? {
+        if line.trim().is_empty() { continue; }
+
+        // NDJSON first line may be site_stats metadata — skip it (handled elsewhere)
+        if line.contains("\"type\":\"site_stats\"") {
+            continue;
+        }
+
+        let job: JobPost = match serde_json::from_str(&line) {
+            Ok(j) => j,
+            Err(e) => {
+                parse_errors += 1;
+                if parse_errors <= 5 {
+                    tracing::warn!("failed to parse job line: {}", e);
+                }
+                continue;
+            }
+        };
+
         let reject_pats = scrape_cfg.reject_titles.as_deref().unwrap_or(&[]);
         if is_title_rejected(&job.title, reject_pats) {
             filtered_title += 1;
@@ -231,10 +247,10 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
             continue;
         }
         let clean_emails = filter_emails(&job.emails, scrape_cfg);
-        match insert_job(&pool, job, &clean_emails).await {
+        match insert_job(&pool, &job, &clean_emails).await {
             Ok(rows) => {
                 if rows > 0 {
-                    if let Err(e) = queue_emails(&pool, job, &clean_emails).await {
+                    if let Err(e) = queue_emails(&pool, &job, &clean_emails).await {
                         tracing::warn!("failed to queue emails for {}: {}", job.title, e);
                     }
                     inserted += 1;
@@ -246,9 +262,15 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         }
     }
 
+    let status = child.wait().await?;
+    if !status.success() {
+        tracing::warn!("scraper exited with status {} — partial results saved", status);
+    }
+
+    let received = inserted + dedup_skipped + filtered_title + filtered_email;
     tracing::info!(
         "scrape done: {} received, {} title-filt, {} email-filt, {} dedup-skip, {} inserted",
-        jobs.len(), filtered_title, filtered_email, dedup_skipped, inserted
+        received, filtered_title, filtered_email, dedup_skipped, inserted
     );
 
     let duration_secs = start.elapsed().as_secs_f64();
@@ -256,9 +278,9 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
 
     let mode_str = match mode { Mode::Remote => "remote", Mode::Onsite => "onsite" };
     db::write_run_log(&pool, "scrape", Some(mode_str),
-        jobs.len() as i32, inserted as i32, 0, 0, None).await;
+        received as i32, inserted as i32, 0, 0, None).await;
 
-    Ok(ScrapeResult { mode, carried_over, received: jobs.len(), filtered_title, filtered_email, inserted, dedup_skipped, sites_count, terms_count, duration_secs })
+    Ok(ScrapeResult { mode, carried_over, received, filtered_title, filtered_email, inserted, dedup_skipped, sites_count, terms_count, duration_secs })
 }
 
 // ── DB operations ──────────────────────────────────────────
