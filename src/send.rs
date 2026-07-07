@@ -24,6 +24,7 @@ struct EmailJob {
     job_title: String,
     job_description: String,
     job_location: String,
+    scrape_mode: String,
 }
 
 pub async fn run(cfg: Config, max_concurrent: Option<usize>) -> anyhow::Result<SendResult> {
@@ -110,10 +111,11 @@ pub async fn run(cfg: Config, max_concurrent: Option<usize>) -> anyhow::Result<S
 
 /// Fetch pending email_queue entries with job details.
 async fn fetch_pending(pool: &PgPool) -> anyhow::Result<Vec<EmailJob>> {
-    let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, String, String, String)>(
+    let rows = sqlx::query_as::<_, (uuid::Uuid, String, String, String, String, String, String)>(
         r#"
         SELECT eq.id, eq.email_addr, eq.company_name,
-               j.title, COALESCE(j.description, ''), COALESCE(j.location, '')
+               j.title, COALESCE(j.description, ''), COALESCE(j.location, ''),
+               COALESCE(j.scrape_mode, '')
         FROM email_queue eq
         JOIN jobs j ON j.id = eq.job_id
         WHERE eq.status = 'pending'
@@ -124,7 +126,7 @@ async fn fetch_pending(pool: &PgPool) -> anyhow::Result<Vec<EmailJob>> {
     .fetch_all(pool)
     .await?;
 
-    Ok(rows.into_iter().map(|(id, addr, company, title, desc, loc)| {
+    Ok(rows.into_iter().map(|(id, addr, company, title, desc, loc, mode)| {
         EmailJob {
             queue_id: id,
             email_addr: addr,
@@ -132,6 +134,7 @@ async fn fetch_pending(pool: &PgPool) -> anyhow::Result<Vec<EmailJob>> {
             job_title: title,
             job_description: desc,
             job_location: loc,
+            scrape_mode: mode,
         }
     }).collect())
 }
@@ -150,13 +153,29 @@ async fn generate_one(
         .execute(pool)
         .await?;
 
-    // Build the user prompt with placeholders filled
-    let context = user.context.clone().unwrap_or_else(|| format!(
+    // Select per-mode context, fallback to default
+    let context = match job.scrape_mode.as_str() {
+        "remote" => user.context_remote.as_ref().or(user.context.as_ref()),
+        "onsite" => user.context_onsite.as_ref().or(user.context.as_ref()),
+        _ => user.context.as_ref(),
+    }.cloned().unwrap_or_else(|| format!(
         "Role: {}, Experience: {} years, Name: {}",
         user.current_role, user.years_experience, user.name
     ));
 
-    let user_prompt = fill_placeholders(&templates.email_user.content, &[
+    // Select per-mode templates, fallback to default
+    let system_template = match job.scrape_mode.as_str() {
+        "remote" => templates.email_system_remote.as_ref().unwrap_or(&templates.email_system),
+        "onsite" => templates.email_system_onsite.as_ref().unwrap_or(&templates.email_system),
+        _ => &templates.email_system,
+    };
+    let user_template = match job.scrape_mode.as_str() {
+        "remote" => templates.email_user_remote.as_ref().unwrap_or(&templates.email_user),
+        "onsite" => templates.email_user_onsite.as_ref().unwrap_or(&templates.email_user),
+        _ => &templates.email_user,
+    };
+
+    let user_prompt = fill_placeholders(&user_template.content, &[
         ("context", &context),
         ("title", &job.job_title),
         ("company", &job.company_name),
@@ -171,7 +190,7 @@ async fn generate_one(
     ]);
 
     let messages = vec![
-        ChatMessage { role: "system".to_string(), content: templates.email_system.content.clone() },
+        ChatMessage { role: "system".to_string(), content: system_template.content.clone() },
         ChatMessage { role: "user".to_string(), content: user_prompt },
     ];
 
