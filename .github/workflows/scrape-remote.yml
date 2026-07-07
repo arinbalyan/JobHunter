@@ -1,0 +1,49 @@
+name: Scrape Remote
+on:
+  schedule:
+    - cron: '30 0 * * *'
+    - cron: '30 6 * * *'
+    - cron: '30 12 * * *'
+    - cron: '30 18 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: scrape-remote
+  cancel-in-progress: false
+
+jobs:
+  scrape-remote:
+    name: Scrape Remote
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download latest release binaries
+        run: |
+          gh release download --pattern '*.tar.gz' --dir /tmp
+          tar xzf /tmp/jobhunter-*.tar.gz -C /tmp
+          cp /tmp/jobhunter-*/jobhunter ./jobhunter
+          cp /tmp/jobhunter-*/scraper ./scraper/scraper
+          chmod +x jobhunter scraper/scraper
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create config
+        run: cp config.ci.toml config.toml
+
+      - name: Run scrape (remote)
+        run: ./jobhunter scrape --mode remote
+        timeout-minutes: 300
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          SCRAPPY_INDEED_API_KEY: ${{ secrets.SCRAPPY_INDEED_API_KEY }}
+          SCRAPPY_DICE_API_KEY: ${{ secrets.SCRAPPY_DICE_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          TOGETHER_API_KEY: ${{ secrets.TOGETHER_API_KEY }}
+          DEEPINFRA_API_KEY: ${{ secrets.DEEPINFRA_API_KEY }}
+          HYPERBOLIC_API_KEY: ${{ secrets.HYPERBOLIC_API_KEY }}
+          SAMBANOVA_API_KEY: ${{ secrets.SAMBANOVA_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}

@@ -166,6 +166,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     let max_runtime_secs = scrape_cfg.max_runtime_minutes.unwrap_or(490) * 60;
     let results_wanted = scrape_cfg.results_wanted.unwrap_or(0);
 
+    let scrape_mode_str = match mode { Mode::Remote => "remote", Mode::Onsite => "onsite" };
     let (site_search, site_location) = build_site_config(&config.sites);
 
     let input = BridgeInput {
@@ -247,7 +248,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
             continue;
         }
         let clean_emails = filter_emails(&job.emails, scrape_cfg);
-        match insert_job(&pool, &job, &clean_emails).await {
+        match insert_job(&pool, &job, &clean_emails, scrape_mode_str).await {
             Ok(rows) => {
                 if rows > 0 {
                     if let Err(e) = queue_emails(&pool, &job, &clean_emails).await {
@@ -276,8 +277,7 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     let duration_secs = start.elapsed().as_secs_f64();
     tracing::info!("scrape completed in {:.1}s", duration_secs);
 
-    let mode_str = match mode { Mode::Remote => "remote", Mode::Onsite => "onsite" };
-    db::write_run_log(&pool, "scrape", Some(mode_str),
+    db::write_run_log(&pool, "scrape", Some(scrape_mode_str),
         received as i32, inserted as i32, 0, 0, None).await;
 
     Ok(ScrapeResult { mode, carried_over, received, filtered_title, filtered_email, inserted, dedup_skipped, sites_count, terms_count, duration_secs })
@@ -286,13 +286,14 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
 // ── DB operations ──────────────────────────────────────────
 
 /// Returns number of rows inserted (0 = dedup skipped, 1 = new).
-async fn insert_job(pool: &PgPool, job: &JobPost, emails: &[Email]) -> anyhow::Result<u64> {
+async fn insert_job(pool: &PgPool, job: &JobPost, emails: &[Email], mode: &str) -> anyhow::Result<u64> {
     let emails_json = serde_json::to_value(emails)?;
     sqlx::query(
         r#"
         INSERT INTO jobs (source_site, title, company_name, company_url, job_url,
-                          location, is_remote, description, emails, quality_score, fetched_at)
-        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now()
+                          location, is_remote, description, emails, quality_score, fetched_at,
+                          scrape_mode)
+        SELECT $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now(), $11
         WHERE NOT EXISTS (SELECT 1 FROM jobs WHERE job_url = $5)
         "#,
     )
@@ -306,6 +307,7 @@ async fn insert_job(pool: &PgPool, job: &JobPost, emails: &[Email]) -> anyhow::R
     .bind(job.description.as_deref().unwrap_or(""))
     .bind(&emails_json)
     .bind(job.quality_score)
+    .bind(mode)
     .execute(pool)
     .await
     .context("failed to insert job")
