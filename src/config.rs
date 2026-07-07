@@ -38,6 +38,10 @@ pub struct User {
     /// Rich context for LLM email generation. Describe skills, achievements,
     /// projects, education — anything that helps the LLM write a convincing email.
     pub context: Option<String>,
+    /// Override context for remote-scraped jobs. Falls back to `context` when unset.
+    pub context_remote: Option<String>,
+    /// Override context for onsite-scraped jobs. Falls back to `context` when unset.
+    pub context_onsite: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -73,6 +77,18 @@ pub struct LlmConfig {
 pub struct Templates {
     pub email_system: TemplateContent,
     pub email_user: TemplateContent,
+    /// Override system prompt for remote-scraped jobs. Falls back to `email_system` when unset.
+    #[serde(default)]
+    pub email_system_remote: Option<TemplateContent>,
+    /// Override user prompt for remote-scraped jobs. Falls back to `email_user` when unset.
+    #[serde(default)]
+    pub email_user_remote: Option<TemplateContent>,
+    /// Override system prompt for onsite-scraped jobs. Falls back to `email_system` when unset.
+    #[serde(default)]
+    pub email_system_onsite: Option<TemplateContent>,
+    /// Override user prompt for onsite-scraped jobs. Falls back to `email_user` when unset.
+    #[serde(default)]
+    pub email_user_onsite: Option<TemplateContent>,
     pub scoring: TemplateContent,
     pub research: TemplateContent,
     pub triage: TemplateContent,

@@ -167,6 +167,14 @@ Post-processing step that runs after each site's scrape and normalizes `IsRemote
 
 ## JobHunter-side (not scrappy)
 
+### Bridge uses batch ScrapeJobs instead of streaming ScrapeJobsStream
+
+The Go bridge (`scraper/main.go`) calls `engine.ScrapeJobs()` which collects ALL jobs before returning, then writes one JSON array to stdout. The Rust side waits for the full output. If the process is killed mid-way (GH Actions 5h timeout), everything is lost.
+
+scrappy already has `ScrapeJobsStream` (item 6 below, ✅ completed) but the bridge doesn't use it. Fix: switch to NDJSON output format in the bridge (encode each job as a separate JSON line), and have Rust read line-by-line inserting incrementally. This way scrappy still runs batch internally, but the bridge→Rust channel is streaming.
+
+**Status**: ✅ Fixed in JobHunter — NDJSON streaming bridge output + incremental inserts in `scrape.rs`.
+
 ### Send doesn't differentiate onsite vs remote (JobHunter fix, not scrappy)
 
 `send` processes all pending emails together regardless of scrape mode. Onsite jobs (Bangalore) and remote jobs get the same email template. The `{location}` placeholder helps the LLM adapt, but the system prompt is identical.
