@@ -182,3 +182,47 @@ All changes on `dev` branch. Not yet promoted to main. Run `./sync-all.sh` then 
 - Merge PR #38 (beta→main) to deploy dashboard + new scrape config to GH Actions
 - After merge, release v0.1.5 will trigger with all changes
 - Send workflow still disabled — waiting to verify email yield from v0.3.10's domain enrichment
+
+## Session Context 2026-07-07
+
+### Problem: scrape timeout
+All scrape runs hit the step-level `timeout-minutes: 300` (not the 6h job timeout).
+`max_runtime_minutes = 330` was *higher* than the step timeout, so GH killed the process
+before scrappy's context.WithTimeout could fire and return partial results gracefully.
+
+### Changes made (all on dev, committed as 3693578)
+
+**Time-based graceful shutdown** (`config.ci.toml`):
+- `max_runtime_minutes: 330 → 290` — 10min buffer below GH's 300min step timeout
+- scrappy's context expires at 290min, returns partial results, Rust processes them
+- `results_wanted = 0` stays (unlimited, now time-bounded instead)
+
+**Split remote/onsite workflows**:
+- `scrape.yml` → deleted
+- `scrape-remote.yml` (new) — concurrency group `scrape-remote`
+- `scrape-onsite.yml` (new) — concurrency group `scrape-onsite`
+- Each runs independently on separate runners, no DB conflicts
+
+**Per-mode email config** (separate LLM context + templates for remote vs onsite):
+- Migration: `ALTER TABLE jobs ADD COLUMN scrape_mode TEXT`
+- `src/config.rs`: `context_remote`/`context_onsite` on User; template overrides on Templates
+- `src/scrape.rs`: pass mode string to `insert_job`, store in `scrape_mode` column
+- `src/send.rs`: fetch `scrape_mode` via JOIN, select per-mode context/template in `generate_one`
+  Falls back to default when override is unset
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `config.ci.toml` | max_runtime 330→290, comment updated |
+| `.github/workflows/scrape.yml` | deleted |
+| `.github/workflows/scrape-remote.yml` | created (remote only, separate concurrency) |
+| `.github/workflows/scrape-onsite.yml` | created (onsite only, separate concurrency) |
+| `migrations/20260707000005_scrape_mode.sql` | created — add scrape_mode to jobs |
+| `src/config.rs` | context_remote, context_onsite; template overrides |
+| `src/scrape.rs` | pass/store scrape_mode in insert_job |
+| `src/send.rs` | fetch scrape_mode, select per-mode context/templates |
+
+### What's pending
+- Verify the 290min timeout works on next scheduled scrape (it should finish with partial results)
+- Actually configure different context/templates for remote vs onsite in config.ci.toml if desired
+  (currently both fall back to the shared defaults)
