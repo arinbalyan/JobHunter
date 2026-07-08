@@ -131,7 +131,7 @@ scrappy_config = "~/projects/scrappy/config.toml"
 [scrape]
 # Max runtime in minutes. 490 = ~8 hours (GH Actions max).
 # Results wanted (0 = unlimited). scrappy caps at ~100k internally.
-max_runtime_minutes = 250    # 50min buffer below GH's 300min step timeout — context expires, post-processing of ~1M jobs finishes in time
+max_runtime_minutes = 330    # 30min buffer below GH's 360min job timeout — context expires, 30min for post-processing
 results_wanted = 0  # Unlimited — time-bounded by max_runtime_minutes
 reject_titles = [
     "senior", "sr ", "staff", "principal", "lead", "manager",
