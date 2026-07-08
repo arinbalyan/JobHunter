@@ -22,7 +22,7 @@ After a scrape, we know total jobs received/inserted but not which sites contrib
 
 **Fix**: Use scrappy's `ScrapeResult` (item 3 from scrappy backlog — `SiteResult` with per-site stats) to report per-site breakdown in Telegram and dashboard.
 
-### 2. No migration for `jobs.llm_score` on fresh DB
+### 3. No migration for `jobs.llm_score` on fresh DB
 
 Migrations exist but a fresh database needs all migrations to run. Currently `sqlx::migrate!()` handles this, but manually running `psql -f migrations/*.sql` misses some columns if tables already exist.
 

@@ -33,7 +33,6 @@ jobs:
 
       - name: Run scrape (onsite)
         run: ./jobhunter scrape --mode onsite
-        timeout-minutes: 300
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
