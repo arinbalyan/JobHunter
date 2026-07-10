@@ -219,7 +219,17 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
     let mut filtered_email = 0;
     let mut parse_errors = 0;
 
-    while let Some(line) = lines.next_line().await? {
+    // ponytail: read lines until EOF or broken pipe. Don't propagate read errors
+    // — GH may kill the job at the timeout, and we still want run_log + Telegram.
+    loop {
+        let line = match lines.next_line().await {
+            Ok(Some(l)) => l,
+            Ok(None) => break,
+            Err(e) => {
+                tracing::warn!("scraper stdout read error: {} — partial results saved", e);
+                break;
+            }
+        };
         if line.trim().is_empty() { continue; }
 
         // NDJSON first line may be site_stats metadata — skip it (handled elsewhere)
@@ -263,18 +273,31 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         }
     }
 
-    let status = child.wait().await?;
+    let received = inserted + dedup_skipped + filtered_title + filtered_email;
+    let duration_secs = start.elapsed().as_secs_f64();
+
+    let status = match child.wait().await {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::warn!("scraper wait error: {} — partial results saved", e);
+            // ponytail: still write run_log even if child was killed
+            db::write_run_log(&pool, "scrape", Some(scrape_mode_str),
+                received as i32, inserted as i32, 0, 0, None).await;
+            return Ok(ScrapeResult {
+                mode, carried_over, received, filtered_title,
+                filtered_email, inserted, dedup_skipped,
+                sites_count, terms_count, duration_secs,
+            });
+        }
+    };
     if !status.success() {
         tracing::warn!("scraper exited with status {} — partial results saved", status);
     }
 
-    let received = inserted + dedup_skipped + filtered_title + filtered_email;
     tracing::info!(
         "scrape done: {} received, {} title-filt, {} email-filt, {} dedup-skip, {} inserted",
         received, filtered_title, filtered_email, dedup_skipped, inserted
     );
-
-    let duration_secs = start.elapsed().as_secs_f64();
     tracing::info!("scrape completed in {:.1}s", duration_secs);
 
     db::write_run_log(&pool, "scrape", Some(scrape_mode_str),

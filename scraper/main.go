@@ -63,41 +63,15 @@ func main() {
 	// ponytail: monitor RAM every 10s, cancel at 5GB (GH Actions has 7GB total)
 	go ramMonitor(ctx, cancel, 5000, 10*time.Second)
 
-	// Switch to ScrapeJobsFull for per-site stats
-	result, err := engine.ScrapeJobsFull(ctx, raw.ScraperInput)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "scrape error: %v\n", err)
-	}
-
-	var jobs []scrappy.JobPost
-	if result != nil {
-		jobs = result.Jobs
-	}
-
-	if jobs == nil {
-		jobs = []scrappy.JobPost{}
-	}
-
-	// NDJSON: first emit site stats as a metadata line, then one job per line.
-	// Rust reads line-by-line — first line is stats, rest are job posts.
-	if result != nil && len(result.Sites) > 0 {
-		stats := struct {
-			Type  string                 `json:"type"`
-			Sites []scrappy.SiteResult    `json:"sites"`
-			Total int                     `json:"total"`
-		}{
-			Type:  "site_stats",
-			Sites: result.Sites,
-			Total: len(result.Sites),
-		}
-		statsJSON, _ := json.Marshal(stats)
-		fmt.Println(string(statsJSON))
-	}
-
+	// ponytail: stream each job to stdout as it's scraped, so Rust inserts into DB
+	// immediately instead of waiting for all sites to finish.
 	enc := json.NewEncoder(os.Stdout)
-	for _, job := range jobs {
+	err = engine.ScrapeJobsStream(ctx, raw.ScraperInput, func(job scrappy.JobPost) {
 		if err := enc.Encode(job); err != nil {
 			fmt.Fprintf(os.Stderr, "encode error: %v\n", err)
 		}
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "scrape error: %v\n", err)
 	}
 }
