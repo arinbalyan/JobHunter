@@ -191,6 +191,8 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         "spawning scraper — {} locations, {} sites, {}s timeout, {} results_wanted",
         preset.locations.len(), preset.sites.len(), max_runtime_secs, results_wanted
     );
+    tracing::info!("scraper input: {} sites, {} terms, {} locs, timeout={}s, results_wanted={}, verify_email=true, email_enrich=false",
+        preset.sites.len(), preset.terms.len(), preset.locations.len(), max_runtime_secs, results_wanted);
 
     let mut child = Command::new(&scraper_path)
         .stdin(Stdio::piped())
