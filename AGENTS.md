@@ -223,6 +223,90 @@ before scrappy's context.WithTimeout could fire and return partial results grace
 | `src/send.rs` | fetch scrape_mode, select per-mode context/templates |
 
 ### What's pending
-- Verify the 290min timeout works on next scheduled scrape (it should finish with partial results)
 - Actually configure different context/templates for remote vs onsite in config.ci.toml if desired
   (currently both fall back to the shared defaults)
+- Rebuild Go bridge and create new release for v0.3.13
+
+### Problem: timeout saga (chronological)
+
+1. **Original**: `max_runtime_minutes=330` with `timeout-minutes:300` on step. GH kills
+   at 300 min before context fires at 330 → no partial results.
+
+2. **Fix #1**: `max_runtime→290`, deeper buffer. But step still `timeout-minutes:300`.
+   Context fires at 290 min, but post-processing of 1M+ jobs takes >10 min.
+   GH kills at 300 before post-processing finishes.
+
+3. **Fix #2**: `max_runtime→250`, even more buffer. Step timeout still 300.
+   Better, but still limited by step timeout.
+
+4. **Fix #3**: Removed step-level `timeout-minutes:300` entirely. Added job-level
+   `timeout-minutes:360`. `max_runtime→330`. But scrappy doesn't properly respect
+   context cancellation — runs went 11h+ because scrapers ignore cancelled context.
+
+5. **Fix #4 (065c312)**: Job-level `timeout-minutes:360` is the real hard cap.
+   `max_runtime→300` (5h). 60 min buffer for post-processing, run_log, Telegram.
+   GH hard-kills at 360 min (6h) no matter what.
+
+### scrappy v0.3.13
+- Added `ctx.Err() != nil` check in main processing loop (engine.go:671)
+  → returns partial results immediately when context expires
+- Go bridge locally updated (gitignored — needs release rebuild)
+
+## Session Context 2026-07-12
+
+### Root cause: tokio shutdown() is a no-op on pipes
+
+Every CI scrape run produced "bridge: started" but never "bridge: read N bytes".
+The Go bridge was stuck on `io.ReadAll(os.Stdin)` waiting for EOF that never came.
+
+**Why**: `ChildStdio::poll_shutdown` in tokio 1.52.3 returns `Ready(Ok(()))` without
+closing the pipe — it's explicitly a no-op (Unix pipes don't support half-close
+like sockets do):
+
+```rust
+// tokio/src/process/unix/mod.rs:310-312
+fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+    Poll::Ready(Ok(()))
+}
+```
+
+So `stdin.shutdown().await` in `src/scrape.rs` appeared to succeed but never sent
+EOF to the child process. The pipe write end stayed open in Rust's `child.stdin`
+Option (only borrowed via `as_mut()`, never taken/dropped).
+
+**The fix** (`4021409`): `child.stdin.as_mut().unwrap()` → `child.stdin.take().unwrap()`.
+The `ChildStdin` is moved out of `child.stdin` (leaving `None`) and ownership ends
+at the end of the block, which drops the value, closes the pipe fd, and sends EOF
+to the Go bridge's `io.ReadAll(os.Stdin)`.
+
+**Confirmed** with a self-contained test: `shutdown` path → child hangs forever
+(timeout at 3s), `take` path → child reads data, exits cleanly.
+
+### Why no scrappy logs in CI
+
+The Go bridge never reached scrappy. Execution flow:
+1. Go bridge starts → prints "bridge: started"
+2. `io.ReadAll(os.Stdin)` → reads 10KB JSON from pipe buffer instantly
+3. Second `read()` call → blocks (no EOF, write end still open on Rust side)
+4. `json.Unmarshal` never called → scrappy never initialized → zero log lines
+
+### Debug commits (now reverted/squashed)
+- Added `fmt.Fprintf(os.Stderr, "bridge: ...")` lifecycle tracing to Go bridge
+- Changed scraper input log from debug to summary (78 sites, 24 terms, 11 locs input)
+
+### Result affected
+- 6 cancelled CI runs over ~36h (#17-#22), each running 6h to GH job timeout
+- Zero jobs inserted into DB, zero scrappy stderr log lines beyond "bridge: started"
+- No Telegram reports (no scrape result to report)
+
+### Files Changed
+| File | Change |
+|------|--------|
+| `src/scrape.rs` | Fix: `as_mut()` → `take()` to actually close stdin pipe |
+| `scraper/main.go` | Added stderr lifecycle tracing (will clean up later) |
+
+### What's pending
+- Sync dev→beta→main (./sync-all.sh)
+- Wait for scheduled scrape or manually trigger one
+- Monitor: should see "bridge: read N bytes", scrappy logs, and jobs streaming
+- Clean up Go bridge debug output after confirming fix
