@@ -202,10 +202,12 @@ pub async fn run(config: Config, mode: Mode) -> anyhow::Result<ScrapeResult> {
         .context("failed to spawn Go scraper subprocess")?;
 
     {
-        let stdin = child.stdin.as_mut().unwrap();
+        let mut stdin = child.stdin.take().unwrap();
         use tokio::io::AsyncWriteExt;
         stdin.write_all(input_json.as_bytes()).await?;
-        stdin.shutdown().await?;
+        // ponytail: drop stdin → closes pipe fd → Go bridge sees EOF on stdin.
+        // tokio's ChildStdin::poll_shutdown is a no-op (pipes don't support half-close),
+        // so we must take ownership and drop to actually close the pipe.
     }
 
     // ponytail: read NDJSON line-by-line, insert incrementally.
