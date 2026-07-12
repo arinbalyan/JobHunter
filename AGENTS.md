@@ -223,6 +223,31 @@ before scrappy's context.WithTimeout could fire and return partial results grace
 | `src/send.rs` | fetch scrape_mode, select per-mode context/templates |
 
 ### What's pending
-- Verify the 290min timeout works on next scheduled scrape (it should finish with partial results)
 - Actually configure different context/templates for remote vs onsite in config.ci.toml if desired
   (currently both fall back to the shared defaults)
+- Rebuild Go bridge and create new release for v0.3.13
+
+### Problem: timeout saga (chronological)
+
+1. **Original**: `max_runtime_minutes=330` with `timeout-minutes:300` on step. GH kills
+   at 300 min before context fires at 330 → no partial results.
+
+2. **Fix #1**: `max_runtime→290`, deeper buffer. But step still `timeout-minutes:300`.
+   Context fires at 290 min, but post-processing of 1M+ jobs takes >10 min.
+   GH kills at 300 before post-processing finishes.
+
+3. **Fix #2**: `max_runtime→250`, even more buffer. Step timeout still 300.
+   Better, but still limited by step timeout.
+
+4. **Fix #3**: Removed step-level `timeout-minutes:300` entirely. Added job-level
+   `timeout-minutes:360`. `max_runtime→330`. But scrappy doesn't properly respect
+   context cancellation — runs went 11h+ because scrapers ignore cancelled context.
+
+5. **Fix #4 (065c312)**: Job-level `timeout-minutes:360` is the real hard cap.
+   `max_runtime→300` (5h). 60 min buffer for post-processing, run_log, Telegram.
+   GH hard-kills at 360 min (6h) no matter what.
+
+### scrappy v0.3.13
+- Added `ctx.Err() != nil` check in main processing loop (engine.go:671)
+  → returns partial results immediately when context expires
+- Go bridge locally updated (gitignored — needs release rebuild)
